@@ -34,6 +34,16 @@ gem "thruster", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 # gem "image_processing", "~> 1.2"
 
+# Use Tailwind CSS for styling [https://github.com/rails/tailwindcss-rails]
+gem "tailwindcss-rails"
+
+# Authentication [https://github.com/heartcombo/devise]
+gem "devise"
+
+# Error monitoring [https://github.com/getsentry/sentry-ruby]
+gem "sentry-ruby"
+gem "sentry-rails"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
@@ -43,6 +53,12 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # N+1 query detection [https://github.com/flyerhzm/bullet]
+  gem "bullet"
+
+  # Enhanced debugging with pry [https://github.com/pry/pry-rails]
+  gem "pry-rails"
 end
 
 group :development do
