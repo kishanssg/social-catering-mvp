@@ -12,6 +12,10 @@ Rails.application.routes.draw do
   # API routes
   namespace :api do
     namespace :v1 do
+      # Authentication routes
+      post 'login', to: 'sessions#create'
+      delete 'logout', to: 'sessions#destroy'
+      
       resources :workers, only: [:index, :show, :create, :update]
       resources :shifts, only: [:index, :show, :create, :update, :destroy]
       resources :assignments, only: [:create, :destroy]
