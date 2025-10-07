@@ -16,6 +16,7 @@ Rails.application.routes.draw do
       resources :shifts, only: [:index, :show, :create, :update, :destroy]
       resources :assignments, only: [:create, :destroy]
       resources :certifications, only: [:index]
+      resources :activity_logs, only: [:index]
       # Dashboard
       get 'dashboard', to: 'dashboard#index'
     end
