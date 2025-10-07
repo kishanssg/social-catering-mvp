@@ -22,5 +22,15 @@ class Worker < ApplicationRecord
     
     self.skills_text = skills_array.compact.map(&:to_s).map(&:strip)
                                    .reject(&:blank?).uniq.join(" ")
+    
+    # Update tsvector for full-text search
+    if skills_text.present?
+      result = ActiveRecord::Base.connection.execute(
+        "SELECT to_tsvector('simple', #{ActiveRecord::Base.connection.quote(skills_text)}) as tsvector_result"
+      )
+      self.skills_tsvector = result.first['tsvector_result']
+    else
+      self.skills_tsvector = nil
+    end
   end
 end
