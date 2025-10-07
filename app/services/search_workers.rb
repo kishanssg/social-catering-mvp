@@ -15,7 +15,10 @@ class SearchWorkers < ApplicationService
     # Apply additional filters
     workers = apply_filters(workers)
     
-    success(workers: workers.order(:last_name, :first_name))
+    # Apply ordering after all filters to avoid DISTINCT/ORDER BY conflicts
+    workers = workers.order(:last_name, :first_name)
+    
+    success(workers: workers)
   end
   
   private
@@ -37,10 +40,30 @@ class SearchWorkers < ApplicationService
   def apply_filters(scope)
     # Filter by certification if specified
     if @filters[:certification_id].present?
-      scope = scope.joins(:worker_certifications)
-        .where(worker_certifications: { certification_id: @filters[:certification_id] })
-        .where("worker_certifications.expires_at_utc >= ?", Time.current)
-        .distinct
+      # Use subquery to avoid DISTINCT/ORDER BY conflict
+      certified_worker_ids = WorkerCertification
+        .where(certification_id: @filters[:certification_id])
+        .where("expires_at_utc >= ?", Time.current)
+        .pluck(:worker_id)
+      
+      scope = scope.where(id: certified_worker_ids)
+    end
+    
+    # Filter by availability for specific shift
+    if @filters[:available_for_shift_id].present?
+      shift = Shift.find(@filters[:available_for_shift_id])
+      
+      # Exclude workers with overlapping assignments
+      overlapping_worker_ids = Assignment.joins(:shift)
+        .where(status: 'assigned')
+        .where(
+          "(shifts.start_time_utc < ? AND shifts.end_time_utc > ?)",
+          shift.end_time_utc,
+          shift.start_time_utc
+        )
+        .pluck(:worker_id)
+      
+      scope = scope.where.not(id: overlapping_worker_ids)
     end
     
     scope

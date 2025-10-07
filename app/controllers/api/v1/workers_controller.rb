@@ -4,7 +4,10 @@ module Api
       def index
         result = SearchWorkers.call(
           params[:query],
-          { certification_id: params[:certification_id] }
+          { 
+            certification_id: params[:certification_id],
+            available_for_shift_id: params[:available_for_shift_id]
+          }
         )
         
         workers = result[:data][:workers].includes(:certifications)
