@@ -40,6 +40,9 @@ gem "tailwindcss-rails"
 # Authentication [https://github.com/heartcombo/devise]
 gem "devise"
 
+# CORS for React frontend
+gem 'rack-cors'
+
 # Pagination [https://github.com/kaminari/kaminari]
 gem "kaminari"
 
