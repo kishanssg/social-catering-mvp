@@ -3,13 +3,24 @@ module Api
     class ShiftsController < BaseController
       def index
         shifts = Shift.includes(:workers, :assignments)
-          .order(start_time_utc: :asc)
         
         # Filter by status if provided
-        shifts = shifts.where(status: params[:status]) if params[:status].present?
+        if params[:status].present?
+          shifts = shifts.where(status: params[:status])
+        end
         
         # Filter by timeframe
         shifts = apply_timeframe_filter(shifts)
+        
+        # Filter by fill status
+        if params[:fill_status].present?
+          shifts = apply_fill_status_filter(shifts)
+          # Fill status filter returns an Array, so sort it manually
+          shifts = shifts.sort_by { |s| s.start_time_utc }
+        else
+          # Order by start time for ActiveRecord relations
+          shifts = shifts.order(start_time_utc: :asc)
+        end
         
         render_success({
           shifts: shifts.as_json(
@@ -88,13 +99,29 @@ module Api
       def apply_timeframe_filter(scope)
         case params[:timeframe]
         when 'past'
-          scope.past
+          scope.where('end_time_utc < ?', Time.current)
         when 'today'
-          scope.today
+          scope.where('DATE(start_time_utc) = ?', Time.current.utc.to_date)
         when 'upcoming'
-          scope.upcoming
+          scope.where('start_time_utc > ?', Time.current)
         else
           scope
+        end
+      end
+      
+      def apply_fill_status_filter(scope)
+        # This requires loading shifts to calculate, so do it after other filters
+        all_shifts = scope.to_a
+        
+        case params[:fill_status]
+        when 'unfilled'
+          all_shifts.select { |s| s.assigned_count == 0 }
+        when 'partial'
+          all_shifts.select { |s| s.assigned_count > 0 && s.assigned_count < s.capacity }
+        when 'covered'
+          all_shifts.select { |s| s.assigned_count >= s.capacity }
+        else
+          all_shifts
         end
       end
     end
