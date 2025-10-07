@@ -182,6 +182,6 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
 
   test "should require authentication" do
     get "/api/v1/shifts"
-    assert_response :redirect
+    assert_response :unauthorized
   end
 end

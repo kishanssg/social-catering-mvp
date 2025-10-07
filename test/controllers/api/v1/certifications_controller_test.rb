@@ -42,7 +42,7 @@ class Api::V1::CertificationsControllerTest < ActionDispatch::IntegrationTest
 
   test "should require authentication" do
     get "/api/v1/certifications"
-    assert_response :redirect
+    assert_response :unauthorized
   end
 
   test "should return empty array when no certifications exist" do

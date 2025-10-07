@@ -55,6 +55,12 @@ class AssignWorkerToShift < ApplicationService
   end
   
   def create_assignment
+    # Double-check capacity within the lock to prevent race conditions
+    current_count = Assignment.where(shift_id: @shift.id, status: 'assigned').count
+    if current_count >= @shift.capacity
+      raise ConflictError, "Shift is at full capacity (#{@shift.capacity} workers)"
+    end
+    
     @assignment = Assignment.create!(
       shift: @shift,
       worker: @worker,

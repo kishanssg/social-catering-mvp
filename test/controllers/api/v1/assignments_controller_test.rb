@@ -204,7 +204,7 @@ class Api::V1::AssignmentsControllerTest < ActionDispatch::IntegrationTest
 
   test "should require authentication for destroy" do
     delete "/api/v1/assignments/#{@assignment.id}"
-    assert_response :redirect
+    assert_response :unauthorized
   end
 
   test "should return 404 for non-existent assignment" do

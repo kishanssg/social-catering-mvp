@@ -125,6 +125,6 @@ class Api::V1::WorkersControllerTest < ActionDispatch::IntegrationTest
 
   test "should require authentication" do
     get "/api/v1/workers"
-    assert_response :redirect
+    assert_response :unauthorized
   end
 end

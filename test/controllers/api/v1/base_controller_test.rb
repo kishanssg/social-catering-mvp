@@ -9,7 +9,7 @@ class Api::V1::BaseControllerTest < ActionDispatch::IntegrationTest
 
   test "requires authentication" do
     get "/api/v1/workers"
-    assert_response :redirect  # Devise redirects to sign in
+    assert_response :unauthorized  # Devise returns 401 JSON for API
   end
 
   test "responds with JSON when authenticated" do
