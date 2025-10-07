@@ -60,14 +60,21 @@
   - Activity logging via `Auditable` concern
   - Full-text search (tsvector ≥3 chars, ILIKE <3 chars)
   - Consistent JSON API responses
+- [x] **Critical Fixes for React Integration:**
+  - Devise API-friendly configuration (JSON errors instead of HTML redirects)
+  - CORS configuration for cross-origin requests with credentials
+  - Session store configuration for cross-origin cookies
+  - CSRF disabled for API endpoints
 - [x] **Testing & Quality:**
-  - 69 tests passing with 250 assertions
-  - Comprehensive test coverage for all components
+  - 73 tests passing with 262 assertions
+  - 3 comprehensive concurrency tests verifying advisory locks
   - All edge cases and error scenarios tested
+  - Race condition prevention verified
 - [x] **Deployment:**
   - All code committed and deployed to staging
   - All API endpoints accessible and working
   - Health check and database connectivity verified
+  - CORS working on staging environment
 
 ### 🚧 In Progress
 
