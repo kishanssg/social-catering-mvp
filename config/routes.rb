@@ -9,6 +9,16 @@ Rails.application.routes.draw do
   # Custom health check endpoint for monitoring
   get '/healthz', to: 'health#check'
 
+  # API routes
+  namespace :api do
+    namespace :v1 do
+      resources :workers, only: [:index, :show, :create, :update]
+      resources :shifts, only: [:index, :show, :create, :update, :destroy]
+      resources :assignments, only: [:create, :destroy]
+      resources :certifications, only: [:index]
+    end
+  end
+
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker

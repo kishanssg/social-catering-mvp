@@ -1,21 +1,21 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  first_name: MyString
-  last_name: MyString
-  email: MyString
-  phone: MyString
-  skills_json: 
-  skills_text: MyText
-  notes: MyText
-  active: false
+  first_name: John
+  last_name: Doe
+  email: john@example.com
+  phone: 555-1234
+  skills_json: ["serving", "cleaning"]
+  skills_text: serving cleaning
+  notes: Experienced server
+  active: true
 
 two:
-  first_name: MyString
-  last_name: MyString
-  email: MyString
-  phone: MyString
-  skills_json: 
-  skills_text: MyText
-  notes: MyText
-  active: false
+  first_name: Jane
+  last_name: Smith
+  email: jane@example.com
+  phone: 555-5678
+  skills_json: ["cooking", "prep"]
+  skills_text: cooking prep
+  notes: Skilled cook
+  active: true

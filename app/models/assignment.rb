@@ -1,4 +1,6 @@
 class Assignment < ApplicationRecord
+  include Auditable
+  
   belongs_to :shift
   belongs_to :worker
   belongs_to :assigned_by, class_name: 'User'

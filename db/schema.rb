@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_06_225907) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_07_004631) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -64,6 +64,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_06_225907) do
     t.bigint "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "required_cert_id"
+    t.index ["required_cert_id"], name: "index_shifts_on_required_cert_id"
     t.index ["start_time_utc", "end_time_utc"], name: "index_shifts_on_start_time_utc_and_end_time_utc"
     t.index ["start_time_utc", "status"], name: "index_shifts_on_start_time_utc_and_status"
     t.index ["status"], name: "index_shifts_on_status"
@@ -120,6 +122,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_06_225907) do
   add_foreign_key "assignments", "shifts", on_delete: :cascade
   add_foreign_key "assignments", "users", column: "assigned_by_id"
   add_foreign_key "assignments", "workers", on_delete: :restrict
+  add_foreign_key "shifts", "certifications", column: "required_cert_id", on_delete: :nullify
   add_foreign_key "shifts", "users", column: "created_by_id"
   add_foreign_key "worker_certifications", "certifications", on_delete: :restrict
   add_foreign_key "worker_certifications", "workers", on_delete: :cascade

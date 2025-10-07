@@ -40,6 +40,9 @@ gem "tailwindcss-rails"
 # Authentication [https://github.com/heartcombo/devise]
 gem "devise"
 
+# Pagination [https://github.com/kaminari/kaminari]
+gem "kaminari"
+
 # Error monitoring [https://github.com/getsentry/sentry-ruby]
 gem "sentry-ruby"
 gem "sentry-rails"

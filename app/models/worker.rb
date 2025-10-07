@@ -1,4 +1,6 @@
 class Worker < ApplicationRecord
+  include Auditable
+  
   has_many :worker_certifications, dependent: :destroy
   has_many :certifications, through: :worker_certifications
   has_many :assignments, dependent: :restrict_with_error

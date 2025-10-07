@@ -3,13 +3,13 @@
 one:
   shift: one
   worker: one
-  assigned_by_id: 
+  assigned_by: one
   assigned_at_utc: 2025-10-06 18:59:01
-  status: MyString
+  status: assigned
 
 two:
   shift: two
   worker: two
-  assigned_by_id: 
+  assigned_by: one
   assigned_at_utc: 2025-10-06 18:59:01
-  status: MyString
+  status: assigned

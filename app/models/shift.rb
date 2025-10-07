@@ -1,5 +1,8 @@
 class Shift < ApplicationRecord
+  include Auditable
+  
   belongs_to :created_by, class_name: 'User'
+  belongs_to :required_cert, class_name: 'Certification', optional: true
   has_many :assignments, dependent: :destroy
   has_many :workers, through: :assignments
   
@@ -10,6 +13,14 @@ class Shift < ApplicationRecord
   scope :upcoming, -> { where('start_time_utc > ?', Time.current).order(:start_time_utc) }
   scope :past, -> { where('end_time_utc < ?', Time.current).order(start_time_utc: :desc) }
   scope :today, -> { where('DATE(start_time_utc) = ?', Time.current.to_date) }
+  
+  def assigned_count
+    assignments.where(status: 'assigned').count
+  end
+  
+  def available_slots
+    capacity - assigned_count
+  end
   
   private
   
