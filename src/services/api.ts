@@ -1,5 +1,5 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ApiResponse, LoginCredentials, AuthUser } from '../types';
+import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
+import type { ApiResponse, LoginCredentials, AuthUser } from '../types';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';

@@ -44,4 +44,45 @@ export const api = {
     const response = await apiClient.get('/healthz')
     return response.data
   },
+  // Dashboard
+  dashboard: async () => {
+    const response = await apiClient.get('/dashboard')
+    return response.data
+  },
+  
+  // Workers
+  getWorkers: async (params?: { search?: string; status?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.status && params.status !== 'all') queryParams.append('status', params.status)
+    
+    const response = await apiClient.get(`/workers?${queryParams.toString()}`)
+    return response.data
+  },
+  
+  getWorker: async (id: number) => {
+    const response = await apiClient.get(`/workers/${id}`)
+    return response.data
+  },
+  
+  createWorker: async (data: any) => {
+    const response = await apiClient.post('/workers', { worker: data })
+    return response.data
+  },
+  
+  updateWorker: async (id: number, data: any) => {
+    const response = await apiClient.patch(`/workers/${id}`, { worker: data })
+    return response.data
+  },
+  
+  deleteWorker: async (id: number) => {
+    const response = await apiClient.delete(`/workers/${id}`)
+    return response.data
+  },
+  
+  // Certifications
+  getCertifications: async () => {
+    const response = await apiClient.get('/certifications')
+    return response.data
+  },
 }
