@@ -1,6 +1,6 @@
 class HomeController < ApplicationController
   def index
-    # Serve the React app for all routes
-    render file: Rails.root.join('public', 'index.html'), layout: false
+    # Serve the React app using Rails asset helpers
+    render :index, layout: false
   end
 end
