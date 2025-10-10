@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 export interface Certification {
   id: number
   name: string
-  expires_at: string | null
+  expires_at_utc: string | null
 }
 
 export interface Worker {
@@ -13,10 +13,15 @@ export interface Worker {
   last_name: string
   email: string
   phone: string
-  status: 'active' | 'inactive'
+  active: boolean
   skills_json: string[]
   certifications: Certification[]
+  worker_certifications: Array<{
+    expires_at_utc: string
+    certification_id: number
+  }>
   created_at: string
+  updated_at: string
 }
 
 interface UseWorkersParams {
@@ -44,7 +49,7 @@ export function useWorkers(params: UseWorkersParams = {}): UseWorkersReturn {
       const response = await api.getWorkers(params)
       
       if (response.status === 'success') {
-        setWorkers(response.data)
+        setWorkers(response.data.workers)
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || 'Failed to load workers'

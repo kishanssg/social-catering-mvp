@@ -23,12 +23,12 @@ export function WorkerDetail({ worker }: WorkerDetailProps) {
             <dd className="mt-1">
               <span
                 className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  worker.status === 'active'
+                  worker.active
                     ? 'bg-green-100 text-green-800'
                     : 'bg-gray-100 text-gray-800'
                 }`}
               >
-                {worker.status}
+                {worker.active ? 'Active' : 'Inactive'}
               </span>
             </dd>
           </div>

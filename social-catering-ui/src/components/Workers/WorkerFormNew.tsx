@@ -8,7 +8,7 @@ const workerSchema = z.object({
   last_name: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
-  status: z.enum(['active', 'inactive']),
+  active: z.boolean(),
   skills: z.string().min(1, 'At least one skill required'),
 })
 
@@ -34,11 +34,11 @@ export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerF
           last_name: worker.last_name,
           email: worker.email,
           phone: worker.phone,
-          status: worker.status,
+          active: worker.active,
           skills: worker.skills_json.join(', '),
         }
       : {
-          status: 'active',
+          active: true,
         },
   })
 
@@ -144,19 +144,22 @@ export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerF
         )}
       </div>
 
-      {/* Status */}
+      {/* Active Status */}
       <div>
-        <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-          Status
-        </label>
-        <select 
-          id="status" 
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
-          {...register('status')}
-        >
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+        <div className="flex items-center">
+          <input
+            id="active"
+            type="checkbox"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            {...register('active')}
+          />
+          <label htmlFor="active" className="ml-2 block text-sm font-medium text-gray-700">
+            Active Worker
+          </label>
+        </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Uncheck to deactivate this worker
+        </p>
       </div>
 
       {/* Form Actions */}

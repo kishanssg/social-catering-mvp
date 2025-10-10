@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = '/api/v1'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -53,7 +53,7 @@ export const api = {
   // Workers
   getWorkers: async (params?: { search?: string; status?: string }) => {
     const queryParams = new URLSearchParams()
-    if (params?.search) queryParams.append('search', params.search)
+    if (params?.search) queryParams.append('query', params.search)
     if (params?.status && params.status !== 'all') queryParams.append('status', params.status)
     
     const response = await apiClient.get(`/workers?${queryParams.toString()}`)

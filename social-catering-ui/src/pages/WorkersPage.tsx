@@ -168,7 +168,7 @@ export function WorkersPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Active</p>
               <p className="mt-2 text-3xl font-bold text-green-600">
-                {workers.filter((w) => w.status === 'active').length}
+                {workers.filter((w) => w.active).length}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-green-50 text-green-600">
@@ -189,7 +189,7 @@ export function WorkersPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Inactive</p>
               <p className="mt-2 text-3xl font-bold text-gray-600">
-                {workers.filter((w) => w.status === 'inactive').length}
+                {workers.filter((w) => !w.active).length}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-gray-50 text-gray-600">

@@ -9,9 +9,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'https://sc-mvp-staging-c6ef090c6c41.herokuapp.com',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       }
     }
   }
