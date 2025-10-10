@@ -4,20 +4,8 @@ namespace :frontend do
   task :build do
     puts "🏗️  Building React frontend into Rails asset pipeline..."
     
-    ui_path = Rails.root.join('social-catering-ui', 'social-catering-ui')
-    unless Dir.exist?(ui_path)
-      raise "❌ ERROR: Frontend directory not found at #{ui_path}"
-    end
-
-    # Build React app (fail fast if command fails)
-    success = Dir.chdir(ui_path) do
-      # Prefer ci when available; fall back to npm install in CI-less envs
-      system("npm -v > /dev/null 2>&1") || raise("❌ ERROR: npm is not available. Add the Heroku Node.js buildpack before Ruby.")
-      # Do not install here to keep slug small; rely on Node buildpack cache. Just build.
-      system("npm run build")
-    end
-
-    raise "❌ ERROR: Frontend build failed (npm run build returned non-zero)" unless success
+    # Build React app
+    system("cd social-catering-ui/social-catering-ui && npm run build")
     
     # Verify build files exist
     unless File.exist?(Rails.root.join('app/assets/builds/application.js'))
