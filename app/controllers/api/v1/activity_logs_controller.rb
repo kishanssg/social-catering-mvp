@@ -42,11 +42,7 @@ module Api
         logs = logs.limit(per_page).offset(offset)
         
         render_success({
-          activity_logs: logs.as_json(
-            include: {
-              actor_user: { only: [:id, :email] }
-            }
-          ),
+          activity_logs: logs.as_json,
           pagination: {
             current_page: page,
             per_page: per_page,
