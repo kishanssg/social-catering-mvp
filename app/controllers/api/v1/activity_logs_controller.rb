@@ -2,7 +2,8 @@ module Api
   module V1
     class ActivityLogsController < BaseController
       def index
-        logs = ActivityLog.all
+        # Start with deterministic, indexed order for performance
+        logs = ActivityLog.order(created_at_utc: :desc)
         
         # Filter by entity type if provided
         if params[:entity_type].present?
@@ -24,20 +25,30 @@ module Api
           logs = logs.where(action: params[:action])
         end
         
-        # Filter by date range
+        # Filter by date range (safe parsing)
         if params[:from_date].present?
-          logs = logs.where('created_at_utc >= ?', Time.parse(params[:from_date]))
+          from_time = begin
+            Time.iso8601(params[:from_date])
+          rescue ArgumentError, TypeError
+            nil
+          end
+          logs = logs.where('created_at_utc >= ?', from_time) if from_time
         end
-        
+
         if params[:to_date].present?
-          logs = logs.where('created_at_utc <= ?', Time.parse(params[:to_date]))
+          to_time = begin
+            Time.iso8601(params[:to_date])
+          rescue ArgumentError, TypeError
+            nil
+          end
+          logs = logs.where('created_at_utc <= ?', to_time) if to_time
         end
-        
-        # Order by created_at descending
-        logs = logs.order(created_at: :desc)
+        # Ensure final order (redundant if no date filters)
+        logs = logs.reorder(created_at_utc: :desc)
         
         # Paginate results (limit 50 per page)
-        page = params[:page]&.to_i || 1
+        page = params[:page].to_i
+        page = 1 if page <= 0
         per_page = 50
         offset = (page - 1) * per_page
         
