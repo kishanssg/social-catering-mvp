@@ -33,8 +33,8 @@ module Api
           logs = logs.where('created_at_utc <= ?', Time.parse(params[:to_date]))
         end
         
-        # Order by created_at_utc descending
-        logs = logs.order(created_at_utc: :desc)
+        # Order by created_at descending
+        logs = logs.order(created_at: :desc)
         
         # Paginate results (limit 50 per page)
         page = params[:page]&.to_i || 1
