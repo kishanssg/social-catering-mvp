@@ -2,7 +2,7 @@ module Api
   module V1
     class ActivityLogsController < BaseController
       def index
-        logs = ActivityLog.order(created_at_utc: :desc)
+        logs = ActivityLog.all
         
         # Filter by entity type if provided
         if params[:entity_type].present?
@@ -32,6 +32,9 @@ module Api
         if params[:to_date].present?
           logs = logs.where('created_at_utc <= ?', Time.parse(params[:to_date]))
         end
+        
+        # Order by created_at_utc descending
+        logs = logs.order(created_at_utc: :desc)
         
         # Paginate results (limit 50 per page)
         page = params[:page]&.to_i || 1
