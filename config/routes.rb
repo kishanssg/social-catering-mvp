@@ -18,7 +18,7 @@ Rails.application.routes.draw do
       
       resources :workers, only: [:index, :show, :create, :update]
       resources :shifts, only: [:index, :show, :create, :update, :destroy]
-      resources :assignments, only: [:create, :destroy]
+      resources :assignments, only: [:index, :create, :update, :destroy]
       resources :certifications, only: [:index]
       resources :activity_logs, only: [:index]
       # Dashboard
