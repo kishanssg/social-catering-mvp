@@ -12,6 +12,15 @@ module Api
         
         workers = result[:data][:workers].includes(:certifications)
         
+        # Apply status filter if provided
+        if params[:status].present? && params[:status] != 'all'
+          if params[:status] == 'active'
+            workers = workers.where(active: true)
+          elsif params[:status] == 'inactive'
+            workers = workers.where(active: false)
+          end
+        end
+        
         render_success({
           workers: workers.as_json(
             include: {
