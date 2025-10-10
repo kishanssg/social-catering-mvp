@@ -92,7 +92,8 @@ module Api
           :pay_rate,
           :capacity,
           :status,
-          :notes
+          :notes,
+          :required_cert_id
         )
       end
       
