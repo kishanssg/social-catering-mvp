@@ -25,8 +25,8 @@ class Api::V1::ShiftsControllerFiltersTest < ActionDispatch::IntegrationTest
     @today_shift = Shift.create!(
       client_name: "Today Client",
       role_needed: "Server",
-      start_time_utc: Time.current.beginning_of_day + 2.hours,
-      end_time_utc: Time.current.beginning_of_day + 6.hours,
+      start_time_utc: Time.current.beginning_of_day + 1.hour,
+      end_time_utc: Time.current.beginning_of_day + 5.hours,
       capacity: 2,
       status: 'published',
       created_by: @admin
