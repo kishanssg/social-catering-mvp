@@ -115,8 +115,18 @@ class ApiService {
   }
 
   // Assignments
+  async getAssignments(params?: any): Promise<ApiResponse> {
+    const response = await apiClient.get('/assignments', { params });
+    return response.data;
+  }
+
   async createAssignment(data: any): Promise<ApiResponse> {
     const response = await apiClient.post('/assignments', data);
+    return response.data;
+  }
+
+  async updateAssignment(id: number, data: any): Promise<ApiResponse> {
+    const response = await apiClient.put(`/assignments/${id}`, data);
     return response.data;
   }
 

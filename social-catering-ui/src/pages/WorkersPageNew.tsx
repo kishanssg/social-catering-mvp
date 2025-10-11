@@ -46,11 +46,6 @@ export function WorkersPage() {
     setIsEditModalOpen(true)
   }
 
-  const handleViewClick = (worker: Worker) => {
-    setSelectedWorker(worker)
-    setIsDetailModalOpen(true)
-  }
-
   const handleDeleteClick = (worker: Worker) => {
     setSelectedWorker(worker)
     setIsDeleteModalOpen(true)
@@ -148,7 +143,6 @@ export function WorkersPage() {
             workers={workers}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
-            onView={handleViewClick}
           />
           <p className="text-sm text-gray-500">
             Showing {workers.length} worker{workers.length !== 1 ? 's' : ''}

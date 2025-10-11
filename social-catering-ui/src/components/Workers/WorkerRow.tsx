@@ -1,4 +1,5 @@
 import type { Worker } from '../../hooks/useWorkers'
+import { Link } from 'react-router-dom'
 
 interface WorkerRowProps {
   worker: Worker
@@ -103,14 +104,21 @@ export function WorkerRow({ worker, onEdit, onDelete, onView }: WorkerRowProps) 
 
       {/* Status */}
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={getStatusBadge(worker.status)}>
-          {worker.status}
+        <span className={getStatusBadge(worker.active ? "Active" : "Inactive")}>
+          {worker.active ? "Active" : "Inactive"}
         </span>
       </td>
 
       {/* Actions */}
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
         <div className="flex items-center justify-end space-x-2">
+          <Link
+            to={`/workers/${worker.id}/schedule`}
+            className="text-green-600 hover:text-green-700"
+            title="View schedule"
+          >
+            Schedule
+          </Link>
           <button
             onClick={onView}
             className="text-blue-600 hover:text-blue-900"

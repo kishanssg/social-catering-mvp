@@ -5,6 +5,13 @@ import { DashboardLayout } from './components/Layout/DashboardLayout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { WorkersPage } from './pages/WorkersPage'
+import WorkerDetail from './pages/WorkerDetail'
+import ShiftsList from './pages/ShiftsList'
+import ShiftDetail from './pages/ShiftDetail'
+import ShiftForm from './pages/ShiftForm'
+import AssignmentsList from './pages/AssignmentsList'
+import WorkerSchedule from './pages/WorkerSchedule'
+import CalendarView from './pages/CalendarView'
 
 function App() {
   return (
@@ -37,16 +44,98 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/workers/:id"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <WorkerDetail />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workers/:id/schedule"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <WorkerSchedule />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
           
+          {/* Shifts management */}
           <Route
             path="/shifts"
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold text-gray-900">Shifts</h2>
-                    <p className="text-gray-600 mt-2">Coming soon (Day 10-12)</p>
-                  </div>
+                  <ShiftsList />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/shifts/new"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ShiftForm />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/shifts/:id"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ShiftDetail />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/shifts/:id/edit"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <ShiftForm />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Assignments management */}
+          <Route
+            path="/assignments"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <AssignmentsList />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workers/:id/schedule"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <WorkerSchedule />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Calendar view */}
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <CalendarView />
                 </DashboardLayout>
               </ProtectedRoute>
             }

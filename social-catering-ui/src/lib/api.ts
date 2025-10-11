@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = '/api/v1'
+const API_BASE_URL = import.meta.env.PROD ? '/api/v1' : '/api/v1'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -41,7 +41,7 @@ export const api = {
     return response.data
   },
   healthCheck: async () => {
-    const response = await apiClient.get('/healthz')
+    const response = await axios.get('/healthz', { withCredentials: true })
     return response.data
   },
   // Dashboard

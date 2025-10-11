@@ -11,6 +11,8 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { ErrorMessage } from '../components/ui/ErrorMessage'
 import { EmptyState } from '../components/Dashboard/EmptyState'
 import { Toast } from '../components/ui/Toast'
+import BulkAssignModal from '../components/BulkAssignModal'
+import { Users } from 'lucide-react'
 
 export function WorkersPage() {
   // Filters
@@ -22,6 +24,7 @@ export function WorkersPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
 
   // Selected Worker
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null)
@@ -48,11 +51,6 @@ export function WorkersPage() {
     setSelectedWorker(worker)
     setFormError(null)
     setIsEditModalOpen(true)
-  }
-
-  const handleViewClick = (worker: Worker) => {
-    setSelectedWorker(worker)
-    setIsDetailModalOpen(true)
   }
 
   const handleDeleteClick = (worker: Worker) => {
@@ -137,14 +135,25 @@ export function WorkersPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
-        <p className="text-gray-600 mt-1">Manage your workforce directory</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
+          <p className="text-gray-600 mt-1">Manage your workforce directory</p>
+        </div>
+        
+        {/* Bulk Assign Button */}
+        <button
+          onClick={() => setShowBulkAssignModal(true)}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Bulk Assign
+        </button>
       </div>
 
       {/* Worker Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Workers</p>
@@ -163,7 +172,7 @@ export function WorkersPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Active</p>
@@ -184,7 +193,7 @@ export function WorkersPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Inactive</p>
@@ -222,7 +231,6 @@ export function WorkersPage() {
             workers={workers}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
-            onView={handleViewClick}
           />
           <p className="text-sm text-gray-500">
             Showing {workers.length} worker{workers.length !== 1 ? 's' : ''}
@@ -330,6 +338,17 @@ export function WorkersPage() {
           type={toast.type}
           isVisible={!!toast}
           onClose={() => setToast(null)}
+        />
+      )}
+      
+      {/* Bulk Assign Modal */}
+      {showBulkAssignModal && (
+        <BulkAssignModal
+          onClose={() => setShowBulkAssignModal(false)}
+          onSuccess={() => {
+            refetch();
+            setShowBulkAssignModal(false);
+          }}
         />
       )}
     </div>

@@ -44,19 +44,25 @@ export interface WorkerCertification {
 // Shift types
 export interface Shift {
   id: number;
-  title: string;
-  description?: string;
+  client_name: string;
+  role_needed: string;
+  location: string;
   start_time_utc: string;
   end_time_utc: string;
-  location: string;
+  pay_rate?: number;
   capacity: number;
   status: 'draft' | 'published' | 'assigned' | 'completed';
+  notes?: string;
   required_cert_id?: number;
+  created_by_id: number;
   created_at: string;
   updated_at: string;
   assignments?: Assignment[];
+  workers?: Worker[];
+  created_by?: User;
   required_certification?: Certification;
   assigned_count?: number;
+  available_slots?: number;
 }
 
 // Assignment types
@@ -143,6 +149,15 @@ export interface ActivityLogFilterParams {
   action?: string;
   start_date?: string;
   end_date?: string;
+  page?: number;
+  per_page?: number;
+}
+
+export interface AssignmentFilterParams {
+  status?: 'assigned' | 'completed' | 'no_show' | 'cancelled';
+  worker_id?: number;
+  shift_id?: number;
+  timeframe?: 'past' | 'today' | 'upcoming';
   page?: number;
   per_page?: number;
 }

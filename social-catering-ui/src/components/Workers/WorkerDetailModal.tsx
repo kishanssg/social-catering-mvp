@@ -52,8 +52,8 @@ export function WorkerDetailModal({ worker, isOpen, onClose, onEdit, onDelete }:
               {worker.first_name} {worker.last_name}
             </h4>
             <div className="mt-2 flex items-center space-x-4">
-              <span className={getStatusBadge(worker.status)}>
-                {worker.status}
+              <span className={getStatusBadge(worker.active ? "Active" : "Inactive")}>
+                {worker.active ? "Active" : "Inactive"}
               </span>
               <span className="text-sm text-gray-500">
                 Added {formatDate(worker.created_at)}
@@ -117,9 +117,9 @@ export function WorkerDetailModal({ worker, isOpen, onClose, onEdit, onDelete }:
                       <span className="text-gray-900 font-medium">{cert.name}</span>
                     </div>
                     <div className="text-right">
-                      {cert.expires_at ? (
-                        <div className={`text-sm ${isCertificationExpired(cert.expires_at) ? 'text-red-600' : 'text-gray-500'}`}>
-                          {isCertificationExpired(cert.expires_at) ? 'Expired' : 'Expires'} {formatDate(cert.expires_at)}
+                      {cert.expires_at_utc ? (
+                        <div className={`text-sm ${isCertificationExpired(cert.expires_at_utc) ? 'text-red-600' : 'text-gray-500'}`}>
+                          {isCertificationExpired(cert.expires_at_utc) ? 'Expired' : 'Expires'} {formatDate(cert.expires_at_utc)}
                         </div>
                       ) : (
                         <div className="text-sm text-gray-500">No expiration</div>

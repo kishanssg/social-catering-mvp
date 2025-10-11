@@ -57,6 +57,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500 transition-colors"
+              aria-label="Close modal"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

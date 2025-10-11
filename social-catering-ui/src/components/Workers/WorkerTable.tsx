@@ -1,13 +1,13 @@
 import type { Worker } from '../../hooks/useWorkers'
+import { Link } from 'react-router-dom'
 
 interface WorkerTableProps {
   workers: Worker[]
   onEdit: (worker: Worker) => void
   onDelete: (worker: Worker) => void
-  onView: (worker: Worker) => void
 }
 
-export function WorkerTable({ workers, onEdit, onDelete, onView }: WorkerTableProps) {
+export function WorkerTable({ workers, onEdit, onDelete }: WorkerTableProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -80,12 +80,18 @@ export function WorkerTable({ workers, onEdit, onDelete, onView }: WorkerTablePr
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => onView(worker)}
+                  <Link
+                    to={`/workers/${worker.id}/schedule`}
+                    className="text-green-600 hover:text-green-700 text-sm mr-3"
+                  >
+                    Schedule
+                  </Link>
+                  <Link
+                    to={`/workers/${worker.id}`}
                     className="text-blue-600 hover:text-blue-900 mr-3"
                   >
                     View
-                  </button>
+                  </Link>
                   <button
                     onClick={() => onEdit(worker)}
                     className="text-indigo-600 hover:text-indigo-900 mr-3"

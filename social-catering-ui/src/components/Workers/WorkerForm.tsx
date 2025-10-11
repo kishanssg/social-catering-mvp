@@ -66,7 +66,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
         last_name: worker.last_name,
         email: worker.email,
         phone: worker.phone,
-        status: worker.status,
+        status: worker.active ? "active" : "inactive",
         skills_json: worker.skills_json || [],
         certification_ids: worker.certifications?.map(c => c.id) || [],
       })
@@ -172,7 +172,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
                   required
                   value={formData.first_name}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="input-field"
                 />
               </div>
 
@@ -187,7 +187,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
                   required
                   value={formData.last_name}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="input-field"
                 />
               </div>
             </div>
@@ -204,7 +204,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
                   required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="input-field"
                 />
               </div>
 
@@ -219,7 +219,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
                   required
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="input-field"
                 />
               </div>
             </div>
@@ -268,7 +268,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
                       type="checkbox"
                       checked={formData.certification_ids.includes(cert.id)}
                       onChange={(e) => handleCertificationChange(cert.id, e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                     />
                     <span className="ml-2 text-sm text-gray-700">{cert.name}</span>
                   </label>
@@ -287,7 +287,7 @@ export function WorkerForm({ worker, isOpen, onClose, onSuccess, title }: Worker
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                className="btn-primary disabled:opacity-50"
               >
                 {isLoading ? 'Saving...' : worker ? 'Update Worker' : 'Create Worker'}
               </button>

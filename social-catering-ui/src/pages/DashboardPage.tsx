@@ -29,7 +29,7 @@ export function DashboardPage() {
         </div>
 
         {/* Skeleton Fill Status */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse">
+        <div className="card animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-center">
@@ -188,7 +188,7 @@ export function DashboardPage() {
       </div>
 
       {/* Fill Status */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Fill Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center">
@@ -265,7 +265,7 @@ export function DashboardPage() {
           <div className="space-y-6">
             {Object.entries(groupedUpcoming).map(([date, shifts]) => (
               <div key={date}>
-                <h3 className="text-md font-medium text-gray-700 mb-3">
+                <h3 className="text-base font-medium text-gray-700 mb-3">
                   {format(parseISO(date), 'EEEE, MMMM d')} ({shifts.length})
                 </h3>
                 <div className="space-y-4">

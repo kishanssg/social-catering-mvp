@@ -1,5 +1,7 @@
 import type { Worker } from '../../hooks/useWorkers'
 import { format, parseISO } from 'date-fns'
+import { Link } from 'react-router-dom'
+import { Calendar } from 'lucide-react'
 
 interface WorkerDetailProps {
   worker: Worker
@@ -8,6 +10,17 @@ interface WorkerDetailProps {
 export function WorkerDetail({ worker }: WorkerDetailProps) {
   return (
     <div className="space-y-6">
+      {/* Schedule Link */}
+      <div className="flex justify-end">
+        <Link
+          to={`/workers/${worker.id}/schedule`}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Calendar className="h-4 w-4" />
+          View Schedule
+        </Link>
+      </div>
+
       {/* Basic Info */}
       <div>
         <h4 className="text-sm font-medium text-gray-900 mb-3">Basic Information</h4>
@@ -79,9 +92,9 @@ export function WorkerDetail({ worker }: WorkerDetailProps) {
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <span className="text-sm font-medium text-gray-900">{cert.name}</span>
-                {cert.expires_at && (
+                {cert.expires_at_utc && (
                   <span className="text-sm text-gray-500">
-                    Expires: {format(parseISO(cert.expires_at), 'MMM d, yyyy')}
+                    Expires: {format(parseISO(cert.expires_at_utc), 'MMM d, yyyy')}
                   </span>
                 )}
               </div>
