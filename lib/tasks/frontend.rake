@@ -5,7 +5,7 @@ namespace :frontend do
     puts "🏗️  Building React frontend into Rails asset pipeline..."
 
     # Build React app
-    system("cd social-catering-ui/social-catering-ui && npm run build")
+    system("cd social-catering-ui && npm run build")
 
     # Verify build files exist
     unless File.exist?(Rails.root.join("app/assets/builds/application.js"))
