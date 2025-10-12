@@ -14,6 +14,25 @@ module Api
         scoped = scoped.where(entity_type: params[:entity_type]) if params[:entity_type].present?
         scoped = scoped.where(action: params[:log_action]) if params[:log_action].present?
         scoped = scoped.where(actor_user_id: params[:actor_user_id]) if params[:actor_user_id].present?
+        
+        # Date filtering
+        if params[:date_from].present?
+          begin
+            date_from = Time.parse(params[:date_from]).beginning_of_day
+            scoped = scoped.where('created_at_utc >= ?', date_from)
+          rescue ArgumentError
+            # Invalid date format, ignore
+          end
+        end
+        
+        if params[:date_to].present?
+          begin
+            date_to = Time.parse(params[:date_to]).end_of_day
+            scoped = scoped.where('created_at_utc <= ?', date_to)
+          rescue ArgumentError
+            # Invalid date format, ignore
+          end
+        end
 
         total_count = scoped.count
         logs = scoped.limit(per_page).offset((page - 1) * per_page)
