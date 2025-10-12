@@ -4,26 +4,19 @@ namespace :frontend do
   task :build do
     puts "🏗️  Building React frontend into Rails asset pipeline..."
 
-    # Check if we're in a Heroku environment or if npm is available
-    if ENV['DYNO'] || system("which npm > /dev/null 2>&1")
-      # Build React app
-      system("cd social-catering-ui && npm ci && npm run build")
-    else
-      puts "⚠️  npm not available, skipping frontend build (using pre-built assets)"
-    end
+    # Build React app
+    system("cd social-catering-ui/social-catering-ui && npm run build")
 
     # Verify build files exist
     unless File.exist?(Rails.root.join("app/assets/builds/application.js"))
-      puts "⚠️  WARNING: application.js not found in app/assets/builds/"
-      puts "   This may cause the frontend to not load properly"
+      raise "❌ ERROR: application.js not found in app/assets/builds/"
     end
 
     unless File.exist?(Rails.root.join("app/assets/builds/application.css"))
-      puts "⚠️  WARNING: application.css not found in app/assets/builds/"
-      puts "   This may cause the frontend to not load properly"
+      raise "❌ ERROR: application.css not found in app/assets/builds/"
     end
 
-    puts "✅ React frontend build process completed"
+    puts "✅ React frontend built successfully into Rails asset pipeline"
   end
 
   desc "Build and precompile assets for production"

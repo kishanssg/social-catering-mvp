@@ -2,7 +2,8 @@ import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import type { ApiResponse, LoginCredentials, AuthUser } from '../types';
 
 // API Configuration
-const API_BASE_URL = '/api/v1';
+// Force local development URL for now
+const API_BASE_URL = '/assets/api/v1';
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -33,10 +34,10 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     // Handle common errors
-        if (error.response?.status === 401) {
-          // Unauthorized - redirect to login
-          window.location.href = '/login';
-        }
+    if (error.response?.status === 401) {
+      // Unauthorized - redirect to login
+      window.location.href = '/assets/login';
+    }
     
     return Promise.reject(error);
   }

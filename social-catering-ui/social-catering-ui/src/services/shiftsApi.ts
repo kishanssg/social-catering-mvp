@@ -5,13 +5,6 @@ export interface Assignment {
   worker_id: number
   assigned_at_utc: string
   status: 'assigned' | 'completed' | 'no_show' | 'cancelled'
-  worker?: {
-    id: number
-    first_name: string
-    last_name: string
-    email: string
-    phone: string
-  }
 }
 
 export interface Shift {
@@ -35,6 +28,8 @@ export interface Shift {
     id: number
     first_name: string
     last_name: string
+    email: string
+    phone: string
   }>
   assigned_count?: number
   available_slots?: number

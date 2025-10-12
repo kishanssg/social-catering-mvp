@@ -1,12 +1,1 @@
-{
-  "name": "social-catering-mvp",
-  "version": "1.0.0",
-  "description": "Social Catering MVP - Rails + React",
-  "scripts": {
-    "build": "cd social-catering-ui && npm ci && npm run build"
-  },
-  "engines": {
-    "node": "18.x",
-    "npm": "9.x"
-  }
-}
+{}

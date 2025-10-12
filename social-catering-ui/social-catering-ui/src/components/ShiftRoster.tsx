@@ -150,26 +150,26 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
                       </Link>
                       
                       <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600">
-                        {assignment.worker?.email && (
+                        {getWorkerForAssignment(assignment)?.email && (
                           <div className="flex items-center gap-1">
                             <Mail className="h-4 w-4" />
                             <a
-                              href={`mailto:${assignment.worker.email}`}
+                              href={`mailto:${getWorkerForAssignment(assignment)?.email}`}
                               className="hover:text-blue-600"
                             >
-                              {assignment.worker.email}
+                              {getWorkerForAssignment(assignment)?.email}
                             </a>
                           </div>
                         )}
                         
-                        {assignment.worker?.phone && (
+                        {getWorkerForAssignment(assignment)?.phone && (
                           <div className="flex items-center gap-1">
                             <Phone className="h-4 w-4" />
                             <a
-                              href={`tel:${assignment.worker.phone}`}
+                              href={`tel:${getWorkerForAssignment(assignment)?.phone}`}
                               className="hover:text-blue-600"
                             >
-                              {assignment.worker.phone}
+                              {getWorkerForAssignment(assignment)?.phone}
                             </a>
                           </div>
                         )}

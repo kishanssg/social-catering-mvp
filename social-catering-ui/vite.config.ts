@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // Production-ready configuration for Rails asset pipeline integration
 export default defineConfig({
   plugins: [react()],
-  base: '/', // Serve from root
+  base: '/assets/', // Critical: Rails serves assets from /assets/
   build: {
     // Build into Rails app/assets/builds directory
     outDir: '../../app/assets/builds',
@@ -28,15 +28,17 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/api': {
+      '/assets/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path.replace(/^\/assets\/api/, '/api')
       },
-      '/healthz': {
+      '/assets/healthz': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path.replace(/^\/assets\/healthz/, '/healthz')
       }
     }
   }

@@ -12,15 +12,14 @@ export interface Worker {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
   skills_json: string[];
   skills_text: string;
   active: boolean;
   created_at: string;
   updated_at: string;
   certifications?: Certification[];
-  worker_certifications?: WorkerCertification[];
 }
 
 // Certification types

@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   base: '/assets/', // Critical: Rails serves assets from /assets/
   build: {
-    // Build into Rails app/assets/builds directory
-    outDir: '../../app/assets/builds',
+    // Build into dist directory for easier deployment
+    outDir: 'dist',
     assetsDir: '',
     rollupOptions: {
       input: {
