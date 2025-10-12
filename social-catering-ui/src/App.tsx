@@ -15,6 +15,7 @@ const ShiftForm = lazy(() => import('./pages/ShiftForm'))
 const AssignmentsList = lazy(() => import('./pages/AssignmentsList'))
 const WorkerSchedule = lazy(() => import('./pages/WorkerSchedule'))
 const CalendarView = lazy(() => import('./pages/CalendarView'))
+const ActivityLogsPage = lazy(() => import('./pages/ActivityLogsPage'))
 
 // Loading component
 const PageLoader = () => (
@@ -150,10 +151,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardLayout>
-                  <div className="text-center py-12">
-                    <h2 className="text-2xl font-bold text-gray-900">Activity Log</h2>
-                    <p className="text-gray-600 mt-2">Coming soon (Day 15)</p>
-                  </div>
+                  <ActivityLogsPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

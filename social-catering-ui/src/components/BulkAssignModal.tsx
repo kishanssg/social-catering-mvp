@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Users, AlertTriangle, Check, Calendar, Clock, ChevronRight } from 'lucide-react';
-import { getShifts } from '../services/shiftsApi';
 import type { Shift } from '../services/shiftsApi';
-import { getWorkers } from '../services/workersApi';
 import type { Worker } from '../services/workersApi';
 import { apiService } from '../services/api';
 import LoadingSpinner from './LoadingSpinner';
@@ -36,21 +34,27 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError('');
+      
       const [workersRes, shiftsRes] = await Promise.all([
-        getWorkers(),
-        getShifts({ status: 'published' })
+        apiService.getWorkers(),
+        apiService.getShifts({ status: 'published' })
       ]);
       
-      // Only active workers
-      setWorkers(workersRes.data.filter(w => w.active));
+      // Extract workers from the correct response structure
+      const workersData = workersRes.data?.workers || [];
+      setWorkers(workersData.filter((w: Worker) => w.active));
       
-      // Only published shifts that need workers
-      setShifts(shiftsRes.data.filter(s => {
+      // Extract shifts from the correct response structure
+      const shiftsData = shiftsRes.data?.shifts || [];
+      setShifts(shiftsData.filter((s: Shift) => {
         const assignedCount = s.assignments?.length || 0;
         return assignedCount < s.capacity && s.status === 'published';
       }));
-    } catch (err) {
-      setError('Failed to load data');
+      
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'Failed to load data';
+      setError(errorMessage);
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);

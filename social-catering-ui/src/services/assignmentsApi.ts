@@ -54,6 +54,8 @@ export const getAssignments = async (params?: {
   shift_id?: number;
   status?: string;
   timeframe?: 'past' | 'today' | 'upcoming';
+  start_date?: string;
+  end_date?: string;
 }): Promise<AssignmentsResponse> => {
   const response = await api.get('/assignments', { params });
   return response.data;

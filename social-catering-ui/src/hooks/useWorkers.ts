@@ -4,7 +4,6 @@ import { apiService } from '../services/api'
 export interface Certification {
   id: number
   name: string
-  expires_at_utc: string | null
 }
 
 export interface Worker {

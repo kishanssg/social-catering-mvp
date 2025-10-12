@@ -22,7 +22,7 @@ export function useWorker(id: number): UseWorkerReturn {
       const response = await apiService.getWorker(id)
       
       if (response.status === 'success') {
-        setWorker(response.data)
+        setWorker(response.data.worker)
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || 'Failed to load worker'

@@ -1,7 +1,9 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useState, useEffect } from 'react'
 import type { Worker } from '../../hooks/useWorkers'
+import { apiService } from '../../services/api'
 
 const workerSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -10,6 +12,10 @@ const workerSchema = z.object({
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
   active: z.boolean(),
   skills: z.string().min(1, 'At least one skill required'),
+  certifications: z.array(z.object({
+    certification_id: z.number(),
+    expires_at_utc: z.string().optional()
+  })).optional()
 })
 
 type WorkerFormData = z.infer<typeof workerSchema>
@@ -22,6 +28,9 @@ interface WorkerFormProps {
 }
 
 export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerFormProps) {
+  const [availableCertifications, setAvailableCertifications] = useState<any[]>([])
+  const [selectedCertifications, setSelectedCertifications] = useState<Array<{certification_id: number, expires_at_utc?: string}>>([])
+
   const {
     register,
     handleSubmit,
@@ -36,11 +45,26 @@ export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerF
           phone: worker.phone,
           active: worker.active,
           skills: worker.skills_json.join(', '),
+          certifications: []
         }
       : {
           active: true,
+          certifications: []
         },
   })
+
+  useEffect(() => {
+    loadCertifications()
+  }, [])
+
+  const loadCertifications = async () => {
+    try {
+      const response = await apiService.getCertifications()
+      setAvailableCertifications(response.data.certifications || [])
+    } catch (err) {
+      console.error('Error loading certifications:', err)
+    }
+  }
 
   const onSubmitForm = async (data: WorkerFormData) => {
     // Convert skills string to array
@@ -52,7 +76,30 @@ export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerF
     await onSubmit({
       ...data,
       skills_json,
+      certifications: selectedCertifications,
     })
+  }
+
+  const addCertification = (certificationId: number) => {
+    const cert = availableCertifications.find(c => c.id === certificationId)
+    if (cert && !selectedCertifications.find(sc => sc.certification_id === certificationId)) {
+      setSelectedCertifications([...selectedCertifications, {
+        certification_id: certificationId,
+        expires_at_utc: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
+      }])
+    }
+  }
+
+  const removeCertification = (certificationId: number) => {
+    setSelectedCertifications(selectedCertifications.filter(sc => sc.certification_id !== certificationId))
+  }
+
+  const updateCertificationExpiry = (certificationId: number, expiresAt: string) => {
+    setSelectedCertifications(selectedCertifications.map(sc => 
+      sc.certification_id === certificationId 
+        ? { ...sc, expires_at_utc: expiresAt }
+        : sc
+    ))
   }
 
   return (
@@ -141,6 +188,66 @@ export function WorkerForm({ worker, onSubmit, onCancel, isSubmitting }: WorkerF
         </p>
         {errors.skills && (
           <p className="mt-1 text-sm text-red-600">{errors.skills.message}</p>
+        )}
+      </div>
+
+      {/* Certifications */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Certifications (Optional)
+        </label>
+        
+        {/* Add Certification Dropdown */}
+        <div className="mb-4">
+          <select
+            onChange={(e) => {
+              if (e.target.value) {
+                addCertification(parseInt(e.target.value))
+                e.target.value = ''
+              }
+            }}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+            <option value="">Select a certification to add...</option>
+            {availableCertifications
+              .filter(cert => !selectedCertifications.find(sc => sc.certification_id === cert.id))
+              .map(cert => (
+                <option key={cert.id} value={cert.id}>
+                  {cert.name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        {/* Selected Certifications */}
+        {selectedCertifications.length > 0 && (
+          <div className="space-y-2">
+            {selectedCertifications.map((selectedCert) => {
+              const cert = availableCertifications.find(c => c.id === selectedCert.certification_id)
+              return (
+                <div key={selectedCert.certification_id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <span className="font-medium text-gray-900">{cert?.name}</span>
+                    <div className="mt-1">
+                      <input
+                        type="date"
+                        value={selectedCert.expires_at_utc ? selectedCert.expires_at_utc.split('T')[0] : ''}
+                        onChange={(e) => updateCertificationExpiry(selectedCert.certification_id, e.target.value + 'T23:59:59Z')}
+                        className="text-sm px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeCertification(selectedCert.certification_id)}
+                    className="text-red-600 hover:text-red-800 p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 

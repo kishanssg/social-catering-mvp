@@ -82,7 +82,27 @@ export function WorkersPage() {
       setIsSubmitting(true)
       setFormError(null)
       
-      await apiService.createWorker(data)
+      // Extract certifications from data
+      const { certifications, ...workerData } = data
+      
+      // Create worker first
+      const response = await apiService.createWorker(workerData)
+      const workerId = response.data.worker.id
+      
+      // Add certifications if any
+      if (certifications && certifications.length > 0) {
+        for (const cert of certifications) {
+          try {
+            await apiService.addCertificationToWorker(workerId, {
+              certification_id: cert.certification_id,
+              expires_at_utc: cert.expires_at_utc
+            })
+          } catch (certErr) {
+            console.error('Error adding certification:', certErr)
+            // Continue with other certifications even if one fails
+          }
+        }
+      }
       
       setIsAddModalOpen(false)
       refetch()
@@ -128,7 +148,7 @@ export function WorkersPage() {
       setIsDeleteModalOpen(false)
       setSelectedWorker(null)
       refetch()
-      setToast({ message: 'Worker deleted successfully!', type: 'success' })
+      setToast({ message: `${selectedWorker.first_name} ${selectedWorker.last_name} has been deactivated successfully!`, type: 'success' })
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || 'Failed to delete worker'
       setToast({ message: errorMessage, type: 'error' })

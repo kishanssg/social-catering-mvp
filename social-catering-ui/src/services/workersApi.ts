@@ -13,7 +13,7 @@ export interface Worker {
   phone?: string
   active: boolean
   skills_json: string[]
-  certifications?: Array<{ certification_id: number; name?: string; expires_at_utc: string }>
+  certifications?: Array<{ id: number; name: string }>
   worker_certifications?: WorkerCertification[]
   created_at: string
   updated_at: string
@@ -21,7 +21,9 @@ export interface Worker {
 
 export interface WorkersResponse {
   status: 'success'
-  data: Worker[]
+  data: {
+    workers: Worker[]
+  }
 }
 
 export const getWorkers = async (params?: { search?: string; status?: 'active' | 'inactive' | 'all' }): Promise<WorkersResponse> => {
@@ -36,7 +38,9 @@ export const getWorkers = async (params?: { search?: string; status?: 'active' |
 
 export interface WorkerResponse {
   status: 'success'
-  data: Worker
+  data: {
+    worker: Worker
+  }
 }
 
 export const getWorker = async (id: number): Promise<WorkerResponse> => {

@@ -37,7 +37,9 @@ export interface Shift {
 
 export interface ShiftsResponse {
   status: 'success'
-  data: Shift[]
+  data: {
+    shifts: Shift[]
+  }
   meta?: {
     total_count: number
     page: number
@@ -47,7 +49,9 @@ export interface ShiftsResponse {
 
 export interface ShiftResponse {
   status: 'success'
-  data: Shift
+  data: {
+    shift: Shift
+  }
 }
 
 // Get all shifts with optional filters

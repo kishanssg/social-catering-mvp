@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Calendar, Clock, MapPin, DollarSign,
   AlertCircle, Download, Filter, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { getWorker } from '../services/workersApi';
+import { apiService } from '../services/api';
 import type { Worker } from '../services/workersApi';
 import { useAssignments } from '../hooks/useAssignments';
 import AssignmentStatusBadge from '../components/Assignments/AssignmentStatusBadge';
@@ -21,15 +21,19 @@ const WorkerSchedule = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('');
   
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 }); // Sunday
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 0 });
+  // Memoize week calculations to prevent unnecessary re-renders
+  const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 0 }), [currentWeek]);
+  const weekEnd = useMemo(() => endOfWeek(currentWeek, { weekStartsOn: 0 }), [currentWeek]);
   
-  const { assignments, loading: assignmentsLoading } = useAssignments({
+  // Memoize assignments parameters to prevent excessive API calls
+  const assignmentsParams = useMemo(() => ({
     worker_id: id ? parseInt(id) : undefined,
     start_date: format(weekStart, 'yyyy-MM-dd'),
     end_date: format(weekEnd, 'yyyy-MM-dd'),
     status: statusFilter || undefined,
-  });
+  }), [id, weekStart, weekEnd, statusFilter]);
+  
+  const { assignments, loading: assignmentsLoading, error: assignmentsError } = useAssignments(assignmentsParams);
   
   useEffect(() => {
     if (id) {
@@ -40,8 +44,8 @@ const WorkerSchedule = () => {
   const loadWorker = async (workerId: number) => {
     try {
       setLoading(true);
-      const response = await getWorker(workerId);
-      setWorker(response.data);
+      const response = await apiService.getWorker(workerId);
+      setWorker(response.data.worker);
     } catch (err: any) {
       setError('Failed to load worker');
       console.error('Error loading worker:', err);
@@ -205,6 +209,18 @@ const WorkerSchedule = () => {
       </div>
     );
   }
+
+  // Type guard to ensure worker is not null
+  if (!worker) {
+    return (
+      <div className="py-8">
+        <ErrorMessage 
+          message="Worker not found" 
+          onRetry={() => id && loadWorker(parseInt(id))} 
+        />
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -245,6 +261,51 @@ const WorkerSchedule = () => {
             >
               View Profile
             </Link>
+          </div>
+        </div>
+      </div>
+      
+      {/* Worker Info */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Email</div>
+              <div className="font-medium text-gray-900">{worker.email}</div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Clock className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Phone</div>
+              <div className="font-medium text-gray-900">
+                {worker.phone || 'No phone number'}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <MapPin className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <div className="text-sm text-gray-500">Status</div>
+              <div className="font-medium text-gray-900">
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  worker.active 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {worker.active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -301,7 +362,23 @@ const WorkerSchedule = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Schedule List */}
         <div className="lg:col-span-3 space-y-4">
-          {assignmentsLoading ? (
+          {assignmentsError ? (
+            <div className="bg-white rounded-lg shadow p-12 text-center">
+              <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Error Loading Schedule
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {assignmentsError}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          ) : assignmentsLoading ? (
             <div className="bg-white rounded-lg shadow p-12 text-center">
               <LoadingSpinner message="Loading assignments..." />
             </div>

@@ -2,7 +2,8 @@ import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import type { ApiResponse, LoginCredentials, AuthUser } from '../types';
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+// Force local development URL for now
+const API_BASE_URL = '/assets/api/v1';
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -85,6 +86,17 @@ class ApiService {
 
   async updateWorker(id: number, data: any): Promise<ApiResponse> {
     const response = await apiClient.put(`/workers/${id}`, data);
+    return response.data;
+  }
+
+  // Worker Certifications
+  async addCertificationToWorker(workerId: number, data: any): Promise<ApiResponse> {
+    const response = await apiClient.post(`/workers/${workerId}/certifications`, data);
+    return response.data;
+  }
+
+  async removeCertificationFromWorker(workerId: number, certificationId: number): Promise<ApiResponse> {
+    const response = await apiClient.delete(`/workers/${workerId}/certifications/${certificationId}`);
     return response.data;
   }
 

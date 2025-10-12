@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getAssignments, updateAssignmentStatus as updateAssignmentStatusApi, deleteAssignment as deleteAssignmentApi } from '../services/assignmentsApi';
 import type { Assignment } from '../services/assignmentsApi';
 import type { AssignmentFilterParams } from '../types';
@@ -29,14 +29,15 @@ export function useAssignments(params?: UseAssignmentsParams): UseAssignmentsRet
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<AssignmentFilterParams>({});
 
+  // Memoize the merged params to prevent unnecessary re-renders
+  const mergedParams = useMemo(() => ({ ...filters, ...params }), [filters, params]);
+
   const fetchAssignments = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Merge params with filters
-      const queryParams = { ...filters, ...params };
-      const response = await getAssignments(queryParams);
+      const response = await getAssignments(mergedParams);
       
       if (response.status === 'success' && response.data?.assignments) {
         setAssignments(response.data.assignments);
@@ -84,7 +85,7 @@ export function useAssignments(params?: UseAssignmentsParams): UseAssignmentsRet
 
   useEffect(() => {
     fetchAssignments();
-  }, [filters, params]);
+  }, [mergedParams]);
 
   return {
     assignments,
