@@ -33,7 +33,7 @@ dist-ssr
 /vendor/bundle
 /public/packs
 /public/packs-test
-/public/assets
+# /public/assets  # Commented out to allow React build files to be committed
 /log/*
 !/log/.keep
 /tmp/*
