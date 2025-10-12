@@ -36,7 +36,13 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   # Serve React app for all non-API routes (Rails will handle static files automatically)
-  get "*path", to: "home#index", constraints: lambda { |req| !req.path.start_with?("/api") }
+  get "*path", to: "home#index", constraints: lambda { |req| 
+    !req.path.start_with?("/api") && 
+    !req.path.start_with?("/assets") &&
+    !req.path.start_with?("/favicon") &&
+    !req.path.start_with?("/robots") &&
+    !req.path.start_with?("/manifest")
+  }
 
   # Defines the root path route ("/")
   root "home#index"
