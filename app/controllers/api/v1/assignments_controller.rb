@@ -40,8 +40,9 @@ module Api
       end
       
       def create
-        shift = Shift.find(params[:shift_id])
-        worker = Worker.find(params[:worker_id])
+        assignment_params = params.require(:assignment).permit(:shift_id, :worker_id, :status)
+        shift = Shift.find(assignment_params[:shift_id])
+        worker = Worker.find(assignment_params[:worker_id])
         
         result = AssignWorkerToShift.call(shift, worker, current_user)
         

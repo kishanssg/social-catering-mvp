@@ -3,7 +3,7 @@ module Api
     class WorkersController < BaseController
       def index
         result = SearchWorkers.call(
-          params[:query],
+          params[:search] || params[:query],
           { 
             certification_id: params[:certification_id],
             available_for_shift_id: params[:available_for_shift_id]
@@ -65,6 +65,49 @@ module Api
           render_success({ worker: worker })
         else
           render_validation_errors(worker.errors.messages)
+        end
+      end
+      
+      # Add certification to worker
+      def add_certification
+        worker = Worker.find(params[:id])
+        certification = Certification.find(params[:certification_id])
+        
+        # Check if worker already has this certification
+        existing_cert = worker.worker_certifications.find_by(certification: certification)
+        if existing_cert
+          return render_error("Worker already has this certification", status: :unprocessable_entity)
+        end
+        
+        # Create worker certification
+        worker_certification = worker.worker_certifications.build(
+          certification: certification,
+          expires_at_utc: params[:expires_at_utc] || 1.year.from_now
+        )
+        
+        if worker_certification.save
+          render_success({
+            worker_certification: worker_certification.as_json(
+              include: {
+                certification: { only: [:id, :name] }
+              }
+            )
+          }, status: :created)
+        else
+          render_validation_errors(worker_certification.errors.messages)
+        end
+      end
+      
+      # Remove certification from worker
+      def remove_certification
+        worker = Worker.find(params[:id])
+        worker_certification = worker.worker_certifications.find_by(certification_id: params[:certification_id])
+        
+        if worker_certification
+          worker_certification.destroy
+          render_success({ message: "Certification removed from worker" })
+        else
+          render_error("Certification not found for this worker", status: :not_found)
         end
       end
       

@@ -9,6 +9,12 @@ module Api
         per_page = get_per_page
 
         scoped = ActivityLog.order(created_at_utc: :desc)
+        
+        # Apply filters
+        scoped = scoped.where(entity_type: params[:entity_type]) if params[:entity_type].present?
+        scoped = scoped.where(action: params[:log_action]) if params[:log_action].present?
+        scoped = scoped.where(actor_user_id: params[:actor_user_id]) if params[:actor_user_id].present?
+        
         total_count = scoped.count
         logs = scoped.limit(per_page).offset((page - 1) * per_page)
 
@@ -49,6 +55,10 @@ module Api
             entity_type: log.entity_type,
             entity_id: log.entity_id,
             actor_user_id: log.actor_user_id,
+            actor_user: log.actor_user_id ? {
+              id: log.actor_user_id,
+              email: log.actor_user&.email
+            } : nil,
             created_at: log.created_at_utc&.iso8601
           }
         end

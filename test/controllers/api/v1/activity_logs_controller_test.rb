@@ -25,6 +25,9 @@ class Api::V1::ActivityLogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should filter by entity type" do
+    # Clear existing activity logs to avoid fixture interference
+    ActivityLog.delete_all
+    
     # Create test activity logs
     ActivityLog.create!(
       actor_user_id: @admin.id,
@@ -57,6 +60,9 @@ class Api::V1::ActivityLogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should filter by action" do
+    # Clear existing activity logs to avoid fixture interference
+    ActivityLog.delete_all
+    
     # Create test activity logs
     ActivityLog.create!(
       actor_user_id: @admin.id,
@@ -90,6 +96,9 @@ class Api::V1::ActivityLogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should filter by actor user" do
+    # Clear existing activity logs to avoid fixture interference
+    ActivityLog.delete_all
+    
     other_admin = users(:two)
     
     # Create logs by different users
@@ -139,6 +148,9 @@ class Api::V1::ActivityLogsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should include actor user information" do
+    # Clear existing activity logs to avoid fixture interference
+    ActivityLog.delete_all
+    
     ActivityLog.create!(
       actor_user_id: @admin.id,
       entity_type: 'Shift',

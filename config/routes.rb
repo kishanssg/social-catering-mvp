@@ -16,7 +16,12 @@ Rails.application.routes.draw do
       post 'login', to: 'sessions#create'
       delete 'logout', to: 'sessions#destroy'
       
-      resources :workers, only: [:index, :show, :create, :update]
+      resources :workers, only: [:index, :show, :create, :update] do
+        member do
+          post 'certifications', to: 'workers#add_certification'
+          delete 'certifications/:certification_id', to: 'workers#remove_certification'
+        end
+      end
       resources :shifts, only: [:index, :show, :create, :update, :destroy]
       resources :assignments, only: [:index, :create, :update, :destroy]
       resources :certifications, only: [:index]
