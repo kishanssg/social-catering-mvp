@@ -1,0 +1,1 @@
+import{e as s}from"./index-CdyANOxy.js";const o=async e=>(await s.get("/workers",{params:{query:e?.search,status:void 0}})).data,n=async(e,r)=>(await s.post(`/workers/${e}/certifications`,r)).data,i=async(e,r)=>(await s.delete(`/workers/${e}/certifications/${r}`)).data;export{n as a,o as g,i as r};
