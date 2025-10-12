@@ -13,7 +13,6 @@
     "file": "AssignmentStatusBadge.js",
     "name": "AssignmentStatusBadge",
     "imports": [
-      "_api.js",
       "src/main.tsx"
     ]
   },
@@ -22,16 +21,14 @@
     "name": "BulkAssignModal",
     "imports": [
       "src/main.tsx",
-      "_shiftsApi.js",
-      "_workersApi.js",
-      "_api.js",
       "_ErrorMessage2.js",
       "_x.js",
       "_circle-alert.js",
       "_createLucideIcon.js",
-      "_clock.js",
+      "_chevron-right.js",
       "_users.js",
       "_calendar.js",
+      "_clock.js",
       "_format.js",
       "_parseISO.js"
     ]
@@ -94,13 +91,6 @@
       "src/main.tsx"
     ]
   },
-  "_api.js": {
-    "file": "api.js",
-    "name": "api",
-    "imports": [
-      "src/main.tsx"
-    ]
-  },
   "_briefcase.js": {
     "file": "briefcase.js",
     "name": "briefcase",
@@ -111,6 +101,13 @@
   "_calendar.js": {
     "file": "calendar.js",
     "name": "calendar",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_chevron-right.js": {
+    "file": "chevron-right.js",
+    "name": "chevron-right",
     "imports": [
       "_createLucideIcon.js"
     ]
@@ -139,6 +136,14 @@
   "_format.js": {
     "file": "format.js",
     "name": "format"
+  },
+  "_funnel.js": {
+    "file": "funnel.js",
+    "name": "funnel",
+    "imports": [
+      "_format.js",
+      "_createLucideIcon.js"
+    ]
   },
   "_map-pin.js": {
     "file": "map-pin.js",
@@ -173,7 +178,14 @@
     "file": "shiftsApi.js",
     "name": "shiftsApi",
     "imports": [
-      "_api.js"
+      "src/main.tsx"
+    ]
+  },
+  "_trash-2.js": {
+    "file": "trash-2.js",
+    "name": "trash-2",
+    "imports": [
+      "_createLucideIcon.js"
     ]
   },
   "_useAssignments.js": {
@@ -217,7 +229,7 @@
     "file": "workersApi.js",
     "name": "workersApi",
     "imports": [
-      "_api.js"
+      "src/main.tsx"
     ]
   },
   "_x.js": {
@@ -241,10 +253,31 @@
       "src/pages/ShiftForm.tsx",
       "src/pages/AssignmentsList.tsx",
       "src/pages/WorkerSchedule.tsx",
-      "src/pages/CalendarView.tsx"
+      "src/pages/CalendarView.tsx",
+      "src/pages/ActivityLogsPage.tsx"
     ],
     "css": [
       "application.css"
+    ]
+  },
+  "src/pages/ActivityLogsPage.tsx": {
+    "file": "ActivityLogsPage.js",
+    "name": "ActivityLogsPage",
+    "src": "src/pages/ActivityLogsPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_ErrorMessage2.js",
+      "_funnel.js",
+      "_calendar.js",
+      "_createLucideIcon.js",
+      "_clock.js",
+      "_trash-2.js",
+      "_plus.js",
+      "_user.js",
+      "_format.js",
+      "_parseISO.js",
+      "_circle-alert.js"
     ]
   },
   "src/pages/AssignmentsList.tsx": {
@@ -268,9 +301,7 @@
       "_x.js",
       "_format.js",
       "_parseISO.js",
-      "_api.js",
-      "_shiftsApi.js",
-      "_workersApi.js"
+      "_chevron-right.js"
     ]
   },
   "src/pages/CalendarView.tsx": {
@@ -289,9 +320,9 @@
       "_users.js",
       "_user-plus.js",
       "_plus.js",
+      "_chevron-right.js",
       "_calendar.js",
       "_shiftsApi.js",
-      "_api.js",
       "_createLucideIcon.js"
     ]
   },
@@ -329,7 +360,6 @@
       "_DocumentTextIcon.js",
       "_format.js",
       "_parseISO.js",
-      "_api.js",
       "_workersApi.js"
     ]
   },
@@ -343,8 +373,7 @@
       "_shiftsApi.js",
       "_DocumentTextIcon.js",
       "_UsersIcon.js",
-      "_MapPinIcon.js",
-      "_api.js"
+      "_MapPinIcon.js"
     ]
   },
   "src/pages/ShiftsList.tsx": {
@@ -363,15 +392,15 @@
       "_format.js",
       "_parseISO.js",
       "_shiftsApi.js",
-      "_api.js",
       "_workersApi.js",
       "_ErrorMessage2.js",
       "_circle-alert.js",
       "_createLucideIcon.js",
       "_x.js",
-      "_clock.js",
+      "_chevron-right.js",
       "_users.js",
-      "_calendar.js"
+      "_calendar.js",
+      "_clock.js"
     ]
   },
   "src/pages/WorkerDetail.tsx": {
@@ -382,11 +411,11 @@
     "imports": [
       "src/main.tsx",
       "_workersApi.js",
-      "_api.js",
       "_LoadingSpinner.js",
       "_ErrorMessage.js",
       "_createLucideIcon.js",
       "_calendar.js",
+      "_trash-2.js",
       "_user.js",
       "_phone.js",
       "_briefcase.js",
@@ -403,18 +432,18 @@
     "isDynamicEntry": true,
     "imports": [
       "src/main.tsx",
-      "_workersApi.js",
       "_useAssignments.js",
       "_AssignmentStatusBadge.js",
       "_ErrorMessage2.js",
       "_format.js",
       "_map-pin.js",
       "_createLucideIcon.js",
-      "_clock.js",
       "_calendar.js",
+      "_clock.js",
+      "_chevron-right.js",
+      "_funnel.js",
       "_circle-alert.js",
-      "_parseISO.js",
-      "_api.js"
+      "_parseISO.js"
     ]
   },
   "src/pages/WorkersPage.tsx": {
@@ -433,12 +462,10 @@
       "_BulkAssignModal.js",
       "_users.js",
       "_createLucideIcon.js",
-      "_shiftsApi.js",
-      "_api.js",
-      "_workersApi.js",
       "_ErrorMessage2.js",
       "_circle-alert.js",
       "_x.js",
+      "_chevron-right.js",
       "_clock.js"
     ]
   }

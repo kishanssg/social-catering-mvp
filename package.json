@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Social Catering MVP - Rails + React",
   "scripts": {
-    "build": "cd social-catering-ui && npm install && npm run build"
+    "build": "cd social-catering-ui && npm ci && npm run build"
   },
   "engines": {
     "node": "18.x",

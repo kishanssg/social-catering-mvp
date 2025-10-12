@@ -1,2 +1,2 @@
-import{b as s}from"./api.js";const o=async e=>(await s.get("/workers",{params:{query:e?.search,status:void 0}})).data,n=async e=>(await s.get(`/workers/${e}`)).data,i=async(e,r)=>(await s.post(`/workers/${e}/certifications`,r)).data,c=async(e,r)=>(await s.delete(`/workers/${e}/certifications/${r}`)).data;export{i as a,o as b,n as g,c as r};
+import{g as s}from"./application.js";const o=async r=>(await s.get("/workers",{params:{query:r?.search,status:void 0}})).data,n=async(r,e)=>(await s.post(`/workers/${r}/certifications`,e)).data,i=async(r,e)=>(await s.delete(`/workers/${r}/certifications/${e}`)).data;export{n as a,o as g,i as r};
 //# sourceMappingURL=workersApi.js.map
