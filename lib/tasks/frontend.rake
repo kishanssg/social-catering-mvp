@@ -2,44 +2,10 @@
 namespace :frontend do
   desc "Build React frontend into Rails asset pipeline"
   task :build do
-    puts "🏗️  Building React frontend into Rails asset pipeline..."
-
-    # Check if pre-built assets exist
-    if File.exist?(Rails.root.join("app/assets/builds/application.js")) && 
-       File.exist?(Rails.root.join("app/assets/builds/application.css"))
-      puts "✅ Using pre-built React frontend assets"
-      next
-    end
-
-    # Try different npm paths
-    npm_paths = [
-      "/usr/local/bin/npm",
-      "/app/.heroku/node/bin/npm", 
-      "npm"
-    ]
-    
-    npm_path = nil
-    npm_paths.each do |path|
-      if system("which #{path} > /dev/null 2>&1")
-        npm_path = path
-        break
-      end
-    end
-    
-    if npm_path.nil?
-      puts "❌ ERROR: npm not found in any expected location"
-      exit 1
-    end
-    
-    puts "📦 Using npm at: #{npm_path}"
-
-    # Build React app
-    success = system("cd social-catering-ui && #{npm_path} run build")
-    
-    unless success
-      puts "❌ ERROR: React build failed"
-      exit 1
-    end
+    puts "🏗️  Skipping React build - using pre-built static assets from public/assets/"
+    puts "✅ React frontend is served as static files"
+    # No build needed - we're serving pre-built files from public/assets/
+    next
 
     # Verify build files exist
     unless File.exist?(Rails.root.join("app/assets/builds/application.js"))
