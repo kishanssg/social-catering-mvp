@@ -4,8 +4,17 @@ namespace :frontend do
   task :build do
     puts "🏗️  Building React frontend into Rails asset pipeline..."
 
+    # Find npm path
+    npm_path = `which npm`.strip
+    puts "📦 Using npm at: #{npm_path}"
+
     # Build React app
-    system("cd social-catering-ui && npm run build")
+    success = system("cd social-catering-ui && #{npm_path} run build")
+    
+    unless success
+      puts "❌ ERROR: React build failed"
+      exit 1
+    end
 
     # Verify build files exist
     unless File.exist?(Rails.root.join("app/assets/builds/application.js"))
