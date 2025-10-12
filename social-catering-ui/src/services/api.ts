@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
     // Handle common errors
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
-      window.location.href = '/login';
+      window.location.href = '/assets/login';
     }
     
     return Promise.reject(error);
@@ -46,12 +46,12 @@ apiClient.interceptors.response.use(
 class ApiService {
   // Auth endpoints
   async login(credentials: LoginCredentials): Promise<ApiResponse<AuthUser>> {
-    const response = await apiClient.post('/users/sign_in', { user: credentials });
+    const response = await apiClient.post('/login', { user: credentials });
     return response.data;
   }
 
   async logout(): Promise<ApiResponse> {
-    const response = await apiClient.delete('/users/sign_out');
+    const response = await apiClient.delete('/logout');
     return response.data;
   }
 

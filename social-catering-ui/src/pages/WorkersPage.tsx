@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useWorkers, type Worker } from '../hooks/useWorkers'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 import { WorkerFilters } from '../components/Workers/WorkerFilters'
 import { WorkerTable } from '../components/Workers/WorkerTable'
 import { WorkerForm as WorkerFormNew } from '../components/Workers/WorkerFormNew'
@@ -17,7 +17,17 @@ import { Users } from 'lucide-react'
 export function WorkersPage() {
   // Filters
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300)
+    
+    return () => clearTimeout(timer)
+  }, [search])
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -38,7 +48,16 @@ export function WorkersPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   // Fetch Workers
-  const { workers, isLoading, error, refetch } = useWorkers({ search, status })
+  const { workers, isLoading, error, refetch } = useWorkers({ search: debouncedSearch, status })
+
+  // Memoized statistics calculations
+  const stats = useMemo(() => {
+    const total = workers.length
+    const active = workers.filter(w => w.active).length
+    const inactive = workers.filter(w => !w.active).length
+    
+    return { total, active, inactive }
+  }, [workers])
 
   // Handlers
   const handleAddClick = () => {
@@ -63,7 +82,7 @@ export function WorkersPage() {
       setIsSubmitting(true)
       setFormError(null)
       
-      await api.createWorker(data)
+      await apiService.createWorker(data)
       
       setIsAddModalOpen(false)
       refetch()
@@ -84,7 +103,7 @@ export function WorkersPage() {
       setIsSubmitting(true)
       setFormError(null)
       
-      await api.updateWorker(selectedWorker.id, data)
+      await apiService.updateWorker(selectedWorker.id, data)
       
       setIsEditModalOpen(false)
       refetch()
@@ -104,7 +123,7 @@ export function WorkersPage() {
     try {
       setIsDeleting(true)
       
-      await api.deleteWorker(selectedWorker.id)
+      await apiService.updateWorker(selectedWorker.id, { active: false })
       
       setIsDeleteModalOpen(false)
       setSelectedWorker(null)
@@ -144,7 +163,7 @@ export function WorkersPage() {
         {/* Bulk Assign Button */}
         <button
           onClick={() => setShowBulkAssignModal(true)}
-          className="btn-primary flex items-center gap-2"
+          className="btn-green flex items-center gap-2"
         >
           <Users className="h-4 w-4" />
           Bulk Assign
@@ -157,7 +176,7 @@ export function WorkersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Workers</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{workers.length}</p>
+              <p className="mt-2 text-3xl font-bold text-gray-900">{stats.total}</p>
             </div>
             <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,7 +196,7 @@ export function WorkersPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Active</p>
               <p className="mt-2 text-3xl font-bold text-green-600">
-                {workers.filter((w) => w.active).length}
+                {stats.active}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-green-50 text-green-600">
@@ -198,7 +217,7 @@ export function WorkersPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Inactive</p>
               <p className="mt-2 text-3xl font-bold text-gray-600">
-                {workers.filter((w) => !w.active).length}
+                {stats.inactive}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-gray-50 text-gray-600">

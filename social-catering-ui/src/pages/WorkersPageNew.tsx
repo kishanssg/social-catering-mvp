@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWorkers, type Worker } from '../hooks/useWorkers'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 import { WorkerFilters } from '../components/Workers/WorkerFilters'
 import { WorkerTable } from '../components/Workers/WorkerTable'
 import { WorkerForm as WorkerFormNew } from '../components/Workers/WorkerFormNew'
@@ -56,7 +56,7 @@ export function WorkersPage() {
       setIsSubmitting(true)
       setFormError(null)
       
-      await api.createWorker(data)
+      await apiService.createWorker(data)
       
       setIsAddModalOpen(false)
       refetch()
@@ -75,7 +75,7 @@ export function WorkersPage() {
       setIsSubmitting(true)
       setFormError(null)
       
-      await api.updateWorker(selectedWorker.id, data)
+      await apiService.updateWorker(selectedWorker.id, data)
       
       setIsEditModalOpen(false)
       refetch()
@@ -93,7 +93,7 @@ export function WorkersPage() {
     try {
       setIsDeleting(true)
       
-      await api.deleteWorker(selectedWorker.id)
+      await apiService.updateWorker(selectedWorker.id, { active: false })
       
       setIsDeleteModalOpen(false)
       setSelectedWorker(null)

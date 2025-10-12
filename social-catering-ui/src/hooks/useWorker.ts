@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 import type { Worker } from './useWorkers'
 
 interface UseWorkerReturn {
@@ -19,7 +19,7 @@ export function useWorker(id: number): UseWorkerReturn {
       setIsLoading(true)
       setError(null)
       
-      const response = await api.getWorker(id)
+      const response = await apiService.getWorker(id)
       
       if (response.status === 'success') {
         setWorker(response.data)

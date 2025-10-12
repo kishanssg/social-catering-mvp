@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 import type { User } from '../types/api'
 
 interface AuthContextType {
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null)
       setIsLoading(true)
-      const response = await api.login(email, password)
+      const response = await apiService.login({ email, password })
       if (response.status === 'success') {
         setUser(response.data.user)
         localStorage.setItem('user', JSON.stringify(response.data.user))
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await api.logout()
+      await apiService.logout()
     } catch (err) {
       console.error('Logout error:', err)
     } finally {

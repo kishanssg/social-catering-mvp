@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useShifts } from '../hooks/useShifts'
 import AssignWorkerModal from '../components/AssignWorkerModal'
@@ -18,11 +18,21 @@ import {
 
 export default function ShiftsList() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [quickAssignShift, setQuickAssignShift] = useState<Shift | null>(null)
   const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+    
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const { shifts, loading, error, refetch } = useShifts({
     status: statusFilter || undefined,
@@ -31,8 +41,8 @@ export default function ShiftsList() {
   })
 
   const filteredShifts = shifts.filter((shift) =>
-    shift.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    shift.role_needed.toLowerCase().includes(searchTerm.toLowerCase())
+    shift.client_name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+    shift.role_needed.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
   )
 
   const uniqueRoles = Array.from(new Set(shifts.map((s) => s.role_needed)))
@@ -89,7 +99,7 @@ export default function ShiftsList() {
           {/* Bulk Assign Button */}
           <button
             onClick={() => setShowBulkAssignModal(true)}
-            className="btn-primary flex items-center gap-2"
+            className="btn-green flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
             Bulk Assign
@@ -154,10 +164,10 @@ export default function ShiftsList() {
           />
         </div>
 
-        {(searchTerm || statusFilter || roleFilter || dateFilter) && (
+        {(debouncedSearchTerm || statusFilter || roleFilter || dateFilter) && (
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="text-gray-500">Active filters:</span>
-            {searchTerm && <span className="bg-gray-100 px-2 py-1 rounded">Search: "{searchTerm}"</span>}
+            {debouncedSearchTerm && <span className="bg-gray-100 px-2 py-1 rounded">Search: "{debouncedSearchTerm}"</span>}
             {statusFilter && <span className="bg-gray-100 px-2 py-1 rounded">Status: {statusFilter}</span>}
             {roleFilter && <span className="bg-gray-100 px-2 py-1 rounded">Role: {roleFilter}</span>}
             {dateFilter && (

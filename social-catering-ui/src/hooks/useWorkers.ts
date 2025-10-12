@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 
 export interface Certification {
   id: number
@@ -46,7 +46,7 @@ export function useWorkers(params: UseWorkersParams = {}): UseWorkersReturn {
       setIsLoading(true)
       setError(null)
       
-      const response = await api.getWorkers(params)
+      const response = await apiService.getWorkers(params)
       
       if (response.status === 'success') {
         setWorkers(response.data.workers)

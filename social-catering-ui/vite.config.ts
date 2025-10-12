@@ -28,16 +28,17 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/api': {
+      '/assets/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '/api')
+        rewrite: (path) => path.replace(/^\/assets\/api/, '/api')
       },
-      '/healthz': {
+      '/assets/healthz': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path.replace(/^\/assets\/healthz/, '/healthz')
       }
     }
   }

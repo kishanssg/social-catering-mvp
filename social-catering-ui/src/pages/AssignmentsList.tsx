@@ -143,7 +143,7 @@ const AssignmentsList = () => {
           {/* Bulk Assign Button */}
           <button
             onClick={() => setShowBulkAssignModal(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            className="btn-green flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
             Bulk Assign

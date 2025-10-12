@@ -155,7 +155,7 @@ export default function ShiftDetail() {
               {assignedCount} of {shift.capacity} workers assigned. Need {shift.capacity - assignedCount} more {shift.capacity - assignedCount === 1 ? 'worker' : 'workers'}.
             </p>
           </div>
-          <button onClick={() => setShowAssignModal(true)} className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center gap-2">
+          <button onClick={() => setShowAssignModal(true)} className="btn-green flex items-center gap-2">
             <UserPlus className="h-4 w-4" /> Assign Worker
           </button>
         </div>

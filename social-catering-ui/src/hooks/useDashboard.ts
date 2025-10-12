@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { api } from '../lib/api'
+import { apiService } from '../services/api'
 
 interface ShiftCounts {
   draft: number
@@ -57,7 +57,7 @@ export function useDashboard(): UseDashboardReturn {
       setIsLoading(true)
       setError(null)
       
-      const response = await api.dashboard()
+      const response = await apiService.getDashboard()
       
       if (response.status === 'success') {
         setData(response.data)
