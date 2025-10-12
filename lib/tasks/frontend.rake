@@ -4,8 +4,33 @@ namespace :frontend do
   task :build do
     puts "🏗️  Building React frontend into Rails asset pipeline..."
 
-    # Find npm path
-    npm_path = `which npm`.strip
+    # Check if pre-built assets exist
+    if File.exist?(Rails.root.join("app/assets/builds/application.js")) && 
+       File.exist?(Rails.root.join("app/assets/builds/application.css"))
+      puts "✅ Using pre-built React frontend assets"
+      return
+    end
+
+    # Try different npm paths
+    npm_paths = [
+      "/usr/local/bin/npm",
+      "/app/.heroku/node/bin/npm", 
+      "npm"
+    ]
+    
+    npm_path = nil
+    npm_paths.each do |path|
+      if system("which #{path} > /dev/null 2>&1")
+        npm_path = path
+        break
+      end
+    end
+    
+    if npm_path.nil?
+      puts "❌ ERROR: npm not found in any expected location"
+      exit 1
+    end
+    
     puts "📦 Using npm at: #{npm_path}"
 
     # Build React app
