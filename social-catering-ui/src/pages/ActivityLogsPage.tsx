@@ -6,7 +6,7 @@ import {
 import { useActivityLogs } from '../hooks/useActivityLogs';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import { format, parseISO, startOfDay, endOfDay, subDays, addDays } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
 
 const ActivityLogsPage = () => {
   const [filters, setFilters] = useState({
@@ -17,7 +17,7 @@ const ActivityLogsPage = () => {
     per_page: 20,
     date_from: '',
     date_to: '',
-    date_preset: '', // 'today', 'yesterday', 'tomorrow', 'custom'
+    date_preset: '', // 'today', 'yesterday', 'this_week', 'last_week', 'custom'
   });
 
   const { logs, loading, error, pagination, refetch } = useActivityLogs(filters);
@@ -37,12 +37,6 @@ const ActivityLogsPage = () => {
         return {
           date_from: format(startOfDay(yesterday), 'yyyy-MM-dd'),
           date_to: format(endOfDay(yesterday), 'yyyy-MM-dd'),
-        };
-      case 'tomorrow':
-        const tomorrow = addDays(today, 1);
-        return {
-          date_from: format(startOfDay(tomorrow), 'yyyy-MM-dd'),
-          date_to: format(endOfDay(tomorrow), 'yyyy-MM-dd'),
         };
       case 'this_week':
         const startOfWeek = subDays(today, today.getDay());
@@ -241,7 +235,6 @@ const ActivityLogsPage = () => {
               <option value="">All Time</option>
               <option value="today">Today</option>
               <option value="yesterday">Yesterday</option>
-              <option value="tomorrow">Tomorrow</option>
               <option value="this_week">This Week</option>
               <option value="last_week">Last Week</option>
               <option value="custom">Custom Range</option>
