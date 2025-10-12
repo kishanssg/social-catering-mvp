@@ -38,7 +38,7 @@ export default function AssignWorkerModal({ shift, onClose, onSuccess }: AssignW
     try {
       const response = await getWorkers()
       const assignedWorkerIds = shift.assignments?.map((a) => a.worker_id) || []
-      const availableWorkers = response.data.filter((w) => w.active && !assignedWorkerIds.includes(w.id))
+      const availableWorkers = response.data.workers.filter((w) => w.active && !assignedWorkerIds.includes(w.id))
       setWorkers(availableWorkers)
       setFilteredWorkers(availableWorkers)
     } catch (err) {
@@ -71,14 +71,14 @@ export default function AssignWorkerModal({ shift, onClose, onSuccess }: AssignW
   }
 
   const hasRequiredCertification = (worker: Worker) => {
-    if (!shift.required_certification_id) return true
+    if (!shift.required_cert_id) return true
     const certs = worker.worker_certifications || worker.certifications || []
     return (
       certs.some((cert: any) => {
         const certificationId = cert.certification_id ?? cert.id
         const expiresAt = cert.expires_at_utc
         return (
-          certificationId === shift.required_certification_id &&
+          certificationId === shift.required_cert_id &&
           expiresAt &&
           new Date(expiresAt) > new Date(shift.end_time_utc)
         )

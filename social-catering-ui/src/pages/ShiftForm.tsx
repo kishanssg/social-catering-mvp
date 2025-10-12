@@ -44,7 +44,7 @@ export default function ShiftForm() {
   const loadShift = async (shiftId: number) => {
     try {
       const response = await getShift(shiftId)
-      const shift = response.data
+      const shift = response.data.shift
 
       const startDate = new Date(shift.start_time_utc)
       const endDate = new Date(shift.end_time_utc)
@@ -89,7 +89,7 @@ export default function ShiftForm() {
         location: formData.location || undefined,
         pay_rate: formData.pay_rate ? parseFloat(formData.pay_rate) : undefined,
         notes: formData.notes || undefined,
-        status: formData.status as 'draft' | 'published' | 'filled' | 'completed' | 'cancelled',
+        status: formData.status as 'draft' | 'published' | 'assigned' | 'completed' | 'cancelled',
       }
 
       if (isEditMode && id) {
@@ -319,7 +319,7 @@ export default function ShiftForm() {
                 >
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
-                  <option value="filled">Filled</option>
+                  <option value="assigned">Assigned</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>

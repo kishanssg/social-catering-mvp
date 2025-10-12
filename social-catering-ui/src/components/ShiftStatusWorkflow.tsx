@@ -14,8 +14,8 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
 
   const statusFlow: Record<string, { next: string | null; label: string; canProgress: boolean }> = {
     draft: { next: 'published', label: 'Publish Shift', canProgress: true },
-    published: { next: 'filled', label: 'Mark as Filled', canProgress: false },
-    filled: { next: 'completed', label: 'Mark as Completed', canProgress: true },
+    published: { next: 'assigned', label: 'Mark as Assigned', canProgress: false },
+    assigned: { next: 'completed', label: 'Mark as Completed', canProgress: true },
     completed: { next: null, label: 'Completed', canProgress: false },
     cancelled: { next: null, label: 'Cancelled', canProgress: false },
   }
@@ -24,9 +24,9 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
   const assignedCount = shift.assignments?.length || 0
   const isFullyStaffed = assignedCount >= shift.capacity
 
-  const canTransitionToFilled = shift.status === 'published' && isFullyStaffed
-  const nextStatus = canTransitionToFilled ? 'filled' : currentFlow?.next
-  const nextLabel = canTransitionToFilled ? 'Mark as Filled' : currentFlow?.label
+  const canTransitionToAssigned = shift.status === 'published' && isFullyStaffed
+  const nextStatus = canTransitionToAssigned ? 'assigned' : currentFlow?.next
+  const nextLabel = canTransitionToAssigned ? 'Mark as Assigned' : currentFlow?.label
 
   const handleStatusChange = async (newStatus: string) => {
     setUpdating(true)
@@ -68,8 +68,8 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
       </div>
 
       <div className="space-y-2">
-        {(['draft', 'published', 'filled', 'completed'] as const).map((status, index) => {
-          const order = ['draft', 'published', 'filled', 'completed']
+        {(['draft', 'published', 'assigned', 'completed'] as const).map((status, index) => {
+          const order = ['draft', 'published', 'assigned', 'completed']
           const isActive = shift.status === status
           const isPast = order.indexOf(shift.status) > index
           const isCancelled = shift.status === 'cancelled'
@@ -111,7 +111,7 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
             <button
               onClick={() => handleStatusChange(nextStatus)}
               disabled={
-                updating || (shift.status === 'published' && !isFullyStaffed && !canTransitionToFilled)
+                updating || (shift.status === 'published' && !isFullyStaffed && !canTransitionToAssigned)
               }
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

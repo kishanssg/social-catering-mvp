@@ -18,6 +18,12 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
   
   const assignments = shift.assignments || [];
+  const workers = shift.workers || [];
+  
+  // Helper function to get worker info for an assignment
+  const getWorkerForAssignment = (assignment: any) => {
+    return workers.find(worker => worker.id === assignment.worker_id);
+  };
   const assignedCount = assignments.length;
   const capacity = shift.capacity;
   const needsMoreWorkers = assignedCount < capacity;
@@ -130,40 +136,40 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
                     {/* Avatar */}
                     <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                       <span className="text-blue-600 font-medium">
-                        {assignment.worker.first_name[0]}{assignment.worker.last_name[0]}
+                        {getWorkerForAssignment(assignment)?.first_name[0] || '?'}{getWorkerForAssignment(assignment)?.last_name[0] || '?'}
                       </span>
                     </div>
                     
                     {/* Worker Info */}
                     <div className="flex-1 min-w-0">
                       <Link
-                        to={`/workers/${assignment.worker.id}`}
+                        to={`/workers/${assignment.worker_id}`}
                         className="font-medium text-gray-900 hover:text-blue-600"
                       >
-                        {assignment.worker.first_name} {assignment.worker.last_name}
+                        {getWorkerForAssignment(assignment)?.first_name || 'Unknown'} {getWorkerForAssignment(assignment)?.last_name || 'Worker'}
                       </Link>
                       
                       <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600">
-                        {assignment.worker.email && (
+                        {getWorkerForAssignment(assignment)?.email && (
                           <div className="flex items-center gap-1">
                             <Mail className="h-4 w-4" />
                             <a
-                              href={`mailto:${assignment.worker.email}`}
+                              href={`mailto:${getWorkerForAssignment(assignment)?.email}`}
                               className="hover:text-blue-600"
                             >
-                              {assignment.worker.email}
+                              {getWorkerForAssignment(assignment)?.email}
                             </a>
                           </div>
                         )}
                         
-                        {assignment.worker.phone && (
+                        {getWorkerForAssignment(assignment)?.phone && (
                           <div className="flex items-center gap-1">
                             <Phone className="h-4 w-4" />
                             <a
-                              href={`tel:${assignment.worker.phone}`}
+                              href={`tel:${getWorkerForAssignment(assignment)?.phone}`}
                               className="hover:text-blue-600"
                             >
-                              {assignment.worker.phone}
+                              {getWorkerForAssignment(assignment)?.phone}
                             </a>
                           </div>
                         )}

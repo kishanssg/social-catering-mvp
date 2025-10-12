@@ -34,8 +34,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null)
       setIsLoading(true)
-      const response = await apiService.login({ email, password })
-      if (response.status === 'success') {
+      const response = await apiService.login({ email, password }) as any
+      if (response.status === 'success' && response.data) {
         setUser(response.data.user)
         localStorage.setItem('user', JSON.stringify(response.data.user))
       }

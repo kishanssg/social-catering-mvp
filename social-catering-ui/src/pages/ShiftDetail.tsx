@@ -39,7 +39,7 @@ export default function ShiftDetail() {
     try {
       setLoading(true)
       const response = await getShift(shiftId)
-      setShift(response.data)
+      setShift(response.data.shift)
     } catch (err) {
       setError('Failed to load shift')
       // eslint-disable-next-line no-console
@@ -110,8 +110,13 @@ export default function ShiftDetail() {
 
   if (!shift) return null
 
-  const assignedCount = shift.assignments?.length || 0
+  const assignedCount = shift.assigned_count || shift.assignments?.length || 0
   const needsMoreWorkers = assignedCount < shift.capacity
+  
+  // Calculate effective staffing based on completed assignments only
+  const completedAssignments = shift.assignments?.filter(a => a.status === 'completed').length || 0
+  const effectiveStaffingPercentage = Math.round((completedAssignments / shift.capacity) * 100)
+  const isEffectivelyStaffed = completedAssignments >= shift.capacity
 
   return (
     <div className="space-y-6">
@@ -253,14 +258,32 @@ export default function ShiftDetail() {
               </div>
               <div>
                 <div className="text-sm text-gray-500">Remaining</div>
-                <div className="text-2xl font-bold text-yellow-600">{Math.max(0, shift.capacity - assignedCount)}</div>
+                <div className="text-2xl font-bold text-yellow-600">{Math.max(0, shift.capacity - completedAssignments)}</div>
               </div>
               <div className="pt-4 border-t">
                 <div className="text-sm text-gray-500 mb-2">Staffing Progress</div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${(assignedCount / shift.capacity) * 100}%` }} />
+                  <div 
+                    className={`h-2 rounded-full transition-all ${
+                      isEffectivelyStaffed ? 'bg-green-600' : 
+                      effectiveStaffingPercentage >= 50 ? 'bg-yellow-600' : 'bg-red-600'
+                    }`} 
+                    style={{ width: `${Math.min(effectiveStaffingPercentage, 100)}%` }} 
+                  />
                 </div>
-                <div className="text-xs text-gray-500 mt-1 text-right">{Math.round((assignedCount / shift.capacity) * 100)}% staffed</div>
+                <div className="text-xs text-gray-500 mt-1 text-right">
+                  {effectiveStaffingPercentage}% staffed
+                  {completedAssignments < shift.capacity && (
+                    <span className="text-red-600 ml-2">
+                      ({shift.capacity - completedAssignments} more needed)
+                    </span>
+                  )}
+                  {assignedCount > completedAssignments && (
+                    <div className="text-xs text-orange-600 mt-1">
+                      ({assignedCount - completedAssignments} no-show{assignedCount - completedAssignments !== 1 ? 's' : ''})
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

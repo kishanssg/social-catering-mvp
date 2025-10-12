@@ -3,15 +3,8 @@ import api from './api'
 export interface Assignment {
   id: number
   worker_id: number
-  shift_id: number
+  assigned_at_utc: string
   status: 'assigned' | 'completed' | 'no_show' | 'cancelled'
-  worker: {
-    id: number
-    first_name: string
-    last_name: string
-    email: string
-    phone?: string
-  }
 }
 
 export interface Shift {
@@ -21,16 +14,28 @@ export interface Shift {
   start_time_utc: string
   end_time_utc: string
   capacity: number
-  status: 'draft' | 'published' | 'filled' | 'completed' | 'cancelled'
-  required_certification_id?: number
+  status: 'draft' | 'published' | 'assigned' | 'completed' | 'cancelled'
+  required_cert_id?: number
   required_certification?: {
     id: number
     name: string
   }
   location?: string
   notes?: string
-  pay_rate?: number
+  pay_rate?: string | number
   assignments?: Assignment[]
+  workers?: Array<{
+    id: number
+    first_name: string
+    last_name: string
+  }>
+  assigned_count?: number
+  available_slots?: number
+  created_by_id?: number
+  created_by?: {
+    id: number
+    email: string
+  }
   created_at: string
   updated_at: string
 }

@@ -1,5 +1,5 @@
 interface ShiftStatusBadgeProps {
-  status: 'draft' | 'published' | 'filled' | 'completed' | 'cancelled'
+  status: 'draft' | 'published' | 'assigned' | 'completed' | 'cancelled'
 }
 
 const ShiftStatusBadge = ({ status }: ShiftStatusBadgeProps) => {
@@ -9,7 +9,7 @@ const ShiftStatusBadge = ({ status }: ShiftStatusBadgeProps) => {
         return 'bg-gray-100 text-gray-700'
       case 'published':
         return 'bg-blue-100 text-blue-700'
-      case 'filled':
+      case 'assigned':
         return 'bg-green-100 text-green-700'
       case 'completed':
         return 'bg-purple-100 text-purple-700'

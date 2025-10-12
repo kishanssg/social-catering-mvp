@@ -137,7 +137,7 @@ export default function ShiftsList() {
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
             <option value="published">Published</option>
-            <option value="filled">Filled</option>
+            <option value="assigned">Assigned</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
