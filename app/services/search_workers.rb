@@ -5,7 +5,7 @@ class SearchWorkers < ApplicationService
   end
   
   def call
-    workers = Worker.active
+    workers = Worker.all
     
     # Apply search if query present
     if @query.present?
