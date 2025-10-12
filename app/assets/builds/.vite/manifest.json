@@ -1,11 +1,445 @@
 {
+  "_AssignWorkerModal.js": {
+    "file": "AssignWorkerModal.js",
+    "name": "AssignWorkerModal",
+    "imports": [
+      "src/main.tsx",
+      "_workersApi.js",
+      "_shiftsApi.js",
+      "_MapPinIcon.js"
+    ]
+  },
+  "_AssignmentStatusBadge.js": {
+    "file": "AssignmentStatusBadge.js",
+    "name": "AssignmentStatusBadge",
+    "imports": [
+      "_api.js",
+      "src/main.tsx"
+    ]
+  },
+  "_BulkAssignModal.js": {
+    "file": "BulkAssignModal.js",
+    "name": "BulkAssignModal",
+    "imports": [
+      "src/main.tsx",
+      "_shiftsApi.js",
+      "_workersApi.js",
+      "_api.js",
+      "_ErrorMessage2.js",
+      "_x.js",
+      "_circle-alert.js",
+      "_createLucideIcon.js",
+      "_clock.js",
+      "_users.js",
+      "_calendar.js",
+      "_format.js",
+      "_parseISO.js"
+    ]
+  },
+  "_DocumentTextIcon.js": {
+    "file": "DocumentTextIcon.js",
+    "name": "DocumentTextIcon",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_EmptyState.js": {
+    "file": "EmptyState.js",
+    "name": "EmptyState",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_ErrorMessage.js": {
+    "file": "ErrorMessage.js",
+    "name": "ErrorMessage",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_ErrorMessage2.js": {
+    "file": "ErrorMessage2.js",
+    "name": "ErrorMessage",
+    "imports": [
+      "src/main.tsx",
+      "_circle-alert.js",
+      "_createLucideIcon.js"
+    ]
+  },
+  "_LoadingSpinner.js": {
+    "file": "LoadingSpinner.js",
+    "name": "LoadingSpinner",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_MapPinIcon.js": {
+    "file": "MapPinIcon.js",
+    "name": "MapPinIcon",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_ShiftStatusBadge.js": {
+    "file": "ShiftStatusBadge.js",
+    "name": "ShiftStatusBadge",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_UsersIcon.js": {
+    "file": "UsersIcon.js",
+    "name": "UsersIcon",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_api.js": {
+    "file": "api.js",
+    "name": "api",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_briefcase.js": {
+    "file": "briefcase.js",
+    "name": "briefcase",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_calendar.js": {
+    "file": "calendar.js",
+    "name": "calendar",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_circle-alert.js": {
+    "file": "circle-alert.js",
+    "name": "circle-alert",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_clock.js": {
+    "file": "clock.js",
+    "name": "clock",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_createLucideIcon.js": {
+    "file": "createLucideIcon.js",
+    "name": "createLucideIcon",
+    "imports": [
+      "src/main.tsx"
+    ]
+  },
+  "_format.js": {
+    "file": "format.js",
+    "name": "format"
+  },
+  "_map-pin.js": {
+    "file": "map-pin.js",
+    "name": "map-pin",
+    "imports": [
+      "_format.js",
+      "_createLucideIcon.js"
+    ]
+  },
+  "_parseISO.js": {
+    "file": "parseISO.js",
+    "name": "parseISO",
+    "imports": [
+      "_format.js"
+    ]
+  },
+  "_phone.js": {
+    "file": "phone.js",
+    "name": "phone",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_plus.js": {
+    "file": "plus.js",
+    "name": "plus",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_shiftsApi.js": {
+    "file": "shiftsApi.js",
+    "name": "shiftsApi",
+    "imports": [
+      "_api.js"
+    ]
+  },
+  "_useAssignments.js": {
+    "file": "useAssignments.js",
+    "name": "useAssignments",
+    "imports": [
+      "src/main.tsx",
+      "_AssignmentStatusBadge.js"
+    ]
+  },
+  "_useShifts.js": {
+    "file": "useShifts.js",
+    "name": "useShifts",
+    "imports": [
+      "src/main.tsx",
+      "_shiftsApi.js"
+    ]
+  },
+  "_user-plus.js": {
+    "file": "user-plus.js",
+    "name": "user-plus",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_user.js": {
+    "file": "user.js",
+    "name": "user",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_users.js": {
+    "file": "users.js",
+    "name": "users",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
+  "_workersApi.js": {
+    "file": "workersApi.js",
+    "name": "workersApi",
+    "imports": [
+      "_api.js"
+    ]
+  },
+  "_x.js": {
+    "file": "x.js",
+    "name": "x",
+    "imports": [
+      "_createLucideIcon.js"
+    ]
+  },
   "src/main.tsx": {
     "file": "application.js",
     "name": "application",
     "src": "src/main.tsx",
     "isEntry": true,
+    "dynamicImports": [
+      "src/pages/DashboardPage.tsx",
+      "src/pages/WorkersPage.tsx",
+      "src/pages/WorkerDetail.tsx",
+      "src/pages/ShiftsList.tsx",
+      "src/pages/ShiftDetail.tsx",
+      "src/pages/ShiftForm.tsx",
+      "src/pages/AssignmentsList.tsx",
+      "src/pages/WorkerSchedule.tsx",
+      "src/pages/CalendarView.tsx"
+    ],
     "css": [
       "application.css"
+    ]
+  },
+  "src/pages/AssignmentsList.tsx": {
+    "file": "AssignmentsList.js",
+    "name": "AssignmentsList",
+    "src": "src/pages/AssignmentsList.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_useAssignments.js",
+      "_AssignmentStatusBadge.js",
+      "_BulkAssignModal.js",
+      "_ErrorMessage2.js",
+      "_users.js",
+      "_createLucideIcon.js",
+      "_briefcase.js",
+      "_user.js",
+      "_calendar.js",
+      "_clock.js",
+      "_circle-alert.js",
+      "_x.js",
+      "_format.js",
+      "_parseISO.js",
+      "_api.js",
+      "_shiftsApi.js",
+      "_workersApi.js"
+    ]
+  },
+  "src/pages/CalendarView.tsx": {
+    "file": "CalendarView.js",
+    "name": "CalendarView",
+    "src": "src/pages/CalendarView.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_useShifts.js",
+      "_format.js",
+      "_map-pin.js",
+      "_ShiftStatusBadge.js",
+      "_x.js",
+      "_clock.js",
+      "_users.js",
+      "_user-plus.js",
+      "_plus.js",
+      "_calendar.js",
+      "_shiftsApi.js",
+      "_api.js",
+      "_createLucideIcon.js"
+    ]
+  },
+  "src/pages/DashboardPage.tsx": {
+    "file": "DashboardPage.js",
+    "name": "DashboardPage",
+    "src": "src/pages/DashboardPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_ErrorMessage.js",
+      "_EmptyState.js",
+      "_format.js",
+      "_parseISO.js"
+    ]
+  },
+  "src/pages/ShiftDetail.tsx": {
+    "file": "ShiftDetail.js",
+    "name": "ShiftDetail",
+    "src": "src/pages/ShiftDetail.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_shiftsApi.js",
+      "_ShiftStatusBadge.js",
+      "_AssignWorkerModal.js",
+      "_MapPinIcon.js",
+      "_AssignmentStatusBadge.js",
+      "_user-plus.js",
+      "_circle-alert.js",
+      "_users.js",
+      "_phone.js",
+      "_createLucideIcon.js",
+      "_user.js",
+      "_DocumentTextIcon.js",
+      "_format.js",
+      "_parseISO.js",
+      "_api.js",
+      "_workersApi.js"
+    ]
+  },
+  "src/pages/ShiftForm.tsx": {
+    "file": "ShiftForm.js",
+    "name": "ShiftForm",
+    "src": "src/pages/ShiftForm.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_shiftsApi.js",
+      "_DocumentTextIcon.js",
+      "_UsersIcon.js",
+      "_MapPinIcon.js",
+      "_api.js"
+    ]
+  },
+  "src/pages/ShiftsList.tsx": {
+    "file": "ShiftsList.js",
+    "name": "ShiftsList",
+    "src": "src/pages/ShiftsList.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_useShifts.js",
+      "_AssignWorkerModal.js",
+      "_BulkAssignModal.js",
+      "_ShiftStatusBadge.js",
+      "_UsersIcon.js",
+      "_MapPinIcon.js",
+      "_format.js",
+      "_parseISO.js",
+      "_shiftsApi.js",
+      "_api.js",
+      "_workersApi.js",
+      "_ErrorMessage2.js",
+      "_circle-alert.js",
+      "_createLucideIcon.js",
+      "_x.js",
+      "_clock.js",
+      "_users.js",
+      "_calendar.js"
+    ]
+  },
+  "src/pages/WorkerDetail.tsx": {
+    "file": "WorkerDetail.js",
+    "name": "WorkerDetail",
+    "src": "src/pages/WorkerDetail.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_workersApi.js",
+      "_api.js",
+      "_LoadingSpinner.js",
+      "_ErrorMessage.js",
+      "_createLucideIcon.js",
+      "_calendar.js",
+      "_user.js",
+      "_phone.js",
+      "_briefcase.js",
+      "_plus.js",
+      "_x.js",
+      "_format.js",
+      "_parseISO.js"
+    ]
+  },
+  "src/pages/WorkerSchedule.tsx": {
+    "file": "WorkerSchedule.js",
+    "name": "WorkerSchedule",
+    "src": "src/pages/WorkerSchedule.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_workersApi.js",
+      "_useAssignments.js",
+      "_AssignmentStatusBadge.js",
+      "_ErrorMessage2.js",
+      "_format.js",
+      "_map-pin.js",
+      "_createLucideIcon.js",
+      "_clock.js",
+      "_calendar.js",
+      "_circle-alert.js",
+      "_parseISO.js",
+      "_api.js"
+    ]
+  },
+  "src/pages/WorkersPage.tsx": {
+    "file": "WorkersPage.js",
+    "name": "WorkersPage",
+    "src": "src/pages/WorkersPage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/main.tsx",
+      "_calendar.js",
+      "_format.js",
+      "_parseISO.js",
+      "_LoadingSpinner.js",
+      "_ErrorMessage.js",
+      "_EmptyState.js",
+      "_BulkAssignModal.js",
+      "_users.js",
+      "_createLucideIcon.js",
+      "_shiftsApi.js",
+      "_api.js",
+      "_workersApi.js",
+      "_ErrorMessage2.js",
+      "_circle-alert.js",
+      "_x.js",
+      "_clock.js"
     ]
   }
 }
