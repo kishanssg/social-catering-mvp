@@ -4,18 +4,18 @@ class AssignWorkerToShift < ApplicationService
     @worker = worker
     @assigned_by = assigned_by
   end
-  
+
   def call
     # Set current user for activity logging
     Current.user = @assigned_by
-    
+
     Assignment.transaction do
       acquire_lock!
-      
+
       begin
         check_conflicts!
         create_assignment
-        
+
         success(assignment: @assignment)
       ensure
         release_lock!
@@ -30,46 +30,46 @@ class AssignWorkerToShift < ApplicationService
   rescue => e
     failure("Assignment failed: #{e.message}")
   end
-  
+
   private
-  
+
   def acquire_lock!
     conn = ActiveRecord::Base.connection
     result = conn.execute("SELECT pg_advisory_lock(#{@worker.id})")
-    
+
     # PostgreSQL advisory lock doesn't timeout by default
     # We rely on transaction timeout instead
   end
-  
+
   def release_lock!
     conn = ActiveRecord::Base.connection
     conn.execute("SELECT pg_advisory_unlock(#{@worker.id})")
   end
-  
+
   def check_conflicts!
     conflicts = CheckShiftConflicts.call(@shift, @worker)
-    
+
     if conflicts.any?
       raise ConflictError, format_conflicts(conflicts)
     end
   end
-  
+
   def create_assignment
     # Double-check capacity within the lock to prevent race conditions
-    current_count = Assignment.where(shift_id: @shift.id, status: 'assigned').count
+    current_count = Assignment.where(shift_id: @shift.id, status: "assigned").count
     if current_count >= @shift.capacity
       raise ConflictError, "Shift is at full capacity (#{@shift.capacity} workers)"
     end
-    
+
     @assignment = Assignment.create!(
       shift: @shift,
       worker: @worker,
       assigned_by: @assigned_by,
       assigned_at_utc: Time.current,
-      status: 'assigned'
+      status: "assigned"
     )
   end
-  
+
   def format_conflicts(conflicts)
     conflicts.map { |c| c[:message] }.join("; ")
   end

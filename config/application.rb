@@ -20,8 +20,8 @@ module SocialCateringMvp
     config.public_file_server.enabled = true
 
     # Configure asset pipeline for React frontend
-    config.assets.precompile += %w(application.js application.css)
-    config.assets.paths << Rails.root.join('app/assets/builds')
+    config.assets.precompile += %w[application.js application.css]
+    config.assets.paths << Rails.root.join("app/assets/builds")
 
     # Configuration for the application, engines, and railties goes here.
     #

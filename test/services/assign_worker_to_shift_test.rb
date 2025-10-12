@@ -21,7 +21,7 @@ class AssignWorkerToShiftTest < ActiveSupport::TestCase
 
   test "assigns worker to shift successfully" do
     result = AssignWorkerToShift.call(@shift, @worker, @user)
-    
+
     assert result[:success]
     assert result[:data][:assignment].persisted?
     assert_equal @worker, result[:data][:assignment].worker
@@ -36,11 +36,11 @@ class AssignWorkerToShiftTest < ActiveSupport::TestCase
       shift: @shift,
       assigned_by: @user,
       assigned_at_utc: Time.current,
-      status: 'assigned'
+      status: "assigned"
     )
-    
+
     result = AssignWorkerToShift.call(@shift, @worker, @user)
-    
+
     assert_not result[:success]
     assert_includes result[:error], "overlapping"
   end
@@ -53,11 +53,11 @@ class AssignWorkerToShiftTest < ActiveSupport::TestCase
       shift: @shift,
       assigned_by: @user,
       assigned_at_utc: Time.current,
-      status: 'assigned'
+      status: "assigned"
     )
-    
+
     result = AssignWorkerToShift.call(@shift, @worker, @user)
-    
+
     assert_not result[:success]
     assert_includes result[:error], "capacity"
   end

@@ -1,219 +1,84 @@
-# Social Catering MVP - Workforce Scheduling Tool
+# Social Catering UI
 
-A workforce scheduling application for managing shifts, workers, and assignments for Social Catering.
-
-## Features
-
-- **Worker Management**: Create, update, search workers by skills and certifications
-- **Shift Management**: Create, update, filter shifts by status and timeframe
-- **Assignment System**: Assign workers to shifts with conflict detection
-- **Conflict Detection**: Prevents time overlaps, capacity violations, and expired certifications
-- **Activity Logging**: Comprehensive audit trail of all changes
-- **Dashboard**: Real-time overview of shift status and fill rates
+React frontend for Social Catering workforce scheduling application.
 
 ## Tech Stack
 
-- **Backend:** Ruby on Rails 7.x
-- **Database:** PostgreSQL 14+
-- **Authentication:** Devise (session-based)
-- **Deployment:** Heroku
-- **Testing:** Minitest (80+ tests)
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS v3
+- React Router
+- Axios
+- React Hook Form + Zod
 
 ## Getting Started
 
 ### Prerequisites
 
-- Ruby 3.2+
-- PostgreSQL 14+
-- Rails 7.x
+- Node.js 18+
+- Rails backend running on http://localhost:3000
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone [your-repo-url]
-cd social-catering-mvp
-
-# Install dependencies
-bundle install
-
-# Setup database
-rails db:create
-rails db:migrate
-rails db:seed
-
-# Start server
-rails server
+npm install
 ```
 
-### Seeded Users
+### Development
 
-Three admin users are seeded for testing:
+```bash
+npm run dev
+```
+Open http://localhost:5173
+
+### Build for Production
+
+```bash
+npm run build
+npm run preview
+```
+
+## Environment Variables
+
+- `.env.development` - Local development (localhost:3000)
+- `.env.production` - Production/staging API URL
+
+## Test Credentials
+
 - natalie@socialcatering.com / Password123!
 - madison@socialcatering.com / Password123!
 - sarah@socialcatering.com / Password123!
 
-### API Documentation
-
-See [docs/API.md](docs/API.md) for complete API documentation.
-
-### Running Tests
-
-```bash
-# Run all tests
-rails test
-
-# Run specific test file
-rails test test/models/worker_test.rb
-
-# Run specific test
-rails test test/models/worker_test.rb:10
-```
-
-### Health Check
-
-```bash
-curl http://localhost:3000/healthz
-```
-
 ## Project Structure
 
 ```
-app/
-├── controllers/
-│   └── api/v1/          # API endpoints
-├── models/              # ActiveRecord models
-├── services/            # Business logic (conflict checks, assignments)
-└── views/
-
-config/
-├── initializers/
-│   ├── cors.rb          # CORS configuration
-│   ├── devise.rb        # Authentication config
-│   └── session_store.rb # Session config
-└── routes.rb            # API routes
-
-db/
-├── migrate/             # Database migrations
-└── seeds.rb             # Seed data
-
-docs/
-├── API.md               # API documentation
-├── implementation_context.md
-└── workflow_state.md
-
-test/
-├── controllers/         # Controller tests
-├── integration/         # Integration tests (concurrency)
-├── models/              # Model tests
-└── services/            # Service object tests
+src/
+├── components/    # Reusable UI components
+├── contexts/      # React Context providers (Auth)
+├── lib/           # Utilities and API client
+├── pages/         # Page components
+└── types/         # TypeScript types
 ```
 
-## Deployment
+## Features Complete
 
-### Staging
-```bash
-# Deploy to staging
-git push staging main
+- [x] Authentication (login/logout)
+- [x] Session persistence
+- [x] Protected routes
+- [x] Form validation
+- [ ] Dashboard (upcoming)
+- [ ] Worker management (upcoming)
+- [ ] Shift management (upcoming)
+- [ ] Assignment workflow (upcoming)
 
-# Run migrations
-heroku run rails db:migrate -a sc-mvp-staging
+## Tailwind CSS
 
-# Check logs
-heroku logs --tail -a sc-mvp-staging
-```
-**Staging URL:** https://sc-mvp-staging-c6ef090c6c41.herokuapp.com
+Using Tailwind CSS v3.4.x (NOT v4). Custom theme configured in `tailwind.config.js`.
 
-### Production (when ready)
-```bash
-git push production main
-heroku run rails db:migrate -a sc-mvp-prod
-```
+## Development Notes
 
-## Key Features Explained
-
-### Conflict Detection (3 Rules)
-
-When assigning a worker to a shift, the system checks:
-
-1. **Time Overlap**: Worker doesn't have another assignment during this time
-2. **Capacity**: Shift isn't already at full capacity
-3. **Certifications**: Worker's certifications are valid through shift end (if required)
-
-### Advisory Locks (Concurrency Safety)
-
-PostgreSQL advisory locks prevent race conditions when two admins try to assign workers simultaneously:
-
-```ruby
-# Acquires lock on worker.id
-pg_advisory_lock(worker.id)
-
-# Checks conflicts
-# Creates assignment
-
-# Always releases lock (even on error)
-pg_advisory_unlock(worker.id)
-```
-
-Tested with concurrent assignment tests in `test/integration/`.
-
-### Activity Logging
-
-All data changes are logged to `activity_logs` table:
-- Who made the change (actor_user_id)
-- What changed (before_json, after_json)
-- When it happened (created_at_utc)
-
-View logs via `/api/v1/activity_logs` endpoint.
-
-## Development Workflow
-
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Write tests first (TDD)
-3. Implement feature
-4. Run tests: `rails test`
-5. Commit with descriptive message
-6. Push and create PR
-7. Deploy to staging for testing
-
-## Troubleshooting
-
-### CORS Issues
-
-If React gets CORS errors:
-- Verify origin in `config/initializers/cors.rb`
-- Restart Rails server after changing initializers
-- Check browser console for exact origin
-
-### Database Issues
-```bash
-# Reset test database
-rails db:test:prepare
-
-# Reset development database
-rails db:reset
-```
-
-### Advisory Lock Stuck
-```bash
-# In rails console
-ActiveRecord::Base.connection.execute('SELECT pg_advisory_unlock_all()')
-```
-
-## Contributing
-
-1. Follow existing code patterns
-2. Write tests for new features
-3. Keep controllers thin, business logic in services
-4. Use strong parameters
-5. Document API changes in docs/API.md
-
-## License
-
-Proprietary - Social Catering
-
-## Support
-
-Contact: Alex (Rav/Bobby for technical questions)
-# Production deployment fix
-# Rebuild
+- All API calls go through `src/lib/api.ts`
+- Authentication state managed by `src/contexts/AuthContext.tsx`
+- Protected routes use `src/components/ProtectedRoute.tsx`
+- Session cookies handled automatically by axios `withCredentials: true`

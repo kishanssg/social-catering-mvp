@@ -7,13 +7,13 @@ class CreateShift < ApplicationService
   def call
     # Set current user for activity logging
     Current.user = @created_by
-    
+
     shift = Shift.new(@shift_params.merge(created_by: @created_by))
-    
+
     if shift.save
       success(shift: shift)
     else
-      failure(shift.errors.full_messages.join(', '))
+      failure(shift.errors.full_messages.join(", "))
     end
   rescue => e
     failure("Failed to create shift: #{e.message}")

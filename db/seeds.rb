@@ -28,7 +28,7 @@ puts "Created #{User.count} admin users"
 
 # Create certifications
 puts "Creating certifications..."
-cert_names = ['ServSafe', 'TIPS', 'Food Handler']
+cert_names = [ 'ServSafe', 'TIPS', 'Food Handler' ]
 cert_names.each do |name|
   Certification.find_or_create_by!(name: name)
 end
@@ -42,10 +42,10 @@ puts "Creating sample workers..."
     last_name: "Test",
     email: "worker#{i+1}@test.com",
     phone: "555-000#{i+1}",
-    skills_json: ['cooking', 'bartending', 'serving'].sample(rand(1..2)),
+    skills_json: [ 'cooking', 'bartending', 'serving' ].sample(rand(1..2)),
     active: true
   )
-  
+
   # Add certification to some workers
   if i < 3
     cert = Certification.all.sample

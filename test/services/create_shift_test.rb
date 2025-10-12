@@ -14,7 +14,7 @@ class CreateShiftTest < ActiveSupport::TestCase
 
   test "creates shift successfully" do
     result = CreateShift.call(shift_params: @shift_params, created_by: @user)
-    
+
     assert result[:success]
     assert result[:data][:shift].persisted?
     assert_equal "Test Client", result[:data][:shift].client_name
@@ -24,7 +24,7 @@ class CreateShiftTest < ActiveSupport::TestCase
   test "fails with invalid parameters" do
     invalid_params = @shift_params.merge(client_name: nil)
     result = CreateShift.call(shift_params: invalid_params, created_by: @user)
-    
+
     assert_not result[:success]
     assert_includes result[:error], "Client name can't be blank"
   end

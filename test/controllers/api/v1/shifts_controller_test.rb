@@ -2,7 +2,7 @@ require "test_helper"
 
 class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
-  
+
   def setup
     @user = users(:one)
     @shift = shifts(:one)
@@ -12,7 +12,7 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     get "/api/v1/shifts"
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shifts"].is_a?(Array)
@@ -22,7 +22,7 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     get "/api/v1/shifts?status=draft"
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shifts"].is_a?(Array)
@@ -32,7 +32,7 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     get "/api/v1/shifts?timeframe=upcoming"
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shifts"].is_a?(Array)
@@ -42,7 +42,7 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     get "/api/v1/shifts/#{@shift.id}"
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shift"]["id"] == @shift.id
@@ -63,13 +63,13 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
         status: "draft"
       }
     }
-    
+
     assert_difference "Shift.count", 1 do
       post "/api/v1/shifts", params: shift_params, as: :json
     end
-    
+
     assert_response :created
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shift"]["client_name"] == "Test Client"
@@ -82,10 +82,10 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
         client_name: "Updated Client"
       }
     }
-    
+
     patch "/api/v1/shifts/#{@shift.id}", params: shift_params, as: :json
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert json_response["data"]["shift"]["client_name"] == "Updated Client"
@@ -102,13 +102,13 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
       capacity: 1,
       created_by: @user
     )
-    
+
     assert_difference "Shift.count", -1 do
       delete "/api/v1/shifts/#{empty_shift.id}"
     end
-    
+
     assert_response :success
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "success", json_response["status"]
     assert_includes json_response["data"]["message"], "deleted successfully"
@@ -125,22 +125,22 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
       capacity: 1,
       created_by: @user
     )
-    
+
     # Create an assignment
     Assignment.create!(
       shift: shift_with_assignments,
       worker: workers(:one),
       assigned_by: @user,
       assigned_at_utc: Time.current,
-      status: 'assigned'
+      status: "assigned"
     )
-    
+
     assert_no_difference "Shift.count" do
       delete "/api/v1/shifts/#{shift_with_assignments.id}"
     end
-    
+
     assert_response :unprocessable_entity
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "error", json_response["status"]
     assert_includes json_response["error"], "Cannot delete shift with assignments"
@@ -154,10 +154,10 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
         role_needed: "Server"
       }
     }
-    
+
     post "/api/v1/shifts", params: shift_params, as: :json
     assert_response :unprocessable_entity
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "validation_error", json_response["status"]
     assert json_response["errors"].present?
@@ -171,10 +171,10 @@ class Api::V1::ShiftsControllerTest < ActionDispatch::IntegrationTest
         role_needed: "Server"
       }
     }
-    
+
     patch "/api/v1/shifts/#{@shift.id}", params: shift_params, as: :json
     assert_response :unprocessable_entity
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "validation_error", json_response["status"]
     assert json_response["errors"].present?

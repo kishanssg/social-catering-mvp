@@ -15,8 +15,8 @@ class CreateShifts < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :shifts, [:start_time_utc, :status]
-    add_index :shifts, [:start_time_utc, :end_time_utc]
+    add_index :shifts, [ :start_time_utc, :status ]
+    add_index :shifts, [ :start_time_utc, :end_time_utc ]
     add_index :shifts, :status
 
     add_check_constraint :shifts, 'end_time_utc > start_time_utc', name: 'shifts_valid_time_range'

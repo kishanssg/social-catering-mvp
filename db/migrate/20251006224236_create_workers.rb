@@ -13,7 +13,7 @@ class CreateWorkers < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :workers, [:last_name, :first_name]
+    add_index :workers, [ :last_name, :first_name ]
     add_index :workers, :active
     add_index :workers, :email, unique: true, where: "email IS NOT NULL"
     add_index :workers, :skills_json, using: :gin
