@@ -36,7 +36,7 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
       onSuccess()
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Failed to update status')
-      // eslint-disable-next-line no-console
+       
       console.error('Error updating status:', err)
     } finally {
       setUpdating(false)
@@ -44,7 +44,7 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
   }
 
   const handleCancel = async () => {
-    // eslint-disable-next-line no-alert
+     
     if (!confirm('Are you sure you want to cancel this shift?')) return
     setUpdating(true)
     setError('')
@@ -53,7 +53,7 @@ export default function ShiftStatusWorkflow({ shift, onSuccess }: ShiftStatusWor
       onSuccess()
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Failed to cancel shift')
-      // eslint-disable-next-line no-console
+       
       console.error('Error cancelling shift:', err)
     } finally {
       setUpdating(false)

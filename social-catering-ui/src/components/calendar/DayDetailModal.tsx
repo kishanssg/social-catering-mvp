@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { X, Clock, Users, MapPin, DollarSign, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Shift } from '../../services/shiftsApi';
+import type { Shift } from '../../types';
 import ShiftStatusBadge from '../ShiftStatusBadge';
 
 interface DayDetailModalProps {
@@ -113,14 +113,20 @@ const DayDetailModal = ({ date, shifts, onClose }: DayDetailModalProps) => {
                       <div className="mt-3 pt-3 border-t">
                         <div className="text-xs text-gray-500 mb-2">Assigned Workers:</div>
                         <div className="flex flex-wrap gap-2">
-                          {shift.assignments?.slice(0, 3).map((assignment) => (
-                            <span
-                              key={assignment.id}
-                              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded"
-                            >
-                              {assignment.worker?.first_name || 'Worker'} {assignment.worker?.last_name || assignment.worker_id || 'Unknown'}
-                            </span>
-                          ))}
+                          {shift.assignments?.slice(0, 3).map((assignment) => {
+                            const workerName = assignment.worker 
+                              ? `${assignment.worker.first_name} ${assignment.worker.last_name}`
+                              : `Worker ${assignment.worker_id}`;
+                            
+                            return (
+                              <span
+                                key={assignment.id}
+                                className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded"
+                              >
+                                {workerName}
+                              </span>
+                            );
+                          })}
                           {assignedCount > 3 && (
                             <span className="px-2 py-1 text-xs text-gray-500">
                               +{assignedCount - 3} more

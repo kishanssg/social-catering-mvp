@@ -20,11 +20,12 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn', // Change from error to warning
-      '@typescript-eslint/no-unused-vars': 'warn', // Change from error to warning
-      'react-hooks/exhaustive-deps': 'warn', // Change from error to warning
-      'no-case-declarations': 'warn', // Change from error to warning
-      'react-refresh/only-export-components': 'warn', // Change from error to warning
+      // Relaxed rules for MVP
+      '@typescript-eslint/no-explicit-any': 'warn',  // Change from error to warning
+      '@typescript-eslint/no-unused-vars': 'warn',  // Change from error to warning
+      'no-case-declarations': 'warn',  // Change from error to warning
+      'react-hooks/exhaustive-deps': 'warn',  // Change from error to warning
+      'react-refresh/only-export-components': 'warn',  // Change from error to warning
     },
   },
 ])

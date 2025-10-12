@@ -43,7 +43,7 @@ export default function AssignWorkerModal({ shift, onClose, onSuccess }: AssignW
       setFilteredWorkers(availableWorkers)
     } catch (err) {
       setError('Failed to load workers')
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading workers:', err)
     } finally {
       setLoading(false)
@@ -100,7 +100,7 @@ export default function AssignWorkerModal({ shift, onClose, onSuccess }: AssignW
     } catch (err: any) {
       const errorMessage = err?.response?.data?.error || 'Failed to assign worker'
       setError(errorMessage)
-      // eslint-disable-next-line no-console
+       
       console.error('Error assigning worker:', err)
     } finally {
       setAssigning(false)

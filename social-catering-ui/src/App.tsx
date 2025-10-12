@@ -29,7 +29,7 @@ const PageLoader = () => (
 
 function App() {
   return (
-    <BrowserRouter basename="/assets">
+    <BrowserRouter>
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>

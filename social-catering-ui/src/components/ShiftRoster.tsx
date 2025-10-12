@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  User, Users, Phone, Mail, CheckCircle, 
-  XCircle, AlertCircle, UserPlus 
+  Users, Phone, Mail, AlertCircle, UserPlus 
 } from 'lucide-react';
-import type { Shift } from '../services/shiftsApi';
-import { updateAssignmentStatus } from '../services/assignmentsApi';
-import AssignmentStatusBadge from './Assignments/AssignmentStatusBadge';
+import type { Shift } from '../types';
+import { apiService } from '../services/api';
 
 interface ShiftRosterProps {
   shift: Shift;
@@ -24,6 +22,7 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
   const getWorkerForAssignment = (assignment: any) => {
     return workers.find(worker => worker.id === assignment.worker_id);
   };
+  
   const assignedCount = assignments.length;
   const capacity = shift.capacity;
   const needsMoreWorkers = assignedCount < capacity;
@@ -31,7 +30,7 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
   const handleStatusChange = async (assignmentId: number, newStatus: any) => {
     setUpdatingStatus(assignmentId);
     try {
-      await updateAssignmentStatus(assignmentId, newStatus);
+      await apiService.updateAssignment(assignmentId, { status: newStatus });
       onUpdate();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -136,7 +135,7 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
                     {/* Avatar */}
                     <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                       <span className="text-blue-600 font-medium">
-                        {getWorkerForAssignment(assignment)?.first_name[0] || '?'}{getWorkerForAssignment(assignment)?.last_name[0] || '?'}
+                        {getWorkerForAssignment(assignment)?.first_name?.[0] || '?'}{getWorkerForAssignment(assignment)?.last_name?.[0] || '?'}
                       </span>
                     </div>
                     
@@ -150,83 +149,61 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
                       </Link>
                       
                       <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-600">
-                        {getWorkerForAssignment(assignment)?.email && (
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-4 w-4" />
-                            <a
-                              href={`mailto:${getWorkerForAssignment(assignment)?.email}`}
-                              className="hover:text-blue-600"
-                            >
-                              {getWorkerForAssignment(assignment)?.email}
-                            </a>
-                          </div>
-                        )}
+                        {(() => {
+                          const worker = getWorkerForAssignment(assignment);
+                          return worker?.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-4 w-4" />
+                              <a
+                                href={`mailto:${worker.email}`}
+                                className="hover:text-blue-600"
+                              >
+                                {worker.email}
+                              </a>
+                            </div>
+                          );
+                        })()}
                         
-                        {getWorkerForAssignment(assignment)?.phone && (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-4 w-4" />
-                            <a
-                              href={`tel:${getWorkerForAssignment(assignment)?.phone}`}
-                              className="hover:text-blue-600"
-                            >
-                              {getWorkerForAssignment(assignment)?.phone}
-                            </a>
-                          </div>
-                        )}
+                        {(() => {
+                          const worker = getWorkerForAssignment(assignment);
+                          return worker?.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-4 w-4" />
+                              <a
+                                href={`tel:${worker.phone}`}
+                                className="hover:text-blue-600"
+                              >
+                                {worker.phone}
+                              </a>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
                   
                   {/* Status Actions */}
                   <div className="flex items-center gap-2 ml-4">
-                    <AssignmentStatusBadge status={assignment.status} />
+                    <select
+                      value={assignment.status}
+                      onChange={(e) => handleStatusChange(assignment.id, e.target.value)}
+                      disabled={isUpdating}
+                      className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                    >
+                      <option value="assigned">Assigned</option>
+                      <option value="completed">Completed</option>
+                      <option value="no_show">No Show</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
                     
-                    {/* Quick Action Buttons */}
-                    {assignment.status === 'assigned' && (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleStatusChange(assignment.id, 'completed')}
-                          disabled={isUpdating}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
-                          title="Mark as completed"
-                        >
-                          <CheckCircle className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(assignment.id, 'no_show')}
-                          disabled={isUpdating}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
-                          title="Mark as no-show"
-                        >
-                          <XCircle className="h-5 w-5" />
-                        </button>
-                      </div>
+                    {isUpdating && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                     )}
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
-      
-      {/* Empty Slots */}
-      {needsMoreWorkers && (
-        <div className="border-t pt-4">
-          <div className="text-sm text-gray-500 mb-3">
-            Open positions: {capacity - assignedCount}
-          </div>
-          <div className="space-y-2">
-            {Array.from({ length: capacity - assignedCount }).map((_, index) => (
-              <div
-                key={index}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center"
-              >
-                <User className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Position {assignedCount + index + 1} available</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

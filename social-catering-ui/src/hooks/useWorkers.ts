@@ -53,8 +53,8 @@ export function useWorkers(params: UseWorkersParams = {}): UseWorkersReturn {
       if (response.status === 'success') {
         setAllWorkers(response.data.workers)
       }
-    } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to load workers'
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to load workers'
       setError(errorMessage)
       console.error('Workers fetch error:', err)
     } finally {

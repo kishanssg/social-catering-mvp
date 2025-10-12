@@ -67,7 +67,7 @@ export function WorkersPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleAddSubmit = async (data: Record<string, unknown>) => {
+  const handleAddSubmit = async (data: any) => {
     try {
       setIsSubmitting(true)
       setFormError(null)
@@ -97,8 +97,8 @@ export function WorkersPage() {
       setIsAddModalOpen(false)
       refetch()
       setToast({ message: 'Worker added successfully!', type: 'success' })
-    } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create worker'
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to create worker'
       setFormError(errorMessage)
       setToast({ message: errorMessage, type: 'error' })
     } finally {
@@ -106,7 +106,7 @@ export function WorkersPage() {
     }
   }
 
-  const handleEditSubmit = async (data: Record<string, unknown>) => {
+  const handleEditSubmit = async (data: any) => {
     if (!selectedWorker) return
 
     try {
@@ -118,8 +118,8 @@ export function WorkersPage() {
       setIsEditModalOpen(false)
       refetch()
       setToast({ message: 'Worker updated successfully!', type: 'success' })
-    } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to update worker'
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to update worker'
       setFormError(errorMessage)
       setToast({ message: errorMessage, type: 'error' })
     } finally {
@@ -139,8 +139,8 @@ export function WorkersPage() {
       setSelectedWorker(null)
       refetch()
       setToast({ message: `${selectedWorker.first_name} ${selectedWorker.last_name} has been deactivated successfully!`, type: 'success' })
-    } catch (err: unknown) {
-      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to delete worker'
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to delete worker'
       setToast({ message: errorMessage, type: 'error' })
     } finally {
       setIsDeleting(false)

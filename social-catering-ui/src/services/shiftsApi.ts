@@ -2,9 +2,16 @@ import api from './api'
 
 export interface Assignment {
   id: number
+  shift_id: number
   worker_id: number
+  assigned_by: number
   assigned_at_utc: string
   status: 'assigned' | 'completed' | 'no_show' | 'cancelled'
+  created_at: string
+  updated_at: string
+  shift?: any
+  worker?: any
+  assigned_by_user?: any
 }
 
 export interface Shift {
@@ -19,6 +26,9 @@ export interface Shift {
   required_certification?: {
     id: number
     name: string
+    description?: string
+    created_at: string
+    updated_at: string
   }
   location?: string
   notes?: string
@@ -28,6 +38,15 @@ export interface Shift {
     id: number
     first_name: string
     last_name: string
+    email?: string
+    phone?: string
+    skills_json: string[]
+    skills_text: string
+    active: boolean
+    created_at: string
+    updated_at: string
+    certifications?: any[]
+    worker_certifications?: any[]
   }>
   assigned_count?: number
   available_slots?: number
@@ -35,6 +54,9 @@ export interface Shift {
   created_by?: {
     id: number
     email: string
+    role: string
+    created_at: string
+    updated_at: string
   }
   created_at: string
   updated_at: string

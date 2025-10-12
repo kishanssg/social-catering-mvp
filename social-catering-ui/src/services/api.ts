@@ -1,9 +1,35 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
 import type { ApiResponse, LoginCredentials, AuthUser } from '../types';
+import { config } from '../config/environment';
 
 // API Configuration
-// Force local development URL for now
-const API_BASE_URL = '/assets/api/v1';
+const API_BASE_URL = config.API_BASE_URL;
+
+// Export for use in other services
+export { API_BASE_URL };
+
+// Base fetch function with credentials
+export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',  // CRITICAL for sessions
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+    },
+  });
+  
+  if (response.status === 401) {
+    // Redirect to login on unauthorized
+    window.location.href = '/login';
+    throw new Error('Unauthorized');
+  }
+  
+  return response;
+};
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -36,7 +62,7 @@ apiClient.interceptors.response.use(
     // Handle common errors
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
-      window.location.href = '/assets/login';
+      window.location.href = '/login';
     }
     
     return Promise.reject(error);

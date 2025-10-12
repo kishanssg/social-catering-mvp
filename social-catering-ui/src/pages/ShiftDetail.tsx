@@ -42,7 +42,7 @@ export default function ShiftDetail() {
       setShift(response.data.shift)
     } catch (err) {
       setError('Failed to load shift')
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading shift:', err)
     } finally {
       setLoading(false)
@@ -56,7 +56,7 @@ export default function ShiftDetail() {
       navigate('/shifts')
     } catch (err) {
       setError('Failed to delete shift')
-      // eslint-disable-next-line no-console
+       
       console.error('Error deleting shift:', err)
     }
   }

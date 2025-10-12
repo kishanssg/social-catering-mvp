@@ -86,19 +86,24 @@ export function WorkerDetail({ worker }: WorkerDetailProps) {
         <h4 className="text-sm font-medium text-gray-900 mb-3">Certifications</h4>
         {worker.certifications && worker.certifications.length > 0 ? (
           <div className="space-y-2">
-            {worker.certifications.map((cert) => (
-              <div
-                key={cert.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <span className="text-sm font-medium text-gray-900">{cert.name}</span>
-                {cert.expires_at_utc && (
-                  <span className="text-sm text-gray-500">
-                    Expires: {format(parseISO(cert.expires_at_utc), 'MMM d, yyyy')}
-                  </span>
-                )}
-              </div>
-            ))}
+            {worker.certifications.map((cert) => {
+              // Find the corresponding worker_certification for expiration date
+              const workerCert = worker.worker_certifications?.find(wc => wc.certification_id === cert.id);
+              
+              return (
+                <div
+                  key={cert.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                >
+                  <span className="text-sm font-medium text-gray-900">{cert.name}</span>
+                  {workerCert?.expires_at_utc && (
+                    <span className="text-sm text-gray-500">
+                      Expires: {format(parseISO(workerCert.expires_at_utc), 'MMM d, yyyy')}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-500 italic">No certifications</p>

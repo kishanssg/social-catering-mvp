@@ -64,7 +64,7 @@ export default function ShiftForm() {
       })
     } catch (err) {
       setError('Failed to load shift')
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading shift:', err)
     } finally {
       setLoadingShift(false)
@@ -101,7 +101,7 @@ export default function ShiftForm() {
       navigate('/shifts')
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Failed to save shift')
-      // eslint-disable-next-line no-console
+       
       console.error('Error saving shift:', err)
     } finally {
       setLoading(false)

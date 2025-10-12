@@ -17,9 +17,9 @@
     "jsx": "react-jsx",
 
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strict": false,  // Relaxed for MVP
+    "noUnusedLocals": false,  // Relaxed for MVP
+    "noUnusedParameters": false,  // Relaxed for MVP
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true

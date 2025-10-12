@@ -1,45 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Production-ready configuration for Rails asset pipeline integration
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/assets/', // Critical: Rails serves assets from /assets/
-  build: {
-    // Build into Rails app/assets/builds directory
-    outDir: '../../app/assets/builds',
-    assetsDir: '',
-    rollupOptions: {
-      input: {
-        application: './src/main.tsx'
-      },
-      output: {
-        entryFileNames: 'application.js',
-        chunkFileNames: '[name].js',
-        assetFileNames: 'application.css'
-      }
-    },
-    // Ensure proper asset handling
-    assetsInlineLimit: 0,
-    sourcemap: true, // Enable sourcemaps for debugging
-    manifest: true
-  },
+  base: '/',  // CRITICAL: Must be '/' for root hosting
   server: {
     port: 5173,
-    host: true,
-    proxy: {
-      '/assets/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/assets\/api/, '/api')
+    strictPort: false,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,  // Disable sourcemaps in production
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
       },
-      '/assets/healthz': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/assets\/healthz/, '/healthz')
-      }
-    }
-  }
+    },
+  },
+  preview: {
+    port: 4173,
+  },
 })

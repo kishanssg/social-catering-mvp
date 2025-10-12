@@ -124,25 +124,30 @@ export function WorkerDetail({ worker, isOpen, onClose, onEdit, onDelete }: Work
               <div className="bg-gray-50 rounded-lg p-4">
                 {worker.certifications && worker.certifications.length > 0 ? (
                   <div className="space-y-3">
-                    {worker.certifications.map((cert) => (
-                      <div key={cert.id} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <svg className="h-5 w-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-gray-900 font-medium">{cert.name}</span>
+                    {worker.certifications.map((cert) => {
+                      // Find the corresponding worker_certification for expiration date
+                      const workerCert = worker.worker_certifications?.find(wc => wc.certification_id === cert.id);
+                      
+                      return (
+                        <div key={cert.id} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <svg className="h-5 w-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-gray-900 font-medium">{cert.name}</span>
+                          </div>
+                          <div className="text-right">
+                            {workerCert?.expires_at_utc ? (
+                              <div className={`text-sm ${isCertificationExpired(workerCert.expires_at_utc) ? 'text-red-600' : 'text-gray-500'}`}>
+                                {isCertificationExpired(workerCert.expires_at_utc) ? 'Expired' : 'Expires'} {formatDate(workerCert.expires_at_utc)}
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500">No expiration</div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          {cert.expires_at_utc ? (
-                            <div className={`text-sm ${isCertificationExpired(cert.expires_at_utc) ? 'text-red-600' : 'text-gray-500'}`}>
-                              {isCertificationExpired(cert.expires_at_utc) ? 'Expired' : 'Expires'} {formatDate(cert.expires_at_utc)}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-500">No expiration</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-gray-500 italic">No certifications</p>
