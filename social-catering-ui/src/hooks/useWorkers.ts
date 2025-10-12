@@ -84,24 +84,34 @@ export function useWorkers(params: UseWorkersParams = {}): UseWorkersReturn {
       
       filtered = filtered.filter(worker => {
         // Search in name
-        const fullName = `${worker.first_name} ${worker.last_name}`.toLowerCase()
+        const fullName = `${worker.first_name || ''} ${worker.last_name || ''}`.toLowerCase()
         if (fullName.includes(searchTerm)) return true
 
         // Search in email
-        if (worker.email.toLowerCase().includes(searchTerm)) return true
+        if (worker.email && worker.email.toLowerCase().includes(searchTerm)) return true
 
         // Search in phone
         if (worker.phone && worker.phone.toLowerCase().includes(searchTerm)) return true
 
-        // Search in skills
-        if (worker.skills_json && worker.skills_json.some(skill => 
-          skill.toLowerCase().includes(searchTerm)
-        )) return true
+        // Search in skills (handle both array and string)
+        if (worker.skills_json) {
+          const skills = Array.isArray(worker.skills_json) 
+            ? worker.skills_json 
+            : typeof worker.skills_json === 'string' 
+              ? JSON.parse(worker.skills_json) 
+              : []
+          
+          if (skills.some((skill: string) => 
+            skill && skill.toLowerCase().includes(searchTerm)
+          )) return true
+        }
 
         // Search in certifications
-        if (worker.certifications && worker.certifications.some(cert => 
-          cert.name.toLowerCase().includes(searchTerm)
-        )) return true
+        if (worker.certifications && Array.isArray(worker.certifications)) {
+          if (worker.certifications.some(cert => 
+            cert && cert.name && cert.name.toLowerCase().includes(searchTerm)
+          )) return true
+        }
 
         return false
       })
