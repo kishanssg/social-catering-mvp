@@ -8,7 +8,7 @@ namespace :frontend do
     if File.exist?(Rails.root.join("app/assets/builds/application.js")) && 
        File.exist?(Rails.root.join("app/assets/builds/application.css"))
       puts "✅ Using pre-built React frontend assets"
-      return
+      next
     end
 
     # Try different npm paths
