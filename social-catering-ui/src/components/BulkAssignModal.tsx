@@ -134,17 +134,36 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
   };
   
   // Filter workers by search
-  const filteredWorkers = workers.filter(w =>
-    w.first_name.toLowerCase().includes(searchWorker.toLowerCase()) ||
-    w.last_name.toLowerCase().includes(searchWorker.toLowerCase()) ||
-    w.email.toLowerCase().includes(searchWorker.toLowerCase())
-  );
+  const filteredWorkers = workers.filter(w => {
+    if (!searchWorker.trim()) return true;
+    
+    const search = searchWorker.toLowerCase().trim();
+    const firstName = (w.first_name || '').toLowerCase();
+    const lastName = (w.last_name || '').toLowerCase();
+    const email = (w.email || '').toLowerCase();
+    const fullName = `${firstName} ${lastName}`;
+    
+    return (
+      firstName.includes(search) ||
+      lastName.includes(search) ||
+      fullName.includes(search) ||
+      email.includes(search)
+    );
+  });
   
   // Filter shifts by search
-  const filteredShifts = shifts.filter(s =>
-    s.client_name.toLowerCase().includes(searchShift.toLowerCase()) ||
-    s.role_needed.toLowerCase().includes(searchShift.toLowerCase())
-  );
+  const filteredShifts = shifts.filter(s => {
+    if (!searchShift.trim()) return true;
+    
+    const search = searchShift.toLowerCase().trim();
+    const clientName = (s.client_name || '').toLowerCase();
+    const roleNeeded = (s.role_needed || '').toLowerCase();
+    
+    return (
+      clientName.includes(search) ||
+      roleNeeded.includes(search)
+    );
+  });
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
