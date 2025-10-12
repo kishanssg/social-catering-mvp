@@ -10,8 +10,8 @@ class CreateAssignments < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :assignments, [:shift_id, :worker_id], unique: true
-    add_index :assignments, [:worker_id, :status]
+    add_index :assignments, [ :shift_id, :worker_id ], unique: true
+    add_index :assignments, [ :worker_id, :status ]
 
     add_check_constraint :assignments, "status IN ('assigned', 'completed', 'no_show', 'cancelled')", name: 'assignments_valid_status'
 

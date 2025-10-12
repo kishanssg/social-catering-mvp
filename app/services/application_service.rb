@@ -8,13 +8,13 @@ class ApplicationService
       new(**kwargs, &block).call
     end
   end
-  
+
   private
-  
+
   def success(data = {})
     { success: true, data: data }
   end
-  
+
   def failure(error, status: :unprocessable_entity)
     { success: false, error: error, status: status }
   end

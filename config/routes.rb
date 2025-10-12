@@ -7,27 +7,27 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # Custom health check endpoint for monitoring
-  get '/healthz', to: 'health#check'
+  get "/healthz", to: "health#check"
 
   # API routes
   namespace :api do
     namespace :v1 do
       # Authentication routes
-      post 'login', to: 'sessions#create'
-      delete 'logout', to: 'sessions#destroy'
-      
-      resources :workers, only: [:index, :show, :create, :update] do
+      post "login", to: "sessions#create"
+      delete "logout", to: "sessions#destroy"
+
+      resources :workers, only: [ :index, :show, :create, :update ] do
         member do
-          post 'certifications', to: 'workers#add_certification'
-          delete 'certifications/:certification_id', to: 'workers#remove_certification'
+          post "certifications", to: "workers#add_certification"
+          delete "certifications/:certification_id", to: "workers#remove_certification"
         end
       end
-      resources :shifts, only: [:index, :show, :create, :update, :destroy]
-      resources :assignments, only: [:index, :create, :update, :destroy]
-      resources :certifications, only: [:index]
-      resources :activity_logs, only: [:index]
+      resources :shifts, only: [ :index, :show, :create, :update, :destroy ]
+      resources :assignments, only: [ :index, :create, :update, :destroy ]
+      resources :certifications, only: [ :index ]
+      resources :activity_logs, only: [ :index ]
       # Dashboard
-      get 'dashboard', to: 'dashboard#index'
+      get "dashboard", to: "dashboard#index"
     end
   end
 
@@ -36,8 +36,8 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   # Serve React app for all non-API routes (Rails will handle static files automatically)
-  get '*path', to: 'home#index', constraints: lambda { |req| !req.path.start_with?('/api') }
-  
+  get "*path", to: "home#index", constraints: lambda { |req| !req.path.start_with?("/api") }
+
   # Defines the root path route ("/")
   root "home#index"
 end

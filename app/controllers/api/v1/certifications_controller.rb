@@ -3,9 +3,9 @@ module Api
     class CertificationsController < BaseController
       def index
         certifications = Certification.order(:name)
-        
+
         render_success({
-          certifications: certifications.as_json(only: [:id, :name])
+          certifications: certifications.as_json(only: [ :id, :name ])
         })
       end
     end

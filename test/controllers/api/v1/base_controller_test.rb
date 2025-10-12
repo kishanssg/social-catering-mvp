@@ -2,7 +2,7 @@ require "test_helper"
 
 class Api::V1::BaseControllerTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
-  
+
   def setup
     @user = users(:one)
   end
@@ -23,7 +23,7 @@ class Api::V1::BaseControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     get "/api/v1/workers/999999"
     assert_response :not_found
-    
+
     json_response = JSON.parse(response.body)
     assert_equal "error", json_response["status"]
     assert_includes json_response["error"], "Record not found"

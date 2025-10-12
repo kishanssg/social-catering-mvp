@@ -1,0 +1,23 @@
+                            api_v1_login POST   /api/v1/login(.:format)                                                                           api/v1/sessions#create
+                           api_v1_logout DELETE /api/v1/logout(.:format)                                                                          api/v1/sessions#destroy
+            certifications_api_v1_worker POST   /api/v1/workers/:id/certifications(.:format)                                                      api/v1/workers#add_certification
+                                         DELETE /api/v1/workers/:id/certifications/:certification_id(.:format)                                    api/v1/workers#remove_certification
+                          api_v1_workers GET    /api/v1/workers(.:format)                                                                         api/v1/workers#index
+                                         POST   /api/v1/workers(.:format)                                                                         api/v1/workers#create
+                           api_v1_worker GET    /api/v1/workers/:id(.:format)                                                                     api/v1/workers#show
+                                         PATCH  /api/v1/workers/:id(.:format)                                                                     api/v1/workers#update
+                                         PUT    /api/v1/workers/:id(.:format)                                                                     api/v1/workers#update
+                           api_v1_shifts GET    /api/v1/shifts(.:format)                                                                          api/v1/shifts#index
+                                         POST   /api/v1/shifts(.:format)                                                                          api/v1/shifts#create
+                            api_v1_shift GET    /api/v1/shifts/:id(.:format)                                                                      api/v1/shifts#show
+                                         PATCH  /api/v1/shifts/:id(.:format)                                                                      api/v1/shifts#update
+                                         PUT    /api/v1/shifts/:id(.:format)                                                                      api/v1/shifts#update
+                                         DELETE /api/v1/shifts/:id(.:format)                                                                      api/v1/shifts#destroy
+                      api_v1_assignments GET    /api/v1/assignments(.:format)                                                                     api/v1/assignments#index
+                                         POST   /api/v1/assignments(.:format)                                                                     api/v1/assignments#create
+                       api_v1_assignment PATCH  /api/v1/assignments/:id(.:format)                                                                 api/v1/assignments#update
+                                         PUT    /api/v1/assignments/:id(.:format)                                                                 api/v1/assignments#update
+                                         DELETE /api/v1/assignments/:id(.:format)                                                                 api/v1/assignments#destroy
+                   api_v1_certifications GET    /api/v1/certifications(.:format)                                                                  api/v1/certifications#index
+                    api_v1_activity_logs GET    /api/v1/activity_logs(.:format)                                                                   api/v1/activity_logs#index
+                        api_v1_dashboard GET    /api/v1/dashboard(.:format)                                                                       api/v1/dashboard#index

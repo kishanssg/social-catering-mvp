@@ -17,7 +17,7 @@ Rails.application.configure do
 
   # Enable serving of static files from the public directory
   config.public_file_server.enabled = true
-  
+
   # Cache assets for far-future expiry since they are all digest stamped.
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 

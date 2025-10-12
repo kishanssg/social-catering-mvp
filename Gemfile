@@ -41,7 +41,7 @@ gem "tailwindcss-rails"
 gem "devise"
 
 # CORS for React frontend
-gem 'rack-cors'
+gem "rack-cors"
 
 # Pagination [https://github.com/kaminari/kaminari]
 gem "kaminari"

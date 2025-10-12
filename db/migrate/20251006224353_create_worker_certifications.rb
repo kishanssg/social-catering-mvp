@@ -8,7 +8,7 @@ class CreateWorkerCertifications < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :worker_certifications, [:worker_id, :certification_id], unique: true
+    add_index :worker_certifications, [ :worker_id, :certification_id ], unique: true
     add_index :worker_certifications, :expires_at_utc
   end
 end

@@ -4,14 +4,14 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable
 
-  has_many :shifts, foreign_key: 'created_by_id', dependent: :restrict_with_error
-  has_many :assignments_created, class_name: 'Assignment', foreign_key: 'assigned_by_id'
-  
+  has_many :shifts, foreign_key: "created_by_id", dependent: :restrict_with_error
+  has_many :assignments_created, class_name: "Assignment", foreign_key: "assigned_by_id"
+
   validates :email, presence: true, uniqueness: true
-  validates :role, presence: true, inclusion: { in: ['admin'] }
+  validates :role, presence: true, inclusion: { in: [ "admin" ] }
 
   # Returns true if the user has admin role
   def admin?
-    role == 'admin'
+    role == "admin"
   end
 end

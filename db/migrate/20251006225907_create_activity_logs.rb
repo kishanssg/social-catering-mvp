@@ -12,7 +12,7 @@ class CreateActivityLogs < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :activity_logs, [:entity_type, :entity_id]
+    add_index :activity_logs, [ :entity_type, :entity_id ]
     add_index :activity_logs, :created_at_utc
     add_index :activity_logs, :actor_user_id
 
