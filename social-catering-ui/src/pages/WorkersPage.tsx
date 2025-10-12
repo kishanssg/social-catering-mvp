@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useWorkers, type Worker } from '../hooks/useWorkers'
 import { apiService } from '../services/api'
 import { WorkerFilters } from '../components/Workers/WorkerFilters'
@@ -17,17 +17,7 @@ import { Users } from 'lucide-react'
 export function WorkersPage() {
   // Filters
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-    }, 300)
-    
-    return () => clearTimeout(timer)
-  }, [search])
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -48,9 +38,9 @@ export function WorkersPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   // Fetch Workers
-  const { workers, isLoading, error, refetch } = useWorkers({ search: debouncedSearch, status })
+  const { workers, filteredWorkers, isLoading, error, refetch } = useWorkers({ search, status })
 
-  // Memoized statistics calculations
+  // Memoized statistics calculations (use all workers for stats)
   const stats = useMemo(() => {
     const total = workers.length
     const active = workers.filter(w => w.active).length
@@ -77,7 +67,7 @@ export function WorkersPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const handleAddSubmit = async (data: any) => {
+  const handleAddSubmit = async (data: Record<string, unknown>) => {
     try {
       setIsSubmitting(true)
       setFormError(null)
@@ -107,8 +97,8 @@ export function WorkersPage() {
       setIsAddModalOpen(false)
       refetch()
       setToast({ message: 'Worker added successfully!', type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to create worker'
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create worker'
       setFormError(errorMessage)
       setToast({ message: errorMessage, type: 'error' })
     } finally {
@@ -116,7 +106,7 @@ export function WorkersPage() {
     }
   }
 
-  const handleEditSubmit = async (data: any) => {
+  const handleEditSubmit = async (data: Record<string, unknown>) => {
     if (!selectedWorker) return
 
     try {
@@ -128,8 +118,8 @@ export function WorkersPage() {
       setIsEditModalOpen(false)
       refetch()
       setToast({ message: 'Worker updated successfully!', type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to update worker'
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to update worker'
       setFormError(errorMessage)
       setToast({ message: errorMessage, type: 'error' })
     } finally {
@@ -149,8 +139,8 @@ export function WorkersPage() {
       setSelectedWorker(null)
       refetch()
       setToast({ message: `${selectedWorker.first_name} ${selectedWorker.last_name} has been deactivated successfully!`, type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to delete worker'
+    } catch (err: unknown) {
+      const errorMessage = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to delete worker'
       setToast({ message: errorMessage, type: 'error' })
     } finally {
       setIsDeleting(false)
@@ -264,15 +254,20 @@ export function WorkersPage() {
       />
 
       {/* Workers Table */}
-      {workers.length > 0 ? (
+      {filteredWorkers.length > 0 ? (
         <>
           <WorkerTable
-            workers={workers}
+            workers={filteredWorkers}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
           />
           <p className="text-sm text-gray-500">
-            Showing {workers.length} worker{workers.length !== 1 ? 's' : ''}
+            Showing {filteredWorkers.length} worker{filteredWorkers.length !== 1 ? 's' : ''}
+            {search && (
+              <span className="text-blue-600 ml-1">
+                (filtered from {workers.length} total)
+              </span>
+            )}
           </p>
         </>
       ) : (
