@@ -5,7 +5,7 @@ module Api
         # Get shift counts by status
         shift_counts = Shift.group(:status).count
 
-        # Get shifts by fill status
+        # Get shifts by fill status - use consistent logic with events
         all_shifts = Shift.includes(:assignments).where("start_time_utc >= ?", Time.current)
 
         unfilled = []
@@ -13,10 +13,13 @@ module Api
         covered = []
 
         all_shifts.each do |shift|
-          assigned = shift.assignments.where(status: "assigned").count
+          assigned = shift.assigned_count
+          required = shift.event_id.present? && shift.skill_requirement ? 
+                     shift.skill_requirement.needed_workers : shift.capacity
+          
           if assigned == 0
             unfilled << shift
-          elsif assigned < shift.capacity
+          elsif assigned < required
             partial << shift
           else
             covered << shift

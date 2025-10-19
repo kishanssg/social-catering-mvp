@@ -40,13 +40,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <details className="text-left bg-gray-50 p-4 rounded mb-4">
                   <summary className="cursor-pointer font-medium text-gray-700">Error details</summary>
                   <pre className="mt-2 text-xs text-gray-600 overflow-auto">
-                    {this.state.error.toString()}
+                    {this.state.error?.message || 'Unknown error occurred'}
                   </pre>
                 </details>
               )}
               <button
                 onClick={() => window.location.reload()}
-                className="btn-primary"
+                className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
               >
                 Refresh Page
               </button>

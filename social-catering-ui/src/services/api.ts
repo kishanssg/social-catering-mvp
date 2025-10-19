@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
-import type { ApiResponse, LoginCredentials, AuthUser } from '../types';
+import type { ApiResponse, LoginCredentials, AuthUser, Skill, Location, Shift, Assignment } from '../types';
 import { config } from '../config/environment';
 
 // API Configuration
@@ -152,6 +152,11 @@ class ApiService {
     return response.data;
   }
 
+  async updateShiftStatus(id: number, status: string): Promise<ApiResponse> {
+    const response = await apiClient.patch(`/shifts/${id}/status`, { status });
+    return response.data;
+  }
+
   // Assignments
   async getAssignments(params?: any): Promise<ApiResponse> {
     const response = await apiClient.get('/assignments', { params });
@@ -184,8 +189,91 @@ class ApiService {
     const response = await apiClient.get('/activity_logs', { params });
     return response.data;
   }
+
+  // Skills
+  async getSkills(): Promise<ApiResponse> {
+    const response = await apiClient.get('/skills');
+    return response.data;
+  }
+
+  // Locations
+  async getLocations(): Promise<ApiResponse> {
+    const response = await apiClient.get('/locations');
+    return response.data;
+  }
+
+  // Exports
+  async exportTimesheet(params?: any): Promise<Blob> {
+    const response = await apiClient.get('/exports/timesheet', { 
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  // Helper function to download CSV
+  async downloadTimesheet(startDate: string, endDate: string): Promise<void> {
+    try {
+      const blob = await this.exportTimesheet({ start_date: startDate, end_date: endDate });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `timesheet_${startDate}_to_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading timesheet:', error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance
 export const apiService = new ApiService();
+
+// Export individual functions for convenience
+export const getSkills = async (): Promise<Skill[]> => {
+  const response = await apiClient.get('/skills');
+  return response.data.data;
+};
+
+export const getLocations = async (): Promise<Location[]> => {
+  const response = await apiClient.get('/locations');
+  return response.data.data;
+};
+
+export const downloadTimesheet = async (startDate: string, endDate: string) => {
+  const response = await apiClient.get('/exports/timesheet', {
+    params: { start_date: startDate, end_date: endDate },
+    responseType: 'blob'
+  });
+  
+  // Create download link
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `timesheet_${startDate}_to_${endDate}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const createShift = async (data: Partial<Shift>) => {
+  const response = await apiClient.post('/shifts', { shift: data });
+  return response.data;
+};
+
+export const createAssignment = async (data: Partial<Assignment>) => {
+  const response = await apiClient.post('/assignments', { assignment: data });
+  return response.data;
+};
+
+export const updateAssignment = async (id: number, data: Partial<Assignment>) => {
+  const response = await apiClient.put(`/assignments/${id}`, { assignment: data });
+  return response.data;
+};
+
 export default apiClient;

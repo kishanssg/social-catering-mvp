@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Assignment } from '../../services/assignmentsApi';
 import AssignmentStatusBadge from './AssignmentStatusBadge';
+import { HoursEntry } from '../ui/HoursEntry';
 import { format } from 'date-fns';
 
 interface AssignmentTableProps {
   assignments: Assignment[];
   onStatusUpdate: (id: number, status: string) => void;
+  onHoursUpdate: (id: number, hours: number | undefined, rate: number | undefined) => void;
   onDelete: (id: number) => void;
 }
 
-export function AssignmentTable({ assignments, onStatusUpdate, onDelete }: AssignmentTableProps) {
+export function AssignmentTable({ assignments, onStatusUpdate, onHoursUpdate, onDelete }: AssignmentTableProps) {
   const [editingStatus, setEditingStatus] = useState<number | null>(null);
 
   const formatDateTime = (dateString: string) => {
@@ -34,6 +36,10 @@ export function AssignmentTable({ assignments, onStatusUpdate, onDelete }: Assig
     setEditingStatus(null);
   };
 
+  const handleHoursChange = (assignmentId: number, hours: number | undefined, rate: number | undefined) => {
+    onHoursUpdate(assignmentId, hours, rate);
+  };
+
   const statusOptions = [
     { value: 'assigned', label: 'Active' },
     { value: 'completed', label: 'Completed' },
@@ -55,6 +61,9 @@ export function AssignmentTable({ assignments, onStatusUpdate, onDelete }: Assig
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Hours & Pay
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Assigned
@@ -130,6 +139,18 @@ export function AssignmentTable({ assignments, onStatusUpdate, onDelete }: Assig
                       <AssignmentStatusBadge status={assignment.status} />
                     </button>
                   )}
+                </td>
+
+                {/* Hours & Pay */}
+                <td className="px-6 py-4">
+                  <HoursEntry
+                    hoursWorked={assignment.hours_worked}
+                    hourlyRate={assignment.hourly_rate}
+                    totalPay={assignment.total_pay}
+                    onHoursChange={(hours) => handleHoursChange(assignment.id, hours, assignment.hourly_rate)}
+                    onRateChange={(rate) => handleHoursChange(assignment.id, assignment.hours_worked, rate)}
+                    disabled={assignment.status === 'cancelled'}
+                  />
                 </td>
 
                 {/* Assigned */}

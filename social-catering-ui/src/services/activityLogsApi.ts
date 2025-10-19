@@ -1,4 +1,4 @@
-import api from './api';
+import { apiClient } from '../lib/api';
 
 export interface ActivityLog {
   id: number;
@@ -38,6 +38,6 @@ export const getActivityLogs = async (params?: {
   page?: number;
   per_page?: number;
 }): Promise<ActivityLogsResponse> => {
-  const response = await api.get('/activity_logs', { params });
+  const response = await apiClient.get('/activity_logs', { params });
   return response.data;
 };

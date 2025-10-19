@@ -1,0 +1,24 @@
+Date,Day of Week,Worker ID,Worker Name,Worker Email,Worker Phone,Client,Location,Address,Role,Scheduled Start,Scheduled End,Hours Worked,Hourly Rate,Total Pay,Status,Notes
+2025-10-07,Tuesday,161,Laura Miller,laura.miller21@email.com,(904) 413-2651,Corporate Luncheon,Goodwood Museum & Gardens,"1600 Miccosukee Rd, Tallahassee, FL",Event Setup,11:00 AM,03:00 PM,4.52,20.0,90.4,Completed,Setup begins 1 hour early
+2025-10-08,Wednesday,151,Jessica Garcia,jessica.garcia44@email.com,(850) 514-8667,Corporate Luncheon,Sweetwater Branch Inn,"625 E University Ave, Gainesville, FL",Event Setup,06:00 PM,10:00 PM,3.71,22.0,81.62,Completed,Setup begins 1 hour early
+2025-10-09,Thursday,147,Maria Hill,maria.hill77@email.com,(352) 226-9289,Holiday Party,Mission San Luis,"2100 W Tennessee St, Tallahassee, FL",Server,10:00 AM,02:00 PM,3.77,25.0,94.25,Completed,VIP guests attending
+2025-10-09,Thursday,162,Christopher Miller,christopher.miller76@email.com,(386) 290-6826,Holiday Party,Mission San Luis,"2100 W Tennessee St, Tallahassee, FL",Server,10:00 AM,02:00 PM,4.06,21.0,85.26,Completed,VIP guests attending
+2025-10-09,Thursday,170,Jason Rodriguez,jason.rodriguez95@email.com,(904) 884-4064,Corporate Luncheon,Capital City Country Club,"1601 Golf Terrace Dr, Tallahassee, FL",Bartender,02:00 PM,06:00 PM,4.63,18.0,83.34,Completed,Outdoor venue - bring appropriate attire
+2025-10-09,Thursday,153,Emily Thomas,emily.thomas31@email.com,(904) 946-1169,Corporate Luncheon,Capital City Country Club,"1601 Golf Terrace Dr, Tallahassee, FL",Bartender,02:00 PM,06:00 PM,4.23,19.0,80.37,Completed,Outdoor venue - bring appropriate attire
+2025-10-09,Thursday,155,Sarah Taylor,sarah.taylor77@email.com,(386) 585-6974,Birthday Celebration,Sweetwater Branch Inn,"625 E University Ave, Gainesville, FL",Bartender,05:00 PM,08:00 PM,2.81,16.0,44.96,Completed,VIP guests attending
+2025-10-09,Thursday,153,Emily Thomas,emily.thomas31@email.com,(904) 946-1169,Birthday Celebration,Sweetwater Branch Inn,"625 E University Ave, Gainesville, FL",Bartender,05:00 PM,08:00 PM,3.7,20.0,74.0,Completed,VIP guests attending
+2025-10-10,Friday,160,Daniel Green,daniel.green64@email.com,(904) 360-5611,FSU Alumni Gala,Goodwood Museum & Gardens,"1600 Miccosukee Rd, Tallahassee, FL",Event Captain,04:00 PM,09:00 PM,5.81,26.0,151.06,Completed,Outdoor venue - bring appropriate attire
+2025-10-10,Friday,150,Michael Miller,michael.miller27@email.com,(850) 804-6253,FSU Alumni Gala,Goodwood Museum & Gardens,"1600 Miccosukee Rd, Tallahassee, FL",Event Captain,04:00 PM,09:00 PM,5.74,27.0,154.98,Completed,Outdoor venue - bring appropriate attire
+2025-10-10,Friday,152,David Taylor,david.taylor25@email.com,(352) 959-9229,FSU Alumni Gala,Goodwood Museum & Gardens,"1600 Miccosukee Rd, Tallahassee, FL",Event Captain,04:00 PM,09:00 PM,5.48,30.0,164.4,Completed,Outdoor venue - bring appropriate attire
+2025-10-11,Saturday,154,James Davis,james.davis88@email.com,(904) 488-9778,Birthday Celebration,The Edison Restaurant,"470 Suwannee St, Tallahassee, FL",Server,06:00 PM,09:00 PM,2.71,18.0,48.78,Completed,
+2025-10-12,Sunday,155,Sarah Taylor,sarah.taylor77@email.com,(386) 585-6974,Holiday Party,Capital City Country Club,"1601 Golf Terrace Dr, Tallahassee, FL",Server,04:00 PM,08:00 PM,4.59,26.0,119.34,Completed,Black tie event - formal attire required
+2025-10-12,Sunday,151,Jessica Garcia,jessica.garcia44@email.com,(850) 514-8667,Corporate Luncheon,Sweetwater Branch Inn,"625 E University Ave, Gainesville, FL",Event Setup,06:00 PM,10:00 PM,4.79,18.0,86.22,Completed,Client requested experienced staff only
+2025-10-13,Monday,170,Jason Rodriguez,jason.rodriguez95@email.com,(904) 884-4064,Private Dinner Party,Goodwood Museum & Gardens,"1600 Miccosukee Rd, Tallahassee, FL",Server,02:00 PM,06:00 PM,4.35,23.0,100.05,Completed,Outdoor venue - bring appropriate attire
+2025-10-13,Monday,154,James Davis,james.davis88@email.com,(904) 488-9778,Corporate Luncheon,The Wooly,"20 N Main St, Gainesville, FL",Bartender,05:00 PM,09:00 PM,3.77,21.0,79.17,Completed,Outdoor venue - bring appropriate attire
+
+SUMMARY
+Total Hours,68.67
+Total Pay,1538.2
+Number of Workers,11
+Number of Shifts,11
+Report Generated,2025-10-15 12:02 AM

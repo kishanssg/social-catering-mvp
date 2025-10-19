@@ -1,390 +1,372 @@
-import { useState, useMemo } from 'react'
-import { useWorkers, type Worker } from '../hooks/useWorkers'
-import { apiService } from '../services/api'
-import { WorkerFilters } from '../components/Workers/WorkerFilters'
-import { WorkerTable } from '../components/Workers/WorkerTable'
-import { WorkerForm as WorkerFormNew } from '../components/Workers/WorkerFormNew'
-import { WorkerDetail as WorkerDetailNew } from '../components/Workers/WorkerDetailNew'
-import { Modal } from '../components/ui/Modal'
-import { ConfirmModal } from '../components/ui/ConfirmModal'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { ErrorMessage } from '../components/ui/ErrorMessage'
-import { EmptyState } from '../components/Dashboard/EmptyState'
-import { Toast } from '../components/ui/Toast'
-import BulkAssignModal from '../components/BulkAssignModal'
-import { Users } from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Search, 
+  Plus, 
+  Filter,
+  Mail,
+  Phone,
+  User,
+  CheckCircle,
+  XCircle,
+  MoreVertical,
+  Edit,
+  Trash2
+} from 'lucide-react';
+import { apiClient } from '../lib/api';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { EmptyState } from '../components/common/EmptyState';
+import { useAuth } from '../contexts/AuthContext';
+
+interface Worker {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  active: boolean;
+  skills_json: string[];
+  certifications?: Array<{
+    id: number;
+    name: string;
+    expires_at_utc?: string;
+  }>;
+}
 
 export function WorkersPage() {
-  // Filters
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
-
-  // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
-
-  // Selected Worker
-  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null)
-
-  // Form States
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   
-  // Toast State
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-
-  // Fetch Workers
-  const { workers, filteredWorkers, isLoading, error, refetch } = useWorkers({ search, status })
-
-  // Memoized statistics calculations (use all workers for stats)
-  const stats = useMemo(() => {
-    const total = workers.length
-    const active = workers.filter(w => w.active).length
-    const inactive = workers.filter(w => !w.active).length
-    
-    return { total, active, inactive }
-  }, [workers])
-
-  // Handlers
-  const handleAddClick = () => {
-    setSelectedWorker(null)
-    setFormError(null)
-    setIsAddModalOpen(true)
-  }
-
-  const handleEditClick = (worker: Worker) => {
-    setSelectedWorker(worker)
-    setFormError(null)
-    setIsEditModalOpen(true)
-  }
-
-  const handleDeleteClick = (worker: Worker) => {
-    setSelectedWorker(worker)
-    setIsDeleteModalOpen(true)
-  }
-
-  const handleAddSubmit = async (data: any) => {
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'status'>('name');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      loadWorkers();
+    }
+  }, [isAuthenticated, authLoading]);
+  
+  async function loadWorkers() {
+    setLoading(true);
     try {
-      setIsSubmitting(true)
-      setFormError(null)
+      console.log('Loading workers...');
+      const response = await apiClient.get('/workers');
+      console.log('Workers API response:', response);
       
-      // Extract certifications from data
-      const { certifications, ...workerData } = data
+      if (response.data.status === 'success') {
+        // The API returns { data: { workers: [...] } }
+        console.log('Workers data:', response.data.data.workers);
+        const workersData = response.data.data.workers || [];
+        console.log('Setting workers:', workersData.length, 'workers');
+        setWorkers(workersData);
+      } else {
+        console.error('API returned error status:', response.data);
+        setWorkers([]);
+      }
+    } catch (error) {
+      console.error('Failed to load workers:', error);
+      setWorkers([]); // Ensure workers is always an array
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  async function handleDeleteWorker(workerId: number) {
+    if (!confirm('Are you sure you want to delete this worker?')) return;
+    
+    try {
+      const response = await apiClient.delete(`/workers/${workerId}`);
       
-      // Create worker first
-      const response = await apiService.createWorker(workerData)
-      const workerId = response.data.worker.id
+      if (response.data.status === 'success') {
+        loadWorkers();
+      }
+    } catch (error) {
+      console.error('Failed to delete worker:', error);
+      alert('Failed to delete worker');
+    }
+  }
+  
+  // Filter and sort workers
+  const filteredWorkers = workers
+    .filter(worker => {
+      // Status filter
+      if (filterStatus === 'active' && !worker.active) return false;
+      if (filterStatus === 'inactive' && worker.active) return false;
       
-      // Add certifications if any
-      if (certifications && certifications.length > 0) {
-        for (const cert of certifications) {
-          try {
-            await apiService.addCertificationToWorker(workerId, {
-              certification_id: cert.certification_id,
-              expires_at_utc: cert.expires_at_utc
-            })
-          } catch (certErr) {
-            console.error('Error adding certification:', certErr)
-            // Continue with other certifications even if one fails
-          }
-        }
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+    return (
+          worker.first_name.toLowerCase().includes(query) ||
+          worker.last_name.toLowerCase().includes(query) ||
+          worker.email.toLowerCase().includes(query) ||
+          worker.phone?.includes(query)
+        );
       }
       
-      setIsAddModalOpen(false)
-      refetch()
-      setToast({ message: 'Worker added successfully!', type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to create worker'
-      setFormError(errorMessage)
-      setToast({ message: errorMessage, type: 'error' })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+        case 'email':
+          return a.email.localeCompare(b.email);
+        case 'status':
+          return (b.active ? 1 : 0) - (a.active ? 1 : 0);
+        default:
+          return 0;
+      }
+    });
 
-  const handleEditSubmit = async (data: any) => {
-    if (!selectedWorker) return
+  // Debug logging
+  console.log('WorkersPage render:', {
+    workers: workers.length,
+    filteredWorkers: filteredWorkers.length,
+    loading,
+    authLoading,
+    isAuthenticated,
+    filterStatus,
+    searchQuery
+  });
 
-    try {
-      setIsSubmitting(true)
-      setFormError(null)
-      
-      await apiService.updateWorker(selectedWorker.id, data)
-      
-      setIsEditModalOpen(false)
-      refetch()
-      setToast({ message: 'Worker updated successfully!', type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to update worker'
-      setFormError(errorMessage)
-      setToast({ message: errorMessage, type: 'error' })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedWorker) return
-
-    try {
-      setIsDeleting(true)
-      
-      await apiService.updateWorker(selectedWorker.id, { active: false })
-      
-      setIsDeleteModalOpen(false)
-      setSelectedWorker(null)
-      refetch()
-      setToast({ message: `${selectedWorker.first_name} ${selectedWorker.last_name} has been deactivated successfully!`, type: 'success' })
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to delete worker'
-      setToast({ message: errorMessage, type: 'error' })
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  // Loading State
-  if (isLoading) {
+  // Show loading while authentication is in progress
+  if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner />
       </div>
-    )
+    );
   }
 
-  // Error State
-  if (error) {
-    return <ErrorMessage message={error} onRetry={refetch} />
+  // Show message if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600">Please log in to view workers.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex justify-between items-start">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
-          <p className="text-gray-600 mt-1">Manage your workforce directory</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Workers</h1>
+            <p className="text-gray-600 mt-1">Manage your workforce</p>
         </div>
         
-        {/* Bulk Assign Button */}
         <button
-          onClick={() => setShowBulkAssignModal(true)}
-          className="btn-green flex items-center gap-2"
+            onClick={() => navigate('/workers/create')}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
         >
-          <Users className="h-4 w-4" />
-          Bulk Assign
+            <Plus size={20} />
+            Add New Worker
         </button>
       </div>
 
-      {/* Worker Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Workers</p>
-              <p className="mt-2 text-3xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-            </div>
+        {/* Filters & Search */}
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+          {/* Search */}
+          <div className="flex-1 max-w-md relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            />
           </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Active</p>
-              <p className="mt-2 text-3xl font-bold text-green-600">
-                {stats.active}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-green-50 text-green-600">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Inactive</p>
-              <p className="mt-2 text-3xl font-bold text-gray-600">
-                {stats.inactive}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg bg-gray-50 text-gray-600">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <WorkerFilters
-        search={search}
-        status={status}
-        onSearchChange={setSearch}
-        onStatusChange={setStatus}
-        onAddClick={handleAddClick}
-      />
-
-      {/* Workers Table */}
-      {filteredWorkers.length > 0 ? (
-        <>
-          <WorkerTable
-            workers={filteredWorkers}
-            onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
-          />
-          <p className="text-sm text-gray-500">
-            Showing {filteredWorkers.length} worker{filteredWorkers.length !== 1 ? 's' : ''}
-            {search && (
-              <span className="text-blue-600 ml-1">
-                (filtered from {workers.length} total)
-              </span>
-            )}
-          </p>
-        </>
-      ) : (
-        <EmptyState
-          title="No Workers Found"
-          description={
-            search || status !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Get started by adding your first worker'
-          }
-          icon={
-            <svg
-              className="h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+          >
+            <option value="name">Sort by Name</option>
+            <option value="email">Sort by Email</option>
+            <option value="status">Sort by Status</option>
+          </select>
+          
+          {/* Status Filter */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterStatus('all')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                filterStatus === 'all'
+                  ? 'bg-teal-100 text-teal-700'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          }
-        />
-      )}
+              All
+            </button>
+            <button
+              onClick={() => setFilterStatus('active')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                filterStatus === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setFilterStatus('inactive')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                filterStatus === 'inactive'
+                  ? 'bg-gray-200 text-gray-700'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+              }`}
+            >
+              Inactive
+            </button>
+          </div>
+        </div>
 
-      {/* Add Worker Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Add New Worker"
-        size="lg"
-      >
-        {formError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">{formError}</p>
+        {/* Workers Table */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        ) : filteredWorkers.length === 0 ? (
+        <EmptyState
+            icon={<User size={48} />}
+            title={searchQuery ? 'No workers found' : 'No workers yet'}
+          description={
+              searchQuery 
+              ? 'Try adjusting your search or filters'
+                : 'Add your first worker to get started'
+            }
+            callToAction={
+              !searchQuery && (
+                <button
+                  onClick={() => navigate('/workers/create')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  <Plus size={20} />
+                  Add Worker
+                </button>
+              )
+            }
+          />
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
+                    Worker Name
+                  </th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
+                    Phone Number
+                  </th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
+                    Email Address
+                  </th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
+                    Status
+                  </th>
+                  <th className="text-right py-3 px-6 text-sm font-medium text-gray-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredWorkers.map((worker) => (
+                  <tr 
+                    key={worker.id} 
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/workers/${worker.id}`)}
+                  >
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
+                          {worker.first_name[0]}{worker.last_name[0]}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {worker.first_name} {worker.last_name}
+                          </p>
+                          {worker.skills_json && worker.skills_json.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {worker.skills_json.slice(0, 3).map((skill, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                              {worker.skills_json.length > 3 && (
+                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                  +{worker.skills_json.length - 3}
+                                </span>
+                              )}
           </div>
         )}
-        <WorkerFormNew
-          onSubmit={handleAddSubmit}
-          onCancel={() => setIsAddModalOpen(false)}
-          isSubmitting={isSubmitting}
-        />
-      </Modal>
-
-      {/* Edit Worker Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Worker"
-        size="lg"
-      >
-        {formError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">{formError}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-600">
+                      {worker.phone || '—'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-600">
+                      {worker.email}
+                    </td>
+                    <td className="py-4 px-6">
+                      {worker.active ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                          <CheckCircle size={14} />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                          <XCircle size={14} />
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/workers/${worker.id}/edit`);
+                          }}
+                          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+                          title="Edit"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWorker(worker.id);
+                          }}
+                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-        <WorkerFormNew
-          worker={selectedWorker}
-          onSubmit={handleEditSubmit}
-          onCancel={() => setIsEditModalOpen(false)}
-          isSubmitting={isSubmitting}
-        />
-      </Modal>
-
-      {/* Worker Detail Modal */}
-      <Modal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        title={
-          selectedWorker
-            ? `${selectedWorker.first_name} ${selectedWorker.last_name}`
-            : 'Worker Details'
-        }
-        size="lg"
-      >
-        {selectedWorker && <WorkerDetailNew worker={selectedWorker} />}
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Worker"
-        message={
-          selectedWorker
-            ? `Are you sure you want to delete ${selectedWorker.first_name} ${selectedWorker.last_name}? This action cannot be undone.`
-            : 'Are you sure you want to delete this worker?'
-        }
-        confirmText="Delete"
-        cancelText="Cancel"
-        isLoading={isDeleting}
-      />
-
-      {/* Toast Notification */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          isVisible={!!toast}
-          onClose={() => setToast(null)}
-        />
-      )}
-      
-      {/* Bulk Assign Modal */}
-      {showBulkAssignModal && (
-        <BulkAssignModal
-          onClose={() => setShowBulkAssignModal(false)}
-          onSuccess={() => {
-            refetch();
-            setShowBulkAssignModal(false);
-          }}
-        />
-      )}
+      </div>
     </div>
-  )
+  );
 }

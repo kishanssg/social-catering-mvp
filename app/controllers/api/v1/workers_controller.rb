@@ -52,6 +52,16 @@ module Api
         worker = Worker.new(worker_params)
 
         if worker.save
+          # Add certifications if provided
+          if params[:worker][:certification_ids].present?
+            params[:worker][:certification_ids].each do |cert_id|
+              worker.worker_certifications.create!(
+                certification_id: cert_id,
+                expires_at_utc: 1.year.from_now
+              )
+            end
+          end
+          
           render_success({ worker: worker }, status: :created)
         else
           render_validation_errors(worker.errors.messages)
@@ -121,7 +131,8 @@ module Api
           :phone,
           :notes,
           :active,
-          skills_json: []
+          skills_json: [],
+          certification_ids: []
         )
       end
     end

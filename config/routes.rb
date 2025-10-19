@@ -23,11 +23,81 @@ Rails.application.routes.draw do
         end
       end
       resources :shifts, only: [ :index, :show, :create, :update, :destroy ]
-      resources :assignments, only: [ :index, :create, :update, :destroy ]
+      resources :assignments, only: [ :index, :create, :update, :destroy ] do
+        collection do
+          post :bulk_create
+          get :export
+        end
+        member do
+          post :clock_in
+          post :clock_out
+          patch :update_break
+        end
+      end
       resources :certifications, only: [ :index ]
       resources :activity_logs, only: [ :index ]
+      resources :skills, only: [ :index, :create ]
+      resources :locations, only: [ :index, :create ]
+      
+      # Venues with Google Places integration
+      resources :venues, only: [ :index, :show, :create, :update ] do
+        collection do
+          get :search
+          post :select
+        end
+      end
+      
+      # Reports
+      namespace :reports do
+        get 'timesheet', to: 'timesheets#export'
+        get 'timesheet/preview', to: 'timesheets#preview'
+      end
+      
+      # Legacy exports (keep for backward compatibility)
+      get "exports/timesheet", to: "exports#timesheet"
+      
       # Dashboard
       get "dashboard", to: "dashboard#index"
+      
+      # Events
+      resources :events do
+        member do
+          patch :update_status
+          post :publish
+          post :complete
+        end
+        resources :event_skill_requirements, only: [:create, :update, :destroy]
+      end
+      
+      # Keep jobs as alias for backward compatibility
+      resources :jobs, controller: 'events'
+      
+      # Staffing (formerly Assignments)
+      resources :staffing do
+        collection do
+          post :bulk_create
+        end
+      end
+      
+      # Keep assignments as alias
+      resources :assignments, controller: 'staffing' do
+        collection do
+          post :bulk_create
+          get :export
+        end
+        member do
+          post :clock_in
+          post :clock_out
+          patch :update_break
+        end
+      end
+      
+      # Reports
+      namespace :reports do
+        get :timesheet
+        get :payroll
+        get :event_summary
+      end
     end
   end
 

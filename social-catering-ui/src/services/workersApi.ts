@@ -1,4 +1,4 @@
-import api from './api'
+import { apiClient } from '../lib/api'
 
 export interface WorkerCertification {
   certification_id: number
@@ -27,7 +27,7 @@ export interface WorkersResponse {
 }
 
 export const getWorkers = async (params?: { search?: string; status?: 'active' | 'inactive' | 'all' }): Promise<WorkersResponse> => {
-  const response = await api.get('/workers', {
+  const response = await apiClient.get('/workers', {
     params: {
       query: params?.search,
       status: params?.status && params.status !== 'all' ? params.status : undefined,
@@ -44,22 +44,22 @@ export interface WorkerResponse {
 }
 
 export const getWorker = async (id: number): Promise<WorkerResponse> => {
-  const response = await api.get(`/workers/${id}`)
+  const response = await apiClient.get(`/workers/${id}`)
   return response.data
 }
 
 export const createWorker = async (workerData: Partial<Worker>): Promise<WorkerResponse> => {
-  const response = await api.post('/workers', { worker: workerData })
+  const response = await apiClient.post('/workers', { worker: workerData })
   return response.data
 }
 
 export const updateWorker = async (id: number, workerData: Partial<Worker>): Promise<WorkerResponse> => {
-  const response = await api.put(`/workers/${id}`, { worker: workerData })
+  const response = await apiClient.put(`/workers/${id}`, { worker: workerData })
   return response.data
 }
 
 export const deleteWorker = async (id: number): Promise<void> => {
-  await api.put(`/workers/${id}`, { worker: { active: false } })
+  await apiClient.put(`/workers/${id}`, { worker: { active: false } })
 }
 
 // Certification management
@@ -90,7 +90,7 @@ export const addCertificationToWorker = async (
   workerId: number, 
   certificationData: AddCertificationRequest
 ): Promise<AddCertificationResponse> => {
-  const response = await api.post(`/workers/${workerId}/certifications`, certificationData)
+  const response = await apiClient.post(`/workers/${workerId}/certifications`, certificationData)
   return response.data
 }
 
@@ -105,6 +105,6 @@ export const removeCertificationFromWorker = async (
   workerId: number, 
   certificationId: number
 ): Promise<RemoveCertificationResponse> => {
-  const response = await api.delete(`/workers/${workerId}/certifications/${certificationId}`)
+  const response = await apiClient.delete(`/workers/${workerId}/certifications/${certificationId}`)
   return response.data
 }

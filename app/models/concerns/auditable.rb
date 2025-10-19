@@ -4,7 +4,7 @@ module Auditable
   included do
     after_create :log_create
     after_update :log_update
-    # Don't log destroy for soft-deleted records
+    after_destroy :log_destroy
   end
 
   private
@@ -40,6 +40,19 @@ module Auditable
   def should_log?
     # Only log if we have a current user context
     current_user_id.present?
+  end
+
+  def log_destroy
+    return unless should_log?
+
+    ActivityLog.create!(
+      actor_user_id: current_user_id,
+      entity_type: self.class.name,
+      entity_id: id,
+      action: "deleted",
+      before_json: attributes,
+      created_at_utc: Time.current
+    )
   end
 
   def current_user_id

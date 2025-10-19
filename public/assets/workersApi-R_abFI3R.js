@@ -1,0 +1,1 @@
+import{l as s}from"./index-Dr3sk2XK.js";const o=async r=>(await s.get("/workers",{params:{query:r?.search,status:void 0}})).data,n=async(r,e)=>(await s.post(`/workers/${r}/certifications`,e)).data,i=async(r,e)=>(await s.delete(`/workers/${r}/certifications/${e}`)).data;export{n as a,o as g,i as r};

@@ -41,17 +41,41 @@ export interface WorkerCertification {
   certification?: Certification;
 }
 
+// Location types
+export interface Location {
+  id: number;
+  name: string;
+  address?: string;
+  city: string;
+  state: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  full_address: string;
+  display_name: string;
+}
+
+// Skill types
+export interface Skill {
+  id: number;
+  name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Shift types
 export interface Shift {
   id: number;
   client_name: string;
   role_needed: string;
   location?: string;
+  location_id?: number;
   start_time_utc: string;
   end_time_utc: string;
   pay_rate?: string | number;
   capacity: number;
-  status: 'draft' | 'published' | 'assigned' | 'completed' | 'cancelled';
+  status: 'draft' | 'published' | 'archived';
   notes?: string;
   required_cert_id?: number;
   created_by_id?: number;
@@ -61,8 +85,10 @@ export interface Shift {
   workers?: Worker[];
   created_by?: User;
   required_certification?: Certification;
+  location?: Location;
   assigned_count?: number;
   available_slots?: number;
+  duration_hours?: number;
 }
 
 // Assignment types
@@ -72,7 +98,10 @@ export interface Assignment {
   worker_id: number;
   assigned_by: number;
   assigned_at_utc: string;
-  status: 'assigned' | 'completed' | 'no_show' | 'cancelled';
+  status: 'assigned' | 'confirmed' | 'completed' | 'cancelled';
+  hours_worked?: number;
+  hourly_rate?: number;
+  total_pay?: number;
   created_at: string;
   updated_at: string;
   shift?: Shift;
