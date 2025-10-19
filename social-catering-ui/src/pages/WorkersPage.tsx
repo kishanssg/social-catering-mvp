@@ -9,14 +9,19 @@ import {
   User,
   CheckCircle,
   XCircle,
-  MoreVertical,
   Edit,
-  Trash2
+  Trash2,
+  Calendar,
+  Clock,
+  MapPin,
+  Briefcase,
+  X
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { EmptyState } from '../components/common/EmptyState';
 import { useAuth } from '../contexts/AuthContext';
+import { format, parseISO } from 'date-fns';
 
 interface Worker {
   id: number;
@@ -33,6 +38,19 @@ interface Worker {
   }>;
 }
 
+interface AvailableShift {
+  id: number;
+  event: {
+    id: number;
+    title: string;
+  };
+  role_needed: string;
+  start_time_utc: string;
+  end_time_utc: string;
+  location: string;
+  current_status: string;
+}
+
 export function WorkersPage() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -43,6 +61,12 @@ export function WorkersPage() {
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'status'>('name');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   
+  // Bulk assignment state
+  const [bulkAssignModal, setBulkAssignModal] = useState<{
+    isOpen: boolean;
+    worker?: Worker;
+  }>({ isOpen: false });
+  
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       loadWorkers();
@@ -52,23 +76,17 @@ export function WorkersPage() {
   async function loadWorkers() {
     setLoading(true);
     try {
-      console.log('Loading workers...');
       const response = await apiClient.get('/workers');
-      console.log('Workers API response:', response);
       
       if (response.data.status === 'success') {
-        // The API returns { data: { workers: [...] } }
-        console.log('Workers data:', response.data.data.workers);
         const workersData = response.data.data.workers || [];
-        console.log('Setting workers:', workersData.length, 'workers');
         setWorkers(workersData);
       } else {
-        console.error('API returned error status:', response.data);
         setWorkers([]);
       }
     } catch (error) {
       console.error('Failed to load workers:', error);
-      setWorkers([]); // Ensure workers is always an array
+      setWorkers([]);
     } finally {
       setLoading(false);
     }
@@ -89,17 +107,28 @@ export function WorkersPage() {
     }
   }
   
+  const openBulkAssignModal = (worker: Worker) => {
+    setBulkAssignModal({ isOpen: true, worker });
+  };
+  
+  const closeBulkAssignModal = () => {
+    setBulkAssignModal({ isOpen: false });
+  };
+  
+  const handleBulkAssignSuccess = () => {
+    closeBulkAssignModal();
+    loadWorkers();
+  };
+  
   // Filter and sort workers
   const filteredWorkers = workers
     .filter(worker => {
-      // Status filter
       if (filterStatus === 'active' && !worker.active) return false;
       if (filterStatus === 'inactive' && worker.active) return false;
       
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-    return (
+        return (
           worker.first_name.toLowerCase().includes(query) ||
           worker.last_name.toLowerCase().includes(query) ||
           worker.email.toLowerCase().includes(query) ||
@@ -122,18 +151,6 @@ export function WorkersPage() {
       }
     });
 
-  // Debug logging
-  console.log('WorkersPage render:', {
-    workers: workers.length,
-    filteredWorkers: filteredWorkers.length,
-    loading,
-    authLoading,
-    isAuthenticated,
-    filterStatus,
-    searchQuery
-  });
-
-  // Show loading while authentication is in progress
   if (authLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -142,7 +159,6 @@ export function WorkersPage() {
     );
   }
 
-  // Show message if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -159,19 +175,19 @@ export function WorkersPage() {
       <div className="max-w-7xl mx-auto p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-        <div>
+          <div>
             <h1 className="text-2xl font-semibold text-gray-900">Workers</h1>
             <p className="text-gray-600 mt-1">Manage your workforce</p>
-        </div>
-        
-        <button
+          </div>
+          
+          <button
             onClick={() => navigate('/workers/create')}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
-        >
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+          >
             <Plus size={20} />
             Add New Worker
-        </button>
-      </div>
+          </button>
+        </div>
 
         {/* Filters & Search */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
@@ -239,26 +255,27 @@ export function WorkersPage() {
             <LoadingSpinner />
           </div>
         ) : filteredWorkers.length === 0 ? (
-        <EmptyState
-            icon={<User size={48} />}
-            title={searchQuery ? 'No workers found' : 'No workers yet'}
-          description={
-              searchQuery 
-              ? 'Try adjusting your search or filters'
+          <div className="text-center py-12">
+            <User size={48} className="mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchQuery ? 'No workers found' : 'No workers yet'}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchQuery 
+                ? 'Try adjusting your search or filters'
                 : 'Add your first worker to get started'
-            }
-            callToAction={
-              !searchQuery && (
-                <button
-                  onClick={() => navigate('/workers/create')}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
-                >
-                  <Plus size={20} />
-                  Add Worker
-                </button>
-              )
-            }
-          />
+              }
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => navigate('/workers/create')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
+              >
+                <Plus size={20} />
+                Add Worker
+              </button>
+            )}
+          </div>
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full">
@@ -312,8 +329,8 @@ export function WorkersPage() {
                                   +{worker.skills_json.length - 3}
                                 </span>
                               )}
-          </div>
-        )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -338,6 +355,21 @@ export function WorkersPage() {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* 🆕 NEW: Bulk Schedule Button */}
+                        {worker.active && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openBulkAssignModal(worker);
+                            }}
+                            className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                            title="Schedule Worker"
+                          >
+                            <Calendar size={14} className="inline mr-1" />
+                            Schedule
+                          </button>
+                        )}
+                        
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -366,6 +398,405 @@ export function WorkersPage() {
             </table>
           </div>
         )}
+      </div>
+      
+      {/* 🆕 Bulk Assignment Modal */}
+      {bulkAssignModal.isOpen && bulkAssignModal.worker && (
+        <BulkAssignmentModal
+          worker={bulkAssignModal.worker}
+          onClose={closeBulkAssignModal}
+          onSuccess={handleBulkAssignSuccess}
+        />
+      )}
+    </div>
+  );
+}
+
+// Bulk Assignment Modal Component
+interface BulkAssignmentModalProps {
+  worker: Worker;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModalProps) {
+  const [availableShifts, setAvailableShifts] = useState<AvailableShift[]>([]);
+  const [selectedShiftIds, setSelectedShiftIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  
+  useEffect(() => {
+    loadAvailableShifts();
+  }, [worker.id]);
+  
+  async function loadAvailableShifts() {
+    setLoading(true);
+    try {
+      // Get upcoming published events with unfilled shifts
+      const response = await apiClient.get('/events', {
+        params: {
+          tab: 'active',
+          filter: 'needs_workers'
+        }
+      });
+      
+      if (response.data.status === 'success') {
+        const events = response.data.data;
+        
+        // Flatten all shifts from all events
+        const shifts: AvailableShift[] = [];
+        events.forEach((event: any) => {
+          if (event.shifts_by_role) {
+            event.shifts_by_role.forEach((roleGroup: any) => {
+              roleGroup.shifts.forEach((shift: any) => {
+                // Only include shifts that match worker's skills and aren't full
+                if (
+                  worker.skills_json.includes(roleGroup.role_name) &&
+                  shift.staffing_progress.percentage < 100
+                ) {
+                  shifts.push({
+                    id: shift.id,
+                    event: {
+                      id: event.id,
+                      title: event.title
+                    },
+                    role_needed: roleGroup.role_name,
+                    start_time_utc: shift.start_time_utc,
+                    end_time_utc: shift.end_time_utc,
+                    location: event.venue?.formatted_address || 'Location TBD',
+                    current_status: shift.status
+                  });
+                }
+              });
+            });
+          }
+        });
+        
+        setAvailableShifts(shifts);
+      }
+    } catch (error) {
+      console.error('Failed to load available shifts:', error);
+      setError('Failed to load available shifts');
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  const toggleShift = (shiftId: number) => {
+    const newSelected = new Set(selectedShiftIds);
+    if (newSelected.has(shiftId)) {
+      newSelected.delete(shiftId);
+    } else {
+      newSelected.add(shiftId);
+    }
+    setSelectedShiftIds(newSelected);
+  };
+  
+  const toggleAll = () => {
+    if (selectedShiftIds.size === filteredShifts.length) {
+      setSelectedShiftIds(new Set());
+    } else {
+      setSelectedShiftIds(new Set(filteredShifts.map(s => s.id)));
+    }
+  };
+  
+  async function handleBulkAssign() {
+    if (selectedShiftIds.size === 0) {
+      setError('Please select at least one shift');
+      return;
+    }
+    
+    setSubmitting(true);
+    setError(null);
+    
+    try {
+      const response = await apiClient.post('/staffing/bulk_create', {
+        worker_id: worker.id,
+        shift_ids: Array.from(selectedShiftIds)
+      });
+      
+      if (response.data.status === 'success') {
+        alert(response.data.message); // Shows success message
+        onSuccess();
+      } else {
+        setError(response.data.message || 'Failed to schedule worker for shifts');
+      }
+    } catch (error: any) {
+      console.error('Failed to bulk assign:', error);
+      
+      if (error.response?.data?.conflicts) {
+        setConflicts(error.response.data.conflicts);
+        setError('Scheduling conflicts detected. Please review below.');
+      } else {
+        setError(error.response?.data?.message || 'Failed to schedule worker for shifts');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  
+  const formatDate = (dateString: string) => {
+    return format(parseISO(dateString), 'EEE, MMM d, yyyy');
+  };
+  
+  const formatTime = (dateString: string) => {
+    return format(parseISO(dateString), 'h:mm a');
+  };
+  
+  // Get unique roles from worker's skills
+  const workerRoles = worker.skills_json || [];
+  
+  // Filter shifts
+  const filteredShifts = availableShifts.filter(shift => {
+    if (filterRole !== 'all' && shift.role_needed !== filterRole) {
+      return false;
+    }
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        shift.event.title.toLowerCase().includes(query) ||
+        shift.location.toLowerCase().includes(query)
+      );
+    }
+    
+    return true;
+  });
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Schedule {worker.first_name} {worker.last_name} for Shifts
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-1 text-gray-400 hover:text-gray-600 rounded transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {/* Worker Skills */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {worker.skills_json?.map((skill) => (
+              <span
+                key={skill}
+                className="px-2.5 py-1 bg-teal-100 text-teal-700 text-xs font-medium rounded"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <>
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                  <X size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+              
+              {/* Conflict Display */}
+              {conflicts.length > 0 && (
+                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <h4 className="font-medium text-yellow-900 mb-2">Scheduling Conflicts</h4>
+                  <div className="space-y-2">
+                    {conflicts.map((conflict, index) => (
+                      <div key={index} className="text-sm">
+                        <p className="text-yellow-800">
+                          <strong>{conflict.new_shift.event}</strong> conflicts with:
+                        </p>
+                        <ul className="ml-4 mt-1 space-y-1">
+                          {conflict.conflicting_with.map((existing: any, idx: number) => (
+                            <li key={idx} className="text-yellow-700">
+                              {existing.event} ({format(parseISO(existing.start_time), 'MMM d, h:mm a')} - {format(parseISO(existing.end_time), 'h:mm a')})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Filters */}
+              <div className="mb-4 flex gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search events or locations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                
+                <select
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                >
+                  <option value="all">All Roles</option>
+                  {workerRoles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Selection Header */}
+              {filteredShifts.length > 0 && (
+                <div className="mb-4 flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedShiftIds.size === filteredShifts.length && filteredShifts.length > 0}
+                      onChange={toggleAll}
+                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Select All ({filteredShifts.length} shifts)
+                    </span>
+                  </label>
+                  
+                  {selectedShiftIds.size > 0 && (
+                    <span className="text-sm font-medium text-teal-600">
+                      {selectedShiftIds.size} selected
+                    </span>
+                  )}
+                </div>
+              )}
+              
+              {/* Shifts List */}
+              {filteredShifts.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Briefcase size={48} className="mx-auto mb-2 text-gray-300" />
+                  <p className="font-medium">No available shifts found</p>
+                  <p className="text-sm mt-1">
+                    {searchQuery || filterRole !== 'all'
+                      ? 'Try adjusting your filters'
+                      : `No shifts matching ${worker.first_name}'s skills need workers`
+                    }
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {filteredShifts.map((shift) => {
+                    const isSelected = selectedShiftIds.has(shift.id);
+                    
+                    return (
+                      <button
+                        key={shift.id}
+                        onClick={() => toggleShift(shift.id)}
+                        className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                          isSelected
+                            ? 'border-teal-600 bg-teal-50'
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleShift(shift.id)}
+                            className="mt-1 w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-medium text-gray-900">
+                                  {shift.event.title}
+                                </h4>
+                                <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded mt-1">
+                                  {shift.role_needed}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Calendar size={14} className="text-gray-400" />
+                                <span>{formatDate(shift.start_time_utc)}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock size={14} className="text-gray-400" />
+                                <span>
+                                  {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <MapPin size={14} className="text-gray-400" />
+                                <span className="truncate">{shift.location}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {selectedShiftIds.size > 0 ? (
+              <span className="font-medium">
+                {selectedShiftIds.size} shift{selectedShiftIds.size !== 1 ? 's' : ''} selected
+              </span>
+            ) : (
+              <span>Select shifts to assign {worker.first_name} to</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkAssign}
+              disabled={selectedShiftIds.size === 0 || submitting}
+              className="px-6 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Assigning...
+                </>
+              ) : (
+                <>
+                  Schedule for {selectedShiftIds.size} Shift{selectedShiftIds.size !== 1 ? 's' : ''}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

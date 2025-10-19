@@ -77,7 +77,7 @@ export function WorkerDetailPage() {
       }
       
       // Load worker assignments
-      const assignmentsResponse = await apiClient.get(`/staffing?worker_id=${id}`);
+      const assignmentsResponse = await apiClient.get(`/assignments?worker_id=${id}`);
       
       if (assignmentsResponse.data.status === 'success') {
         setAssignments(assignmentsResponse.data.data || []);

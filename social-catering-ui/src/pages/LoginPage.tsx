@@ -38,6 +38,10 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: 'admin@socialcatering.com',
+      password: 'password123'
+    }
   })
 
   const onSubmit = async (data: LoginFormData) => {
@@ -65,14 +69,14 @@ export function LoginPage() {
       setIsLoading(true)
       setApiError('')
 
-      // Auto-fill the form fields
-      setValue('email', 'test@example.com')
-      setValue('password', 'password')
+      // Auto-fill the form fields with actual admin credentials
+      setValue('email', 'admin@socialcatering.com')
+      setValue('password', 'password123')
 
       // Small delay to show the fields being filled
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      await login('test@example.com', 'password')
+      await login('admin@socialcatering.com', 'password123')
       if (isMountedRef.current) {
         navigate(redirectTo)
       }
@@ -208,7 +212,7 @@ export function LoginPage() {
           {/* Test Credentials Hint */}
           <div className="text-center text-sm text-gray-500">
             <p>Test credentials:</p>
-            <p className="font-mono text-xs mt-1">test@example.com / password</p>
+            <p className="font-mono text-xs mt-1">admin@socialcatering.com / password123</p>
           </div>
           </form>
         </div>

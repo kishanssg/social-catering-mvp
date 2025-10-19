@@ -1,23 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Calendar, MapPin, Users, Clock, Edit, Trash2, ExternalLink } from 'lucide-react';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { EmptyState } from '../components/common/EmptyState';
+import { 
+  Plus, 
+  Search, 
+  Calendar,
+  MapPin,
+  Users,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Trash2,
+  Check,
+  X,
+  AlertCircle,
+  Award
+} from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { AssignmentModal } from '../components/AssignmentModal';
 import { apiClient } from '../lib/api';
 
-type TabType = 'draft' | 'published';
+type TabType = 'draft' | 'active' | 'past';
+type FilterType = 'all' | 'needs_workers' | 'partially_filled' | 'fully_staffed';
 
 interface Event {
   id: number;
   title: string;
   status: string;
+  staffing_status: string;
   venue: {
     id: number;
     name: string;
     formatted_address: string;
   } | null;
   schedule: {
-    id: number;
     start_time_utc: string;
     end_time_utc: string;
     break_minutes: number;
@@ -27,75 +43,117 @@ interface Event {
   unfilled_roles_count: number;
   staffing_percentage: number;
   staffing_summary: string;
-  total_shifts_count: number;
-  assigned_shifts_count: number;
-  shifts_generated: boolean;
+  shifts_count: number;
+  shifts_by_role?: ShiftsByRole[];
   created_at: string;
-  updated_at: string;
-  check_in_instructions?: string;
-  supervisor_name?: string;
-  supervisor_phone?: string;
-  skill_requirements?: Array<{
+}
+
+interface ShiftsByRole {
+  role_name: string;
+  total_shifts: number;
+  filled_shifts: number;
+  shifts: Shift[];
+}
+
+interface Shift {
+  id: number;
+  start_time_utc: string;
+  end_time_utc: string;
+  status: string;
+  staffing_progress: {
+    assigned: number;
+    required: number;
+    percentage: number;
+  };
+  assignments: Assignment[];
+}
+
+interface Assignment {
+  id: number;
+  worker: {
     id: number;
-    skill_name: string;
-    needed_workers: number;
-    description?: string;
-    uniform_name?: string;
-    certification_name?: string;
-    pay_rate?: number;
-  }>;
+    first_name: string;
+    last_name: string;
+  };
+  hours_worked?: number;
+  status: string;
 }
 
 export function EventsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Get initial tab from URL or default to 'published'
-  const initialTab = (searchParams.get('tab') as TabType) || 'published';
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const initialTab = (searchParams.get('tab') as TabType) || 'active';
+  const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
   
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [filterStatus, setFilterStatus] = useState<FilterType>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'staffing'>('date');
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
   
-  // Load events when tab changes
+  // Assignment modal
+  const [assignmentModal, setAssignmentModal] = useState<{
+    isOpen: boolean;
+    shiftId?: number;
+  }>({ isOpen: false });
+  
   useEffect(() => {
     loadEvents();
-  }, [activeTab]);
-  
-  // Update URL when tab changes
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    setSearchParams({ tab });
-  };
+  }, [activeTab, filterStatus]);
   
   async function loadEvents() {
     setLoading(true);
     try {
-      const response = await apiClient.get(`/events?status=${activeTab}`);
+      const url = `/events?tab=${activeTab}${
+        filterStatus !== 'all' ? `&filter=${filterStatus}` : ''
+      }`;
+      
+      const response = await apiClient.get(url);
       
       if (response.data.status === 'success') {
         setEvents(response.data.data);
       }
     } catch (error) {
       console.error('Failed to load events:', error);
-      setEvents([]);
     } finally {
       setLoading(false);
     }
   }
   
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setSearchParams({ tab });
+    setFilterStatus('all');
+  };
+  
+  const handleFilterChange = (filter: FilterType) => {
+    setFilterStatus(filter);
+  };
+  
+  const toggleEvent = (eventId: number) => {
+    const newExpanded = new Set(expandedEvents);
+    if (newExpanded.has(eventId)) {
+      newExpanded.delete(eventId);
+    } else {
+      newExpanded.add(eventId);
+    }
+    setExpandedEvents(newExpanded);
+  };
+  
   async function handleDelete(eventId: number) {
     if (!confirm('Are you sure you want to delete this event?')) return;
     
     try {
-      await apiClient.delete(`/events/${eventId}`);
-      loadEvents();
+      const response = await apiClient.delete(`/events/${eventId}`);
+      
+      if (response.data.status === 'success') {
+        loadEvents();
+      }
     } catch (error) {
       console.error('Failed to delete event:', error);
-      // Remove from local state for demo
-      setEvents(events.filter(e => e.id !== eventId));
     }
   }
   
@@ -113,14 +171,23 @@ export function EventsPage() {
       }
     } catch (error) {
       console.error('Failed to publish event:', error);
-      // For demo, move to published tab
-      alert('Event published successfully!');
-      setActiveTab('published');
-      setSearchParams({ tab: 'published' });
     }
   }
   
-  // Filter and sort events
+  const openAssignmentModal = (shiftId: number) => {
+    setAssignmentModal({ isOpen: true, shiftId });
+  };
+  
+  const closeAssignmentModal = () => {
+    setAssignmentModal({ isOpen: false });
+  };
+  
+  const handleAssignmentSuccess = () => {
+    closeAssignmentModal();
+    loadEvents();
+  };
+  
+  // Filter and sort
   const filteredEvents = events
     .filter(event => {
       if (!searchQuery) return true;
@@ -151,7 +218,7 @@ export function EventsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Events</h1>
-            <p className="text-gray-600 mt-1">Manage your catering events</p>
+            <p className="text-gray-600 mt-1">Manage events and assign workers</p>
           </div>
           
           <button
@@ -176,232 +243,242 @@ export function EventsPage() {
             Draft Events
           </button>
           <button
-            onClick={() => handleTabChange('published')}
+            onClick={() => handleTabChange('active')}
             className={`pb-3 px-1 font-medium transition-colors border-b-2 ${
-              activeTab === 'published'
+              activeTab === 'active'
                 ? 'border-teal-600 text-teal-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            Published Events
+            Active Events
+          </button>
+          <button
+            onClick={() => handleTabChange('past')}
+            className={`pb-3 px-1 font-medium transition-colors border-b-2 ${
+              activeTab === 'past'
+                ? 'border-teal-600 text-teal-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Past Events
           </button>
         </div>
         
         {/* Filters & Search */}
-        <div className="flex items-center gap-4 mb-6">
-          {/* Search */}
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
           <div className="flex-1 max-w-md relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search by event name or venue..."
+              placeholder="Search events or venues..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
           
-          {/* Sort */}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
           >
             <option value="date">Sort by Date</option>
             <option value="name">Sort by Name</option>
-            {activeTab === 'published' && <option value="staffing">Sort by Staffing</option>}
+            {activeTab !== 'draft' && <option value="staffing">Sort by Staffing</option>}
           </select>
+          
+          {activeTab === 'active' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleFilterChange('all')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'all'
+                    ? 'bg-teal-100 text-teal-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => handleFilterChange('needs_workers')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'needs_workers'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                Needs Workers
+              </button>
+              <button
+                onClick={() => handleFilterChange('partially_filled')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'partially_filled'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                Partial
+              </button>
+              <button
+                onClick={() => handleFilterChange('fully_staffed')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'fully_staffed'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                Ready
+              </button>
+            </div>
+          )}
         </div>
         
-        {/* Events List */}
+        {/* Content */}
         {loading ? (
-          <LoadingSpinner message="Loading events..." />
-        ) : filteredEvents.length === 0 ? (
-          <EmptyState
-            icon="📅"
-            title={searchQuery ? 'No events found' : `No ${activeTab} events yet`}
-            description={
-              searchQuery 
-                ? 'Try adjusting your search query' 
-                : activeTab === 'draft' 
-                  ? 'Create your first draft event to get started'
-                  : 'Publish draft events to see them here'
-            }
-            action={
-              !searchQuery && activeTab === 'draft' 
-                ? {
-                    label: 'Create Event',
-                    onClick: () => navigate('/events/create')
-                  }
-                : undefined
-            }
-          />
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                activeTab={activeTab}
+          <>
+            {activeTab === 'draft' && (
+              <DraftEventsTab
+                events={filteredEvents}
                 onDelete={handleDelete}
                 onPublish={handlePublish}
                 onNavigate={(path) => navigate(path)}
+                searchQuery={searchQuery}
               />
-            ))}
-          </div>
+            )}
+            
+            {activeTab === 'active' && (
+              <ActiveEventsTab
+                events={filteredEvents}
+                expandedEvents={expandedEvents}
+                onToggleEvent={toggleEvent}
+                onAssignWorker={openAssignmentModal}
+                searchQuery={searchQuery}
+              />
+            )}
+            
+            {activeTab === 'past' && (
+              <PastEventsTab
+                events={filteredEvents}
+                expandedEvents={expandedEvents}
+                onToggleEvent={toggleEvent}
+                searchQuery={searchQuery}
+              />
+            )}
+          </>
         )}
       </div>
+      
+      {/* Assignment Modal (reuse from Staffing) */}
+      {assignmentModal.isOpen && assignmentModal.shiftId && (
+        <AssignmentModal
+          shiftId={assignmentModal.shiftId}
+          onClose={closeAssignmentModal}
+          onSuccess={handleAssignmentSuccess}
+        />
+      )}
     </div>
   );
 }
 
-// Event Card Component
-interface EventCardProps {
-  event: Event;
-  activeTab: TabType;
+// Draft Events Tab Component
+interface DraftEventsTabProps {
+  events: Event[];
   onDelete: (id: number) => void;
   onPublish: (id: number) => void;
   onNavigate: (path: string) => void;
+  searchQuery: string;
 }
 
-function EventCard({ event, activeTab, onDelete, onPublish, onNavigate }: EventCardProps) {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }: DraftEventsTabProps) {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'No date set';
+    return format(parseISO(dateString), 'MMM d, yyyy');
   };
   
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+  const formatTime = (dateString?: string) => {
+    if (!dateString) return '';
+    return format(parseISO(dateString), 'h:mm a');
   };
   
-  const getStaffingStatusBadge = (event: Event) => {
-    if (event.status === 'draft') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-          Draft
-        </span>
-      );
-    }
-    
-    if (event.staffing_percentage === 100) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-          Ready
-        </span>
-      );
-    } else if (event.staffing_percentage > 0) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-          Partial
-        </span>
-      );
-    } else {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-          Needs Workers
-        </span>
-      );
-    }
-  };
+  if (events.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="text-6xl mb-4">📅</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {searchQuery ? 'No draft events found' : 'No draft events yet'}
+        </h3>
+        <p className="text-gray-600 mb-6">
+          {searchQuery 
+            ? 'Try adjusting your search query'
+            : 'Create your first event to get started'
+          }
+        </p>
+        {!searchQuery && (
+          <button
+            onClick={() => onNavigate('/events/create')}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            <Plus size={20} />
+            Create Event
+          </button>
+        )}
+      </div>
+    );
+  }
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          {/* Left: Event Info */}
-          <div className="flex-1 min-w-0">
-            {/* Title & Status Badge */}
-            <div className="flex items-start gap-3 mb-3">
-              <h3 className="text-lg font-semibold text-gray-900 flex-1 min-w-0">
-                {event.title}
-              </h3>
-              {activeTab === 'published' && getStaffingStatusBadge(event)}
-            </div>
-            
-            {/* Venue */}
-            {event.venue && (
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                <MapPin size={16} className="text-gray-400 flex-shrink-0" />
-                <span className="truncate">{event.venue.name}</span>
-              </div>
-            )}
-            
-            {/* Schedule */}
-            {event.schedule && (
-              <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                <div className="flex items-center gap-2">
-                  <Calendar size={16} className="text-gray-400 flex-shrink-0" />
-                  <span>{formatDate(event.schedule.start_time_utc)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-gray-400 flex-shrink-0" />
-                  <span>
-                    {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+    <div className="space-y-4">
+      {events.map((event) => (
+        <div key={event.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+          <div className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              {/* Left: Event Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-3 mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 flex-1">
+                    {event.title}
+                  </h3>
+                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                    Draft
                   </span>
-                </div>
-              </div>
-            )}
-            
-            {/* Staffing Progress (Published only) */}
-            {activeTab === 'published' && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {event.staffing_summary}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {event.staffing_percentage}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      event.staffing_percentage === 100
-                        ? 'bg-green-500'
-                        : event.staffing_percentage > 0
-                        ? 'bg-yellow-500'
-                        : 'bg-red-500'
-                    }`}
-                    style={{ width: `${event.staffing_percentage}%` }}
-                  ></div>
                 </div>
                 
-                {(event.unfilled_roles_count || 0) > 0 && (
-                  <p className="text-sm text-red-600 mt-2 font-medium">
-                    {event.unfilled_roles_count} worker{(event.unfilled_roles_count || 0) !== 1 ? 's' : ''} still needed
-                  </p>
+                {event.venue && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                    <MapPin size={16} className="text-gray-400 flex-shrink-0" />
+                    <span className="truncate">{event.venue.name}</span>
+                  </div>
+                )}
+                
+                {event.schedule && (
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={16} className="text-gray-400 flex-shrink-0" />
+                      <span>{formatDate(event.schedule.start_time_utc)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-gray-400 flex-shrink-0" />
+                      <span>
+                        {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {event.total_workers_needed > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Users size={16} className="text-gray-400" />
+                    <span>{event.total_workers_needed} workers needed</span>
+                  </div>
                 )}
               </div>
-            )}
-            
-            {/* Workers Needed (Draft only) */}
-            {activeTab === 'draft' && event.total_workers_needed > 0 && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Users size={16} className="text-gray-400" />
-                <span>{event.total_workers_needed} workers needed</span>
-              </div>
-            )}
-          </div>
-          
-          {/* Right: Actions */}
-          <div className="flex items-center gap-2">
-            {/* Draft Actions */}
-            {activeTab === 'draft' && (
-              <>
+              
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => onNavigate(`/events/${event.id}/edit`)}
                   className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
@@ -424,39 +501,423 @@ function EventCard({ event, activeTab, onDelete, onPublish, onNavigate }: EventC
                 >
                   <Trash2 size={18} />
                 </button>
-              </>
-            )}
-            
-            {/* Published Actions */}
-            {activeTab === 'published' && (
-              <>
-                <button
-                  onClick={() => onNavigate(`/events/${event.id}`)}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-                  title="View Details"
-                >
-                  <ExternalLink size={18} />
-                </button>
-                
-                {(event.unfilled_roles_count || 0) > 0 && (
-                  <button
-                    onClick={() => onNavigate(`/staffing?event_id=${event.id}`)}
-                    className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
-                  >
-                    Assign Workers
-                  </button>
-                )}
-                
-                {(event.unfilled_roles_count || 0) === 0 && (
-                  <span className="px-4 py-2 bg-green-100 text-green-700 text-sm font-medium rounded-lg">
-                    All Set!
-                  </span>
-                )}
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
+
+// Active Events Tab Component (replaces Staffing > Active)
+interface ActiveEventsTabProps {
+  events: Event[];
+  expandedEvents: Set<number>;
+  onToggleEvent: (id: number) => void;
+  onAssignWorker: (shiftId: number) => void;
+  searchQuery: string;
+}
+
+function ActiveEventsTab({ 
+  events, 
+  expandedEvents, 
+  onToggleEvent, 
+  onAssignWorker,
+  searchQuery 
+}: ActiveEventsTabProps) {
+  const formatDate = (dateString: string) => {
+    return format(parseISO(dateString), 'EEE, MMM d, yyyy');
+  };
+  
+  const formatTime = (dateString: string) => {
+    return format(parseISO(dateString), 'h:mm a');
+  };
+  
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'fully_staffed':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+            <Check size={14} />
+            Ready
+          </span>
+        );
+      case 'partially_staffed':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
+            <AlertCircle size={14} />
+            Partial
+          </span>
+        );
+      case 'needs_workers':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+            <X size={14} />
+            Needs Workers
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+  
+  if (events.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="text-6xl mb-4">📅</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {searchQuery ? 'No active events found' : 'No active events'}
+        </h3>
+        <p className="text-gray-600">
+          {searchQuery 
+            ? 'Try adjusting your search query or filters'
+            : 'Publish draft events to see them here'
+          }
+        </p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      {events.map((event) => {
+        const isExpanded = expandedEvents.has(event.id);
+        
+        return (
+          <div 
+            key={event.id}
+            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+          >
+            {/* Event Header */}
+            <button
+              onClick={() => onToggleEvent(event.id)}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex-1 text-left">
+                <div className="flex items-start gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {event.title}
+                  </h3>
+                  {getStatusBadge(event.staffing_status)}
+                </div>
+                
+                <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                  {event.venue && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin size={14} className="text-gray-400" />
+                      {event.venue.name}
+                    </div>
+                  )}
+                  {event.schedule && (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={14} className="text-gray-400" />
+                        {formatDate(event.schedule.start_time_utc)}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={14} className="text-gray-400" />
+                        {formatTime(event.schedule.start_time_utc)}
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="mb-2">
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="font-medium text-gray-700">
+                      {event.assigned_workers_count} of {event.total_workers_needed} roles filled
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      {event.staffing_percentage}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        event.staffing_percentage === 100
+                          ? 'bg-green-500'
+                          : event.staffing_percentage > 0
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                      }`}
+                      style={{ width: `${event.staffing_percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                {event.unfilled_roles_count > 0 && (
+                  <p className="text-sm text-red-600 font-medium">
+                    {event.unfilled_roles_count} role{event.unfilled_roles_count !== 1 ? 's' : ''} still need workers
+                  </p>
+                )}
+              </div>
+              
+              <div className="ml-4">
+                {isExpanded ? (
+                  <ChevronUp size={20} className="text-gray-400" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-400" />
+                )}
+              </div>
+            </button>
+            
+            {/* Expanded Content - Shifts by Role */}
+            {isExpanded && event.shifts_by_role && (
+              <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+                <div className="space-y-4">
+                  {event.shifts_by_role.map((roleGroup) => (
+                    <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <h4 className="font-medium text-gray-900">{roleGroup.role_name}</h4>
+                          <span className="text-sm text-gray-600">
+                            {roleGroup.filled_shifts}/{roleGroup.total_shifts} assigned
+                          </span>
+                        </div>
+                        
+                        {roleGroup.filled_shifts < roleGroup.total_shifts && (
+                          <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                            {roleGroup.total_shifts - roleGroup.filled_shifts} needed
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {roleGroup.shifts.map((shift, index) => (
+                          <div
+                            key={shift.id}
+                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border border-gray-200"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-gray-600">
+                                #{index + 1}
+                              </span>
+                              <span className="text-sm text-gray-700">
+                                {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
+                              </span>
+                              
+                              {shift.assignments.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {shift.assignments.map((assignment) => (
+                                    <span 
+                                      key={assignment.id}
+                                      className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded"
+                                    >
+                                      {assignment.worker.first_name} {assignment.worker.last_name[0]}.
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {shift.staffing_progress.percentage === 100 ? (
+                              <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                                <Check size={16} />
+                                Assigned
+                              </span>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAssignWorker(shift.id);
+                                }}
+                                className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                              >
+                                Assign Worker
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Past Events Tab Component (replaces Staffing > Past)
+interface PastEventsTabProps {
+  events: Event[];
+  expandedEvents: Set<number>;
+  onToggleEvent: (id: number) => void;
+  searchQuery: string;
+}
+
+function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: PastEventsTabProps) {
+  const formatDate = (dateString: string) => {
+    return format(parseISO(dateString), 'MMM d, yyyy');
+  };
+  
+  const formatTime = (dateString: string) => {
+    return format(parseISO(dateString), 'h:mm a');
+  };
+  
+  if (events.length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="text-6xl mb-4">📋</div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          {searchQuery ? 'No past events found' : 'No past events yet'}
+        </h3>
+        <p className="text-gray-600">
+          {searchQuery 
+            ? 'Try adjusting your search query'
+            : 'Completed events will appear here'
+          }
+        </p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      {events.map((event) => {
+        const isExpanded = expandedEvents.has(event.id);
+        
+        // Calculate totals
+        let totalHours = 0;
+        let totalPay = 0;
+        
+        event.shifts_by_role?.forEach(roleGroup => {
+          roleGroup.shifts.forEach(shift => {
+            shift.assignments.forEach(assignment => {
+              totalHours += assignment.hours_worked || 0;
+              // totalPay += assignment.total_pay || 0; // Add if available
+            });
+          });
+        });
+        
+        return (
+          <div 
+            key={event.id}
+            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+          >
+            {/* Event Header */}
+            <button
+              onClick={() => onToggleEvent(event.id)}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex-1 text-left">
+                <div className="flex items-start gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {event.title}
+                  </h3>
+                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                    Completed
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  {event.schedule && (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={14} className="text-gray-400" />
+                        {formatDate(event.schedule.start_time_utc)}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={14} className="text-gray-400" />
+                        {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+                      </div>
+                    </>
+                  )}
+                  {event.venue && (
+                    <div className="flex items-center gap-1.5">
+                      <MapPin size={14} className="text-gray-400" />
+                      {event.venue.name}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="ml-4">
+                {isExpanded ? (
+                  <ChevronUp size={20} className="text-gray-400" />
+                ) : (
+                  <ChevronDown size={20} className="text-gray-400" />
+                )}
+              </div>
+            </button>
+            
+            {/* Expanded Content - Workers & Hours */}
+            {isExpanded && event.shifts_by_role && (
+              <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+                {/* Summary */}
+                <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Workers</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {event.assigned_workers_count}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Total Hours</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {totalHours.toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Staffing</p>
+                      <p className="text-2xl font-semibold text-green-600">
+                        {event.staffing_percentage}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Workers by Role */}
+                <div className="space-y-3">
+                  {event.shifts_by_role.map((roleGroup) => (
+                    <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
+                      <h4 className="font-medium text-gray-900 mb-3">{roleGroup.role_name}</h4>
+                      
+                      <div className="space-y-2">
+                        {roleGroup.shifts.flatMap(shift => 
+                          shift.assignments.map(assignment => (
+                            <div 
+                              key={assignment.id}
+                              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-medium">
+                                  {assignment.worker.first_name[0]}{assignment.worker.last_name[0]}
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {assignment.worker.first_name} {assignment.worker.last_name}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                {assignment.hours_worked && (
+                                  <span className="font-medium">
+                                    {assignment.hours_worked.toFixed(2)} hrs
+                                  </span>
+                                )}
+                                <span className="text-xs text-gray-500">
+                                  {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+

@@ -72,52 +72,120 @@ module Api
       end
       
       # POST /api/v1/staffing/bulk_create
+      # Assign one worker to multiple shifts
       def bulk_create
-        worker_id = params[:worker_id]
-        shift_ids = params[:shift_ids] || []
-        hours_worked = params[:hours_worked]
+        worker = Worker.find_by(id: params[:worker_id])
         
-        unless worker_id.present? && shift_ids.any?
+        unless worker
           return render json: {
             status: 'error',
-            message: 'worker_id and shift_ids are required'
-          }, status: :bad_request
+            message: 'Worker not found'
+          }, status: :not_found
         end
         
-        worker = Worker.find(worker_id)
-        results = { successful: [], failed: [] }
+        shift_ids = params[:shift_ids] || []
         
-        shift_ids.each do |shift_id|
-          shift = Shift.find(shift_id)
-          staffing = Staffing.new(
-            worker: worker,
-            shift: shift,
-            hours_worked: hours_worked,
-            assigned_by_id: current_user.id,
-            assigned_at_utc: Time.current,
-            status: 'assigned'
-          )
-          
-          if staffing.save
-            results[:successful] << {
-              shift_id: shift.id,
-              event_title: shift.event&.title,
-              assignment_id: staffing.id
+        if shift_ids.empty?
+          return render json: {
+            status: 'error',
+            message: 'No shifts provided'
+          }, status: :unprocessable_entity
+        end
+        
+        shifts = Shift.where(id: shift_ids).includes(:event)
+        
+        if shifts.count != shift_ids.count
+          return render json: {
+            status: 'error',
+            message: 'Some shifts not found'
+          }, status: :not_found
+        end
+        
+        # Check for conflicts (worker already assigned to overlapping shifts)
+        conflicts = check_scheduling_conflicts(worker, shifts)
+        
+        if conflicts.any?
+          return render json: {
+            status: 'error',
+            message: 'Worker has conflicting shift times',
+            conflicts: conflicts.map { |c|
+              {
+                new_shift: {
+                  id: c[:new_shift].id,
+                  event: c[:new_shift].event&.title,
+                  start_time: c[:new_shift].start_time_utc,
+                  end_time: c[:new_shift].end_time_utc
+                },
+                conflicting_with: c[:conflicting_shifts].map { |s|
+                  {
+                    id: s.id,
+                    event: s.event&.title,
+                    start_time: s.start_time_utc,
+                    end_time: s.end_time_utc
+                  }
+                }
+              }
             }
-          else
-            results[:failed] << {
-              shift_id: shift.id,
-              event_title: shift.event&.title,
-              errors: staffing.errors.full_messages
-            }
+          }, status: :unprocessable_entity
+        end
+        
+        # Create assignments in a transaction
+        assignments = []
+        errors = []
+        
+        ActiveRecord::Base.transaction do
+          shifts.each do |shift|
+            assignment = Staffing.new(
+              worker: worker,
+              shift: shift,
+              status: 'confirmed'
+            )
+            
+            if assignment.save
+              assignments << assignment
+              
+              # Log activity
+              ActivityLog.create(
+                action: 'staffing_created',
+                resource_type: 'Staffing',
+                resource_id: assignment.id,
+                details: {
+                  worker_id: worker.id,
+                  worker_name: "#{worker.first_name} #{worker.last_name}",
+                  shift_id: shift.id,
+                  event_title: shift.event&.title,
+                  bulk_assignment: true
+                }
+              ) rescue nil
+            else
+              errors << {
+                shift_id: shift.id,
+                event: shift.event&.title,
+                errors: assignment.errors.full_messages
+              }
+            end
           end
+          
+          # Rollback if any errors
+          raise ActiveRecord::Rollback if errors.any?
         end
         
-        render json: {
-          status: 'success',
-          message: "Assigned to #{results[:successful].count} shifts. #{results[:failed].count} failed.",
-          data: results
-        }
+        if errors.any?
+          render json: {
+            status: 'error',
+            message: 'Failed to create some assignments',
+            errors: errors
+          }, status: :unprocessable_entity
+        else
+          render json: {
+            status: 'success',
+            message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} shift#{assignments.count != 1 ? 's' : ''}",
+            data: {
+              created: assignments.count,
+              assignments: assignments.map { |a| serialize_assignment(a) }
+            }
+          }
+        end
       end
       
       # PATCH /api/v1/staffing/:id
@@ -199,6 +267,61 @@ module Api
           overtime_hours: staffing.overtime_hours,
           performance_rating: staffing.performance_rating
         )
+      end
+      
+      # Check if worker has any shifts that overlap with the new shifts
+      def check_scheduling_conflicts(worker, new_shifts)
+        conflicts = []
+        
+        # Get all existing confirmed assignments for this worker
+        existing_assignments = worker.assignments
+                                    .where(status: ['confirmed', 'completed'])
+                                    .joins(:shift)
+                                    .where('shifts.start_time_utc >= ?', Time.current)
+                                    .includes(:shift)
+        
+        new_shifts.each do |new_shift|
+          # Find any existing shifts that overlap with this new shift
+          overlapping = existing_assignments.select do |assignment|
+            existing_shift = assignment.shift
+            
+            # Two shifts overlap if:
+            # (StartA < EndB) AND (EndA > StartB)
+            (new_shift.start_time_utc < existing_shift.end_time_utc) &&
+            (new_shift.end_time_utc > existing_shift.start_time_utc)
+          end
+          
+          if overlapping.any?
+            conflicts << {
+              new_shift: new_shift,
+              conflicting_shifts: overlapping.map(&:shift)
+            }
+          end
+        end
+        
+        conflicts
+      end
+      
+      # Serialize assignment for API response
+      def serialize_assignment(assignment)
+        {
+          id: assignment.id,
+          worker_id: assignment.worker_id,
+          shift_id: assignment.shift_id,
+          status: assignment.status,
+          created_at: assignment.created_at_utc,
+          shift: {
+            id: assignment.shift.id,
+            role_needed: assignment.shift.role_needed,
+            start_time_utc: assignment.shift.start_time_utc,
+            end_time_utc: assignment.shift.end_time_utc,
+            location: assignment.shift.location,
+            event: {
+              id: assignment.shift.event&.id,
+              title: assignment.shift.event&.title
+            }
+          }
+        }
       end
     end
   end

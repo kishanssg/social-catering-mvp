@@ -26,6 +26,7 @@ import {
   parseISO
 } from 'date-fns';
 import { apiClient } from '../lib/api';
+import { TestApiConnection } from '../components/TestApiConnection';
 
 interface DashboardStats {
   draft_jobs: number;
@@ -202,7 +203,7 @@ export function DashboardPage() {
   
   const handleDayClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    navigate(`/staffing?date=${dateStr}&filter=needs_workers`);
+    navigate(`/events?tab=active&date=${dateStr}&filter=needs_workers`);
   };
   
   if (loading) {
@@ -216,6 +217,9 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-8">
+        {/* API Connection Test */}
+        <TestApiConnection />
+        
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -250,14 +254,14 @@ export function DashboardPage() {
           <StatCard
             label="Completed Events"
             value={stats.completed_jobs}
-            onClick={() => navigate('/staffing?tab=past')}
+            onClick={() => navigate('/events?tab=past')}
             color="green"
           />
           
             <StatCard
               label="Unfilled Roles"
               value={stats.gaps_to_fill}
-              onClick={() => navigate('/staffing?filter=needs_workers')}
+              onClick={() => navigate('/events?tab=active&filter=needs_workers')}
               color="red"
               isHero
             />
@@ -279,7 +283,7 @@ export function DashboardPage() {
         <div className="bg-white rounded-lg border border-gray-200">
           <UrgentEventsList
             events={urgentEvents}
-            onEventClick={(eventId) => navigate(`/staffing?event_id=${eventId}`)}
+            onEventClick={(eventId) => navigate(`/events?tab=active&event_id=${eventId}`)}
           />
             </div>
             </div>

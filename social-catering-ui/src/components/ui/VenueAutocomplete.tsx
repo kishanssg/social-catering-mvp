@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { venuesApi } from '../../services/venuesApi';
-import type { Venue, VenueSearchResult } from '../../services/venuesApi';
+
+// Temporary types until venuesApi is properly implemented
+interface Venue {
+  id: number;
+  name: string;
+  formatted_address: string;
+  place_id?: string;
+  arrival_instructions?: string;
+  parking_info?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface VenueSearchResult {
+  place_id: string;
+  name: string;
+  address: string;
+}
 import chevronUpDownIcon from '../../assets/icons/chevron-up-down.svg';
 import checkIcon from '../../assets/icons/check.svg';
 
@@ -40,14 +56,14 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   }, [selectedVenue]);
 
-  // Debounced search
+  // Debounced search - temporarily disabled until venuesApi is implemented
   const performSearch = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
     try {
-      const response = await venuesApi.search(searchQuery, sessionToken);
-      setCachedResults(response.cached);
-      setGoogleResults(response.google_results);
-      setSessionToken(response.session_token);
+      // TODO: Implement venue search when venuesApi is ready
+      console.log('Venue search for:', searchQuery);
+      setCachedResults([]);
+      setGoogleResults([]);
     } catch (error) {
       console.error('Venue search error:', error);
       setCachedResults([]);
@@ -72,16 +88,26 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }, 300); // 300ms debounce
   };
 
-  // Handle venue selection
+  // Handle venue selection - temporarily disabled until venuesApi is implemented
   const handleSelectVenue = async (result: VenueSearchResult) => {
     setIsLoading(true);
     try {
-      const response = await venuesApi.select(result.place_id, sessionToken);
-      onVenueSelect(response.venue);
+      // TODO: Implement venue selection when venuesApi is ready
+      console.log('Venue selected:', result);
+      // For now, create a mock venue object
+      const mockVenue: Venue = {
+        id: Math.random(),
+        name: result.name,
+        formatted_address: result.address,
+        place_id: result.place_id,
+        arrival_instructions: '',
+        parking_info: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      onVenueSelect(mockVenue);
       setIsOpen(false);
       setQuery('');
-      // Reset session token after successful selection
-      setSessionToken('');
     } catch (error) {
       console.error('Venue selection error:', error);
     } finally {
@@ -89,16 +115,14 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   };
 
-  // Handle save instructions
+  // Handle save instructions - temporarily disabled until venuesApi is implemented
   const handleSaveInstructions = async () => {
     if (!selectedVenue) return;
 
     setIsSavingInstructions(true);
     try {
-      await venuesApi.update(selectedVenue.id, {
-        arrival_instructions: arrivalInstructions,
-        parking_info: parkingInfo,
-      });
+      // TODO: Implement venue update when venuesApi is ready
+      console.log('Saving instructions:', { arrivalInstructions, parkingInfo });
       
       if (onInstructionsUpdate) {
         onInstructionsUpdate(selectedVenue.id, {

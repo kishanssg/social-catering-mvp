@@ -19,9 +19,7 @@ interface WorkerForm {
   last_name: string;
   email: string;
   phone: string;
-  address_line1: string;
-  address_line2: string;
-  profile_photo_url?: string;
+  notes: string;
   skills: string[];
   certifications: Array<{
     name: string;
@@ -68,8 +66,7 @@ export function WorkerCreatePage() {
     last_name: '',
     email: '',
     phone: '',
-    address_line1: '',
-    address_line2: '',
+    notes: '',
     skills: [],
     certifications: []
   });
@@ -93,9 +90,7 @@ export function WorkerCreatePage() {
           last_name: worker.last_name || '',
           email: worker.email || '',
           phone: worker.phone || '',
-          address_line1: worker.address_line1 || '',
-          address_line2: worker.address_line2 || '',
-          profile_photo_url: worker.profile_photo_url,
+          notes: worker.notes || '',
           skills: worker.skills_json || [],
           certifications: worker.certifications?.map((c: any) => ({
             name: c.name,
@@ -181,8 +176,7 @@ export function WorkerCreatePage() {
             last_name: formData.last_name,
             email: formData.email,
             phone: formData.phone,
-            address_line1: formData.address_line1,
-            address_line2: formData.address_line2,
+            notes: formData.notes,
             skills_json: formData.skills,
             active: true,
             certifications_attributes: formData.certifications.map(cert => ({
@@ -345,44 +339,17 @@ export function WorkerCreatePage() {
                   {/* Home Address */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Home address
+                      Notes
                     </label>
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        placeholder="Address line 1"
-                        value={formData.address_line1}
-                        onChange={(e) => setFormData(prev => ({ ...prev, address_line1: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Address line 2"
-                        value={formData.address_line2}
-                        onChange={(e) => setFormData(prev => ({ ...prev, address_line2: e.target.value }))}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      />
-                    </div>
+                    <textarea
+                      placeholder="Additional notes about this worker..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
                   </div>
                   
-                  {/* Profile Photo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Profile Photo
-                    </label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
-                        <User size={32} />
-                      </div>
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 px-4 py-2 text-teal-600 hover:bg-teal-50 rounded-lg transition"
-                      >
-                        <Upload size={18} />
-                        Upload Photo
-                      </button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">

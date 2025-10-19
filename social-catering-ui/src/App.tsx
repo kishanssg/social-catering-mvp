@@ -11,7 +11,6 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then(module => 
 const EventsPage = lazy(() => import('./pages/EventsPage').then(module => ({ default: module.EventsPage })));
 const EventCreatePage = lazy(() => import('./pages/Events/CreateEventWizard'));
 const EventDetailPage = lazy(() => import('./pages/EventDetailPage').then(module => ({ default: module.EventDetailPage })));
-const StaffingPage = lazy(() => import('./pages/StaffingPage').then(module => ({ default: module.StaffingPage })));
 const WorkersPage = lazy(() => import('./pages/WorkersPage').then(module => ({ default: module.WorkersPage })));
 const WorkerCreatePage = lazy(() => import('./pages/WorkerCreatePage').then(module => ({ default: module.WorkerCreatePage })));
 const WorkerDetailPage = lazy(() => import('./pages/WorkerDetailPage').then(module => ({ default: module.WorkerDetailPage })));
@@ -45,14 +44,11 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               
-              {/* Events (formerly Jobs) */}
-              <Route path="/events" element={<EventsPage />} />
-              <Route path="/events/create" element={<EventCreatePage />} />
-              <Route path="/events/:id" element={<EventDetailPage />} />
-              <Route path="/events/:id/edit" element={<EventCreatePage />} />
-              
-              {/* Staffing (formerly Assignments) */}
-              <Route path="/staffing" element={<StaffingPage />} />
+                  {/* Events (unified with staffing) */}
+                  <Route path="/events" element={<EventsPage />} />
+                  <Route path="/events/create" element={<EventCreatePage />} />
+                  <Route path="/events/:id" element={<EventDetailPage />} />
+                  <Route path="/events/:id/edit" element={<EventCreatePage />} />
               
               {/* Workers */}
               <Route path="/workers" element={<WorkersPage />} />
@@ -68,7 +64,8 @@ function App() {
               <Route path="/jobs" element={<Navigate to="/events" replace />} />
               <Route path="/jobs/create" element={<Navigate to="/events/create" replace />} />
               <Route path="/jobs/:id" element={<Navigate to="/events/:id" replace />} />
-              <Route path="/assignments" element={<Navigate to="/staffing" replace />} />
+              <Route path="/staffing" element={<Navigate to="/events?tab=active" replace />} />
+              <Route path="/assignments" element={<Navigate to="/events?tab=active" replace />} />
             </Route>
             
         </Routes>

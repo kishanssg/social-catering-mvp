@@ -14,7 +14,17 @@ import theBistroIcon from '../../assets/icons/Uniforms/the_bistro.png';
 import blackAndWhiteIcon from '../../assets/icons/Uniforms/black_and_white.png';
 import chefsCoatIcon from '../../assets/icons/Uniforms/chef_coat.png';
 import { VenueAutocomplete } from '../../components/ui/VenueAutocomplete';
-import type { Venue } from '../../services/venuesApi';
+// Temporary Venue type until venuesApi is properly implemented
+interface Venue {
+  id: number;
+  name: string;
+  formatted_address: string;
+  place_id?: string;
+  arrival_instructions?: string;
+  parking_info?: string;
+  created_at: string;
+  updated_at: string;
+}
 import { createEvent, updateEvent, type Event } from '../../services/eventsApi';
 
 // Define types locally to avoid import issues

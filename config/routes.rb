@@ -72,15 +72,15 @@ Rails.application.routes.draw do
       # Keep jobs as alias for backward compatibility
       resources :jobs, controller: 'events'
       
-      # Staffing (formerly Assignments)
-      resources :staffing do
+      # Staffing endpoints (keep for modal operations only)
+      resources :staffing, only: [:create, :update, :destroy] do
         collection do
           post :bulk_create
         end
       end
       
-      # Keep assignments as alias
-      resources :assignments, controller: 'staffing' do
+      # Keep assignments as alias for backward compatibility
+      resources :assignments, controller: 'staffing', only: [:create, :update, :destroy] do
         collection do
           post :bulk_create
           get :export

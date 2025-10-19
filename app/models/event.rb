@@ -31,6 +31,29 @@ class Event < ApplicationRecord
   scope :by_completion_date, ->(start_date, end_date) { 
     completed.where(completed_at_utc: start_date..end_date) 
   }
+  
+  # New scopes for unified Events page
+  scope :upcoming, -> { 
+    joins(:event_schedule)
+      .where('event_schedules.start_time_utc > ?', Time.current)
+      .order('event_schedules.start_time_utc ASC') 
+  }
+  
+  scope :past_week, -> {
+    joins(:event_schedule)
+      .where('event_schedules.end_time_utc BETWEEN ? AND ?', 
+             1.week.ago, Time.current)
+  }
+  
+  scope :past_month, -> {
+    joins(:event_schedule)
+      .where('event_schedules.end_time_utc BETWEEN ? AND ?', 
+             1.month.ago, Time.current)
+  }
+  
+  scope :with_assignments, -> {
+    includes(shifts: [:assignments, :workers])
+  }
 
   # Callbacks for custom timestamp columns
   before_create :set_created_at_utc

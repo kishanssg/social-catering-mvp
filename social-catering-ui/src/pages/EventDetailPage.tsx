@@ -174,7 +174,7 @@ export function EventDetailPage() {
             <div className="flex items-center gap-2">
               {event.unfilled_roles_count > 0 && (
                 <button
-                  onClick={() => navigate(`/staffing?event_id=${event.id}`)}
+                  onClick={() => navigate(`/events?tab=active&event_id=${event.id}`)}
                   className="px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
                 >
                   Assign Workers
@@ -408,7 +408,7 @@ export function EventDetailPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/staffing?shift_id=${shift.id}`);
+                                    navigate(`/events?tab=active&shift_id=${shift.id}`);
                                   }}
                                   className="px-3 py-1 bg-teal-600 text-white text-xs font-medium rounded hover:bg-teal-700 transition-colors"
                                 >
@@ -423,7 +423,7 @@ export function EventDetailPage() {
                       {/* Bulk Assign Button */}
                       {needsWorkersForRole > 0 && (
                         <button
-                          onClick={() => navigate(`/staffing?event_id=${event.id}&role=${encodeURIComponent(roleName)}`)}
+                          onClick={() => navigate(`/events?tab=active&event_id=${event.id}&role=${encodeURIComponent(roleName)}`)}
                           className="mt-3 w-full px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
                         >
                           Assign All {roleName} Shifts ({needsWorkersForRole})

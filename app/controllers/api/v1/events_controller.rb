@@ -3,24 +3,48 @@ class Api::V1::EventsController < Api::V1::BaseController
   before_action :set_event, only: [:show, :update, :destroy, :publish, :complete]
 
   # GET /api/v1/events
+  # Supports: ?tab=draft|active|past
   def index
-    events = Event.includes(:venue, :event_skill_requirements, :event_schedule)
+    events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
+                            shifts: { assignments: :worker })
     
-    # Filter by status
-    events = events.where(status: params[:status]) if params[:status].present?
+    # Filter by tab
+    case params[:tab]
+    when 'draft'
+      events = events.draft
+    when 'active'
+      events = events.published
+                   .joins(:event_schedule)
+                   .where('event_schedules.start_time_utc > ?', Time.current)
+                   .order('event_schedules.start_time_utc ASC')
+    when 'past'
+      events = events.completed
+                   .joins(:event_schedule)
+                   .where('event_schedules.end_time_utc <= ?', Time.current)
+                   .order('event_schedules.end_time_utc DESC')
+    else
+      events = events.where(status: ['draft', 'published'])
+    end
     
-    # Filter by date range (if schedule exists)
-    if params[:start_date].present? && params[:end_date].present?
-      events = events.joins(:event_schedule).where(
-        event_schedules: { 
-          start_time_utc: Date.parse(params[:start_date])..Date.parse(params[:end_date]) 
-        }
-      )
+    # Additional filters for active tab
+    if params[:filter] == 'needs_workers'
+      events = events.select { |e| e.unfilled_roles_count > 0 }
+    elsif params[:filter] == 'partially_filled'
+      events = events.select { |e| e.staffing_status == 'partially_staffed' }
+    elsif params[:filter] == 'fully_staffed'
+      events = events.select { |e| e.staffing_status == 'fully_staffed' }
+    end
+    
+    # Search functionality
+    if params[:search].present?
+      search_term = "%#{params[:search]}%"
+      events = events.joins(:venue)
+                    .where("events.title ILIKE ? OR venues.name ILIKE ?", search_term, search_term)
     end
     
     render json: {
       status: 'success',
-      data: events.map { |event| serialize_event(event) }
+      data: events.map { |event| serialize_event(event, params[:tab]) }
     }
   end
 
@@ -207,53 +231,148 @@ class Api::V1::EventsController < Api::V1::BaseController
     schedule.permit(:start_time_utc, :end_time_utc, :break_minutes)
   end
 
-  def serialize_event(event)
-    {
+  def serialize_event(event, tab = nil)
+    base = {
       id: event.id,
       title: event.title,
       status: event.status,
-      venue: event.venue&.as_json(only: [:id, :name, :formatted_address, :city, :state]),
-      check_in_instructions: event.check_in_instructions,
-      supervisor_name: event.supervisor_name,
-      supervisor_phone: event.supervisor_phone,
-      skill_requirements: event.event_skill_requirements.as_json(
-        only: [:id, :skill_name, :needed_workers, :description, :uniform_name, :certification_name, :pay_rate]
-      ),
-      schedule: event.event_schedule&.as_json(
-        only: [:id, :start_time_utc, :end_time_utc, :break_minutes]
-      ),
+      staffing_status: event.staffing_status,
+      venue: event.venue ? {
+        id: event.venue.id,
+        name: event.venue.name,
+        formatted_address: event.venue.formatted_address
+      } : nil,
+      schedule: event.event_schedule ? {
+        start_time_utc: event.event_schedule.start_time_utc,
+        end_time_utc: event.event_schedule.end_time_utc,
+        break_minutes: event.event_schedule.break_minutes
+      } : nil,
       total_workers_needed: event.total_workers_needed,
-      duration_hours: event.duration_hours,
       assigned_workers_count: event.assigned_workers_count,
       unfilled_roles_count: event.unfilled_roles_count,
       staffing_percentage: event.staffing_percentage,
       staffing_summary: event.staffing_summary,
-      total_shifts_count: event.total_shifts_count,
-      assigned_shifts_count: event.assigned_shifts_count,
-      shifts_generated: event.shifts_generated,
-      completed_at_utc: event.completed_at_utc,
-      total_hours_worked: event.total_hours_worked,
-      total_pay_amount: event.total_pay_amount,
-      completion_notes: event.completion_notes,
-      created_at: event.created_at_utc,
-      updated_at: event.updated_at_utc
+      shifts_count: event.shifts.count,
+      created_at: event.created_at_utc
     }
+    
+    # Add shifts with assignments for active/past tabs
+    if ['active', 'past'].include?(tab) || event.status != 'draft'
+      base[:shifts_by_role] = group_shifts_by_role(event.shifts)
+    end
+    
+    base
+  end
+
+  def serialize_event_with_assignments(event)
+    base_data = {
+      id: event.id,
+      title: event.title,
+      status: event.status,
+      staffing_status: event.staffing_status,
+      venue: event.venue ? {
+        id: event.venue.id,
+        name: event.venue.name,
+        formatted_address: event.venue.formatted_address
+      } : nil,
+      schedule: event.event_schedule ? {
+        start_time_utc: event.event_schedule.start_time_utc,
+        end_time_utc: event.event_schedule.end_time_utc,
+        break_minutes: event.event_schedule.break_minutes
+      } : nil,
+      total_workers_needed: event.total_workers_needed,
+      assigned_workers_count: event.assigned_workers_count,
+      unfilled_roles_count: event.unfilled_roles_count,
+      staffing_percentage: event.staffing_percentage,
+      shifts_count: event.shifts.count,
+      created_at: event.created_at_utc
+    }
+    
+    # Add assignment details for active/past tabs
+    if ['published', 'completed'].include?(event.status)
+      base_data[:shifts] = event.shifts.map { |shift|
+        {
+          id: shift.id,
+          role_needed: shift.role_needed,
+          status: shift.current_status,
+          staffing_progress: shift.staffing_progress,
+          start_time_utc: shift.start_time_utc,
+          end_time_utc: shift.end_time_utc,
+          assignments: shift.assignments.map { |assignment|
+            {
+              id: assignment.id,
+              worker: {
+                id: assignment.worker.id,
+                first_name: assignment.worker.first_name,
+                last_name: assignment.worker.last_name,
+                email: assignment.worker.email
+              },
+              hours_worked: assignment.hours_worked,
+              status: assignment.status
+            }
+          }
+        }
+      }
+    end
+    
+    base_data
   end
 
   def serialize_event_detailed(event)
-    serialize_event(event).merge(
-      shifts: event.shifts.order(:start_time_utc).map do |s|
+    serialize_event(event, event.status).merge(
+      skill_requirements: event.event_skill_requirements.map { |sr|
         {
-          id: s.id,
-          client_name: s.client_name,
-          role_needed: s.role_needed,
-          start_time_utc: s.start_time_utc,
-          end_time_utc: s.end_time_utc,
-          capacity: s.capacity,
-          status: s.current_status,
-          staffing_summary: s.staffing_summary
+          id: sr.id,
+          skill_name: sr.skill_name,
+          needed_workers: sr.needed_workers,
+          description: sr.description,
+          uniform_name: sr.uniform_name,
+          certification_name: sr.certification_name,
+          pay_rate: sr.pay_rate
         }
-      end
+      },
+      check_in_instructions: event.check_in_instructions,
+      supervisor_name: event.supervisor_name,
+      supervisor_phone: event.supervisor_phone
     )
+  end
+  
+  def group_shifts_by_role(shifts)
+    grouped = {}
+    
+    shifts.each do |shift|
+      role = shift.role_needed
+      grouped[role] ||= {
+        role_name: role,
+        total_shifts: 0,
+        filled_shifts: 0,
+        shifts: []
+      }
+      
+      grouped[role][:total_shifts] += 1
+      grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
+      
+      grouped[role][:shifts] << {
+        id: shift.id,
+        start_time_utc: shift.start_time_utc,
+        end_time_utc: shift.end_time_utc,
+        status: shift.current_status,
+        staffing_progress: shift.staffing_progress,
+        assignments: shift.assignments.map { |a|
+          {
+            id: a.id,
+            worker: {
+              id: a.worker.id,
+              first_name: a.worker.first_name,
+              last_name: a.worker.last_name
+            },
+            hours_worked: a.hours_worked,
+            status: a.status
+          }
+        }
+      }
+    end
+    
+    grouped.values
   end
 end
