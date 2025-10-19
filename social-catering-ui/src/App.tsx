@@ -17,23 +17,8 @@ const WorkerCreatePage = lazy(() => import('./pages/WorkerCreatePage').then(modu
 const WorkerDetailPage = lazy(() => import('./pages/WorkerDetailPage').then(module => ({ default: module.WorkerDetailPage })));
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
 
-// Test pages (keep for development)
-const TestApiIntegration = lazy(() => import('./components/TestApiIntegration'));
-const TestWizard = lazy(() => import('./components/TestWizard'));
-const SimpleTest = lazy(() => import('./components/SimpleTest'));
-const WorkingWizard = lazy(() => import('./components/WorkingWizard'));
-const ApiTest = lazy(() => import('./components/ApiTest'));
-const WorkersPageEnhanced = lazy(() => import('./pages/Workers/WorkersPageEnhanced'));
-const TestEnhancedTable = lazy(() => import('./components/TestEnhancedTable'));
+// Additional pages
 const TimesheetPage = lazy(() => import('./pages/Reports/TimesheetPage'));
-const TestDashboard = lazy(() => import('./components/TestDashboard'));
-const TestShiftStatus = lazy(() => import('./components/TestShiftStatus'));
-const TestBulkHours = lazy(() => import('./components/TestBulkHours'));
-const DebugApi = lazy(() => import('./components/DebugApi'));
-const TestDashboardNew = lazy(() => import('./components/TestDashboardNew'));
-const SimplifiedDashboardPage = lazy(() => import('./pages/SimplifiedDashboardPage'));
-const TestSimplifiedDashboard = lazy(() => import('./components/TestSimplifiedDashboard'));
-const TestWorkersData = lazy(() => import('./pages/TestWorkersData'));
 
 // Loading component
 const PageLoader = () => (
@@ -86,22 +71,6 @@ function App() {
               <Route path="/assignments" element={<Navigate to="/staffing" replace />} />
             </Route>
             
-            {/* Test routes (no auth required for development) */}
-            <Route path="/test-api" element={<TestApiIntegration />} />
-            <Route path="/test-wizard" element={<TestWizard />} />
-            <Route path="/simple-test" element={<SimpleTest />} />
-            <Route path="/working-wizard" element={<WorkingWizard />} />
-            <Route path="/api-test" element={<ApiTest />} />
-            <Route path="/workers-enhanced" element={<WorkersPageEnhanced />} />
-            <Route path="/test-table" element={<TestEnhancedTable />} />
-            <Route path="/test-dashboard" element={<TestDashboard />} />
-            <Route path="/test-shift-status" element={<TestShiftStatus />} />
-            <Route path="/test-bulk-hours" element={<TestBulkHours />} />
-            <Route path="/debug-api" element={<DebugApi />} />
-            <Route path="/test-dashboard-new" element={<TestDashboardNew />} />
-            <Route path="/test-simplified-dashboard" element={<SimplifiedDashboardPage />} />
-            <Route path="/test-simplified-dashboard-components" element={<TestSimplifiedDashboard />} />
-            <Route path="/test-workers-data" element={<TestWorkersData />} />
         </Routes>
         </Suspense>
       </AuthProvider>

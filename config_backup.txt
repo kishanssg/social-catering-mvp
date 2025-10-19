@@ -1,6 +1,0 @@
-HEROKU CONFIG BACKUP:
-=====================
-=== sc-mvp-staging Config Vars
-
-DATABASE_URL:     postgres://u1kupoab2ci1ci:pc3b0834a5e854bd563d91c9e1ea366afe7874c1e8ae55492e7e5a38392ada19a@c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d4ee0mdj9kblhv
-RAILS_ENV:        production
