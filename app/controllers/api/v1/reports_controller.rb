@@ -10,18 +10,18 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Only export completed/approved assignments from past shifts
-        staffing = Assignment.includes(worker: [], shift: [:event, :event_schedule])
+        assignments = Assignment.includes(worker: [], shift: [:event, :event_schedule])
                            .for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
                            .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
         
         # Filter by event if provided
-        staffing = staffing.for_event(params[:event_id]) if params[:event_id].present?
+        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
         
         # Filter by worker if provided
-        staffing = staffing.for_worker(params[:worker_id]) if params[:worker_id].present?
+        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
         
-        csv_data = generate_timesheet_csv(staffing)
+        csv_data = generate_timesheet_csv(assignments)
         
         send_data csv_data,
                   filename: "timesheet_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
@@ -36,12 +36,12 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Only export completed/approved assignments from past shifts
-        staffing = Assignment.includes(worker: [], shift: [:event, :event_schedule])
+        assignments = Assignment.includes(worker: [], shift: [:event, :event_schedule])
                            .for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
                            .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
         
-        csv_data = generate_payroll_csv(staffing)
+        csv_data = generate_payroll_csv(assignments)
         
         send_data csv_data,
                   filename: "payroll_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
@@ -196,7 +196,7 @@ module Api
             'Status',
             'Total Workers Needed',
             'Workers Assigned',
-            'Staffing Percentage',
+            'Assignment Percentage',
             'Shifts Generated',
             'Supervisor'
           ]

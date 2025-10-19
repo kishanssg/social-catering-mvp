@@ -1,28 +1,28 @@
 module Api
   module V1
-    class StaffingController < BaseController
+    class AssignmentsController < BaseController
       before_action :authenticate_user!
-      before_action :set_staffing, only: [:show, :update, :destroy]
+      before_action :set_assignment, only: [:show, :update, :destroy]
       
       # GET /api/v1/staffing
       # Query params: event_id, worker_id, status, start_date, end_date
       def index
-        staffing = Assignment.includes(worker: [], shift: [:event, :skill_requirement])
+        assignments = Assignment.includes(worker: [], shift: [:event, :skill_requirement])
                            .order(created_at: :desc)
         
         # Filter by event
         if params[:event_id].present?
-          staffing = staffing.for_event(params[:event_id])
+          assignments = assignments.for_event(params[:event_id])
         end
         
         # Filter by worker
         if params[:worker_id].present?
-          staffing = staffing.where(worker_id: params[:worker_id])
+          assignments = assignments.where(worker_id: params[:worker_id])
         end
         
         # Filter by date range
         if params[:start_date].present? && params[:end_date].present?
-          staffing = staffing.for_date_range(
+          assignments = assignments.for_date_range(
             Date.parse(params[:start_date]),
             Date.parse(params[:end_date])
           )
@@ -31,14 +31,14 @@ module Api
         # Filter by status
         case params[:status]
         when 'completed'
-          staffing = staffing.completed
+          assignments = assignments.completed
         when 'upcoming'
-          staffing = staffing.upcoming
+          assignments = assignments.upcoming
         end
         
         render json: {
           status: 'success',
-          data: staffing.map { |s| serialize_staffing(s) }
+          data: assignments.map { |a| serialize_assignment(a) }
         }
       end
       
@@ -46,27 +46,27 @@ module Api
       def show
         render json: {
           status: 'success',
-          data: serialize_staffing_detailed(@staffing)
+          data: serialize_assignment_detailed(@assignment)
         }
       end
       
       # POST /api/v1/staffing
       def create
-        @staffing = Assignment.new(staffing_params)
-        @staffing.assigned_by_id = current_user.id
-        @staffing.assigned_at_utc ||= Time.current
-        @staffing.status ||= 'assigned'
+        @assignment = Assignment.new(assignment_params)
+        @assignment.assigned_by_id = current_user.id
+        @assignment.assigned_at_utc ||= Time.current
+        @assignment.status ||= 'assigned'
         
-        if @staffing.save
+        if @assignment.save
           render json: {
             status: 'success',
             message: 'Worker assigned successfully',
-            data: serialize_staffing(@staffing)
+            data: serialize_assignment(@assignment)
           }, status: :created
         else
           render json: {
             status: 'error',
-            errors: @staffing.errors.full_messages
+            errors: @assignment.errors.full_messages
           }, status: :unprocessable_entity
         end
       end
@@ -190,22 +190,22 @@ module Api
       
       # PATCH /api/v1/staffing/:id
       def update
-        if @staffing.update(staffing_params)
+        if @assignment.update(assignment_params)
           render json: {
             status: 'success',
-            data: serialize_staffing(@staffing)
+            data: serialize_assignment(@assignment)
           }
         else
           render json: {
             status: 'error',
-            errors: @staffing.errors.full_messages
+            errors: @assignment.errors.full_messages
           }, status: :unprocessable_entity
         end
       end
       
       # DELETE /api/v1/staffing/:id
       def destroy
-        @staffing.destroy
+        @assignment.destroy
         
         render json: {
           status: 'success',
@@ -215,57 +215,57 @@ module Api
       
       private
       
-      def set_staffing
-        @staffing = Assignment.includes(worker: [], shift: [:event]).find(params[:id])
+      def set_assignment
+        @assignment = Assignment.includes(worker: [], shift: [:event]).find(params[:id])
       end
       
-      def staffing_params
-        params.require(:staffing).permit(
+      def assignment_params
+        params.require(:assignment).permit(
           :worker_id, :shift_id, :hours_worked, :status, :notes, 
           :clock_in_time, :clock_out_time, :break_duration_minutes, 
           :overtime_hours, :performance_rating, :hourly_rate
         )
       end
       
-      def serialize_staffing(staffing)
+      def serialize_assignment(assignment)
         {
-          id: staffing.id,
+          id: assignment.id,
           worker: {
-            id: staffing.worker.id,
-            first_name: staffing.worker.first_name,
-            last_name: staffing.worker.last_name,
-            email: staffing.worker.email,
-            phone: staffing.worker.phone
+            id: assignment.worker.id,
+            first_name: assignment.worker.first_name,
+            last_name: assignment.worker.last_name,
+            email: assignment.worker.email,
+            phone: assignment.worker.phone
           },
           shift: {
-            id: staffing.shift.id,
-            role_needed: staffing.shift.role_needed,
-            start_time_utc: staffing.shift.start_time_utc,
-            end_time_utc: staffing.shift.end_time_utc,
-            location: staffing.shift.location
+            id: assignment.shift.id,
+            role_needed: assignment.shift.role_needed,
+            start_time_utc: assignment.shift.start_time_utc,
+            end_time_utc: assignment.shift.end_time_utc,
+            location: assignment.shift.location
           },
-          event: staffing.event ? {
-            id: staffing.event.id,
-            title: staffing.event.title,
-            supervisor_name: staffing.event.supervisor_name
+          event: assignment.event ? {
+            id: assignment.event.id,
+            title: assignment.event.title,
+            supervisor_name: assignment.event.supervisor_name
           } : nil,
-          hours_worked: staffing.hours_worked,
-          hourly_rate: staffing.hourly_rate,
-          total_pay: staffing.total_pay,
-          status: staffing.status,
-          is_completed: staffing.is_completed?,
-          created_at: staffing.created_at
+          hours_worked: assignment.hours_worked,
+          hourly_rate: assignment.hourly_rate,
+          total_pay: assignment.total_pay,
+          status: assignment.status,
+          is_completed: assignment.is_completed?,
+          created_at: assignment.created_at
         }
       end
       
-      def serialize_staffing_detailed(staffing)
-        serialize_staffing(staffing).merge(
-          notes: staffing.notes,
-          clock_in_time: staffing.clock_in_time,
-          clock_out_time: staffing.clock_out_time,
-          break_duration_minutes: staffing.break_duration_minutes,
-          overtime_hours: staffing.overtime_hours,
-          performance_rating: staffing.performance_rating
+      def serialize_assignment_detailed(assignment)
+        serialize_assignment(assignment).merge(
+          notes: assignment.notes,
+          clock_in_time: assignment.clock_in_time,
+          clock_out_time: assignment.clock_out_time,
+          break_duration_minutes: assignment.break_duration_minutes,
+          overtime_hours: assignment.overtime_hours,
+          performance_rating: assignment.performance_rating
         )
       end
       

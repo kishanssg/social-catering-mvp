@@ -216,7 +216,7 @@ module Api
       def generate_csv(assignments)
         require 'csv'
         CSV.generate(headers: true) do |csv|
-          csv << ['Date','Job/Client','Location','Role','Worker','Hours','Rate','Total']
+          csv << ['Date','Event/Client','Location','Role','Worker','Hours','Rate','Total']
           assignments.each do |assignment|
             shift = assignment.shift
             worker = assignment.worker

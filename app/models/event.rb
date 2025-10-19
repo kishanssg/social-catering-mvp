@@ -110,7 +110,7 @@ class Event < ApplicationRecord
     shifts.joins(:assignments).where.not(assignments: { hours_worked: nil }).sum('assignments.hours_worked * COALESCE(assignments.hourly_rate, shifts.pay_rate)')
   end
 
-  # Staffing metrics
+  # Assignment metrics
   def assigned_workers_count
     shifts.joins(:assignments).count
   end
