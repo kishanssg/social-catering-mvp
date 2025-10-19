@@ -787,7 +787,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
               {submitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Assigning...
+                  Scheduling...
                 </>
               ) : (
                 <>
