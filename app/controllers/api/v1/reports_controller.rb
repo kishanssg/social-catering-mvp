@@ -10,7 +10,7 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Only export completed/approved assignments from past shifts
-        staffing = Staffing.includes(worker: [], shift: [:event, :event_schedule])
+        staffing = Assignment.includes(worker: [], shift: [:event, :event_schedule])
                            .for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
                            .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
@@ -36,7 +36,7 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Only export completed/approved assignments from past shifts
-        staffing = Staffing.includes(worker: [], shift: [:event, :event_schedule])
+        staffing = Assignment.includes(worker: [], shift: [:event, :event_schedule])
                            .for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
                            .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts

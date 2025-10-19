@@ -7,7 +7,7 @@ module Api
       # GET /api/v1/staffing
       # Query params: event_id, worker_id, status, start_date, end_date
       def index
-        staffing = Staffing.includes(worker: [], shift: [:event, :skill_requirement])
+        staffing = Assignment.includes(worker: [], shift: [:event, :skill_requirement])
                            .order(created_at: :desc)
         
         # Filter by event
@@ -52,7 +52,7 @@ module Api
       
       # POST /api/v1/staffing
       def create
-        @staffing = Staffing.new(staffing_params)
+        @staffing = Assignment.new(staffing_params)
         @staffing.assigned_by_id = current_user.id
         @staffing.assigned_at_utc ||= Time.current
         @staffing.status ||= 'assigned'
@@ -135,7 +135,7 @@ module Api
         
         ActiveRecord::Base.transaction do
           shifts.each do |shift|
-            assignment = Staffing.new(
+            assignment = Assignment.new(
               worker: worker,
               shift: shift,
               status: 'confirmed'
@@ -147,7 +147,7 @@ module Api
               # Log activity
               ActivityLog.create(
                 action: 'staffing_created',
-                resource_type: 'Staffing',
+                resource_type: 'Assignment',
                 resource_id: assignment.id,
                 details: {
                   worker_id: worker.id,
@@ -216,7 +216,7 @@ module Api
       private
       
       def set_staffing
-        @staffing = Staffing.includes(worker: [], shift: [:event]).find(params[:id])
+        @staffing = Assignment.includes(worker: [], shift: [:event]).find(params[:id])
       end
       
       def staffing_params

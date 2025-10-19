@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_18_082838) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_19_080145) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -48,8 +48,11 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_18_082838) do
     t.index ["created_at"], name: "index_assignments_on_created_at"
     t.index ["hourly_rate"], name: "index_assignments_on_hourly_rate"
     t.index ["shift_id", "worker_id"], name: "index_assignments_on_shift_id_and_worker_id", unique: true
+    t.index ["shift_id"], name: "index_assignments_on_shift"
     t.index ["shift_id"], name: "index_assignments_on_shift_id"
     t.index ["worker_id", "created_at"], name: "index_assignments_on_worker_id_and_created_at"
+    t.index ["worker_id", "shift_id"], name: "index_assignments_unique_worker_shift", unique: true
+    t.index ["worker_id", "status", "created_at"], name: "index_assignments_on_worker_status_time"
     t.index ["worker_id", "status"], name: "index_assignments_on_worker_id_and_status"
     t.index ["worker_id"], name: "index_assignments_on_worker_id"
     t.check_constraint "hours_worked IS NULL OR hours_worked >= 0::numeric", name: "assignments_positive_hours"
@@ -108,6 +111,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_18_082838) do
     t.index ["completed_at_utc"], name: "index_events_on_completed_at_utc"
     t.index ["published_at_utc"], name: "index_events_on_published_at_utc"
     t.index ["shifts_generated"], name: "index_events_on_shifts_generated"
+    t.index ["status", "created_at_utc"], name: "index_events_on_status_and_created_at"
     t.index ["status"], name: "index_events_on_status"
     t.index ["venue_id"], name: "index_events_on_venue_id"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying]::text[])", name: "valid_job_status"
@@ -150,12 +154,14 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_18_082838) do
     t.string "required_skill"
     t.string "uniform_name"
     t.index ["auto_generated"], name: "index_shifts_on_auto_generated"
+    t.index ["event_id", "status", "start_time_utc"], name: "index_shifts_on_event_status_time"
     t.index ["event_id"], name: "index_shifts_on_event_id"
     t.index ["event_skill_requirement_id"], name: "index_shifts_on_event_skill_requirement_id"
     t.index ["location_id"], name: "index_shifts_on_location_id"
     t.index ["required_cert_id"], name: "index_shifts_on_required_cert_id"
     t.index ["required_skill"], name: "index_shifts_on_required_skill"
     t.index ["start_time_utc", "end_time_utc"], name: "index_shifts_on_start_time_utc_and_end_time_utc"
+    t.index ["start_time_utc", "end_time_utc"], name: "index_shifts_on_time_range"
     t.index ["start_time_utc", "status"], name: "index_shifts_on_start_time_utc_and_status"
     t.index ["status"], name: "index_shifts_on_status"
     t.check_constraint "capacity > 0", name: "shifts_positive_capacity"
@@ -241,11 +247,13 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_18_082838) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.tsvector "skills_tsvector"
+    t.index ["active", "created_at"], name: "index_workers_on_active_and_created"
     t.index ["active"], name: "index_workers_on_active"
     t.index ["email"], name: "index_workers_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["last_name", "first_name"], name: "index_workers_on_last_name_and_first_name"
     t.index ["skills_json"], name: "index_workers_on_skills_json", using: :gin
     t.index ["skills_tsvector"], name: "idx_workers_search", using: :gin
+    t.index ["skills_tsvector"], name: "index_workers_on_skills_tsvector", using: :gin
   end
 
   add_foreign_key "activity_logs", "users", column: "actor_user_id", on_delete: :nullify
