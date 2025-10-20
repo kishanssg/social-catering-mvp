@@ -258,7 +258,7 @@ export function DashboardPage() {
           <StatCard
             label="Completed Events"
             value={stats.completed_events}
-            onClick={() => navigate('/events?tab=past')}
+            onClick={() => navigate('/events?tab=completed')}
             color="green"
           />
           

@@ -1,9 +1,43 @@
-import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { LogOut, ChevronUp } from 'lucide-react';
 
 export function AppLayout() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still redirect to login even if logout fails
+      navigate('/login', { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+      setIsDropdownOpen(false);
+    }
+  };
   
   return (
     <div className="flex min-h-screen bg-neutral-white">
@@ -220,7 +254,7 @@ export function AppLayout() {
           </svg>
 
           {/* User */}
-          <div className="flex items-center gap-3 px-0 py-4 self-stretch">
+          <div className="flex items-center gap-3 px-0 py-4 self-stretch relative" ref={dropdownRef}>
             <div className="w-10 h-10 relative">
               <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="20" cy="20" r="20" fill="#292826"/>
@@ -245,17 +279,36 @@ export function AppLayout() {
                 {user?.email?.split('@')[0] || 'User'}
               </span>
               <span className="text-sm font-normal font-manrope leading-[140%] text-font-primary">
-                {user?.role || 'Administrator'}
+                Administrator
               </span>
             </div>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M5.21967 11.7803C5.51256 12.0732 5.98744 12.0732 6.28033 11.7803L10 8.06066L13.7197 11.7803C14.0126 12.0732 14.4874 12.0732 14.7803 11.7803C15.0732 11.4874 15.0732 11.0126 14.7803 10.7197L10.5303 6.46967C10.3897 6.32902 10.1989 6.25 10 6.25C9.80109 6.25 9.61032 6.32902 9.46967 6.46967L5.21967 10.7197C4.92678 11.0126 4.92678 11.4874 5.21967 11.7803Z"
-                fill="#292826"
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="p-0 bg-transparent border-none cursor-pointer"
+            >
+              <ChevronUp 
+                size={20} 
+                className={`text-gray-600 transition-transform duration-200 ${
+                  isDropdownOpen ? 'rotate-180' : ''
+                }`}
               />
-            </svg>
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div className="absolute bottom-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <LogOut size={16} className="text-gray-600" />
+                  <span className="text-sm font-medium text-gray-900">
+                    {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

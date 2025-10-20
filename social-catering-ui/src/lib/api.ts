@@ -1,6 +1,9 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = import.meta.env.PROD ? '/api/v1' : 'http://localhost:3000/api/v1'
+// In production, default to same-origin /api/v1; allow override via VITE_API_URL
+const API_BASE_URL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL || '/api/v1')
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1')
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
