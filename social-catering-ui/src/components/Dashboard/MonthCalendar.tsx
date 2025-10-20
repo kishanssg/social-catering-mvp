@@ -169,3 +169,4 @@ export function MonthCalendar({ daysData, onDayClick }: MonthCalendarProps) {
     </div>
   );
 }
+

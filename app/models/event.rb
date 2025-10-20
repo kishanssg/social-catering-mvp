@@ -121,6 +121,18 @@ class Event < ApplicationRecord
     (assigned_workers_count.to_f / total * 100).round(0)
   end
 
+  def staffing_progress
+    {
+      assigned: assigned_workers_count,
+      required: total_workers_needed,
+      percentage: staffing_percentage
+    }
+  end
+
+  def publish!
+    update!(status: 'published')
+  end
+
   def staffing_status
     return 'completed' if status == 'completed'
     return 'draft' if status == 'draft'

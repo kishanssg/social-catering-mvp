@@ -3,9 +3,10 @@ class Assignment < ApplicationRecord
 
   belongs_to :shift
   belongs_to :worker
-  belongs_to :assigned_by, class_name: "User"
+  belongs_to :assigned_by, class_name: "User", optional: true
 
   validates :assigned_at_utc, :status, presence: true
+  validates :assigned_by_id, presence: true, on: :update
   validates :status, inclusion: { in: [ "assigned", "confirmed", "completed", "cancelled" ] }
   validates :hours_worked, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 24 }, allow_nil: true
   validates :hourly_rate, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true

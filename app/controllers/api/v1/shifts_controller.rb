@@ -88,7 +88,7 @@ module Api
       private
 
       def set_shift
-        @shift = Shift.includes(:event, :assignments, :workers, :skill_requirement).find(params[:id])
+        @shift = Shift.includes(:event, :assignments, :workers, :skill_requirement, event: :venue).find(params[:id])
       end
 
       def shift_params
@@ -113,6 +113,7 @@ module Api
           staffing_summary: shift.staffing_summary,
           assigned_count: shift.assigned_count,
           assignments_count: shift.assignments.count,
+          available_slots: shift.available_slots,
           created_at: shift.created_at
         }
       end
@@ -123,6 +124,15 @@ module Api
             skill_name: shift.skill_requirement.skill_name,
             uniform_name: shift.skill_requirement.uniform_name,
             certification_name: shift.skill_requirement.certification_name
+          } : nil,
+          event: shift.event ? {
+            id: shift.event.id,
+            title: shift.event.title,
+            venue: shift.event.venue ? {
+              id: shift.event.venue.id,
+              name: shift.event.venue.name,
+              formatted_address: shift.event.venue.formatted_address
+            } : nil
           } : nil,
           assignments: shift.assignments.includes(:worker).map { |a| serialize_assignment(a) }
         )

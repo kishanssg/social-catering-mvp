@@ -1,6 +1,6 @@
 module Api
   module V1
-    class AssignmentsController < BaseController
+    class StaffingController < BaseController
       before_action :authenticate_user!
       before_action :set_assignment, only: [:show, :update, :destroy]
       
@@ -138,7 +138,9 @@ module Api
             assignment = Assignment.new(
               worker: worker,
               shift: shift,
-              status: 'confirmed'
+              status: 'confirmed',
+              assigned_by_id: current_user.id,
+              assigned_at_utc: Time.current
             )
             
             if assignment.save
@@ -309,7 +311,7 @@ module Api
           worker_id: assignment.worker_id,
           shift_id: assignment.shift_id,
           status: assignment.status,
-          created_at: assignment.created_at_utc,
+          created_at: assignment.created_at,
           shift: {
             id: assignment.shift.id,
             role_needed: assignment.shift.role_needed,

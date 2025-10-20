@@ -1,0 +1,502 @@
+{
+  "id": 146,
+  "title": "Corporate Holiday Gala",
+  "staffing_percentage": 63,
+  "total_workers_needed": 8,
+  "assigned_workers_count": 5,
+  "shifts_by_role": [
+    {
+      "role_name": "Event Helper",
+      "total_shifts": 5,
+      "filled_shifts": 4,
+      "shifts": [
+        {
+          "id": 561,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 557,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 362,
+              "worker": {
+                "id": 577,
+                "first_name": "Rowan",
+                "last_name": "Young"
+              },
+              "hours_worked": "4.4",
+              "status": "assigned"
+            }
+          ]
+        },
+        {
+          "id": 558,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 371,
+              "worker": {
+                "id": 568,
+                "first_name": "Alex",
+                "last_name": "Davis"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        },
+        {
+          "id": 559,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 360,
+              "worker": {
+                "id": 567,
+                "first_name": "Taylor",
+                "last_name": "Young"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        },
+        {
+          "id": 560,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 372,
+              "worker": {
+                "id": 566,
+                "first_name": "Quinn",
+                "last_name": "Hall"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role_name": "Bartender",
+      "total_shifts": 2,
+      "filled_shifts": 0,
+      "shifts": [
+        {
+          "id": 562,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 563,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        }
+      ]
+    },
+    {
+      "role_name": "Captain",
+      "total_shifts": 1,
+      "filled_shifts": 1,
+      "shifts": [
+        {
+          "id": 564,
+          "role_needed": "Captain",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 361,
+              "worker": {
+                "id": 558,
+                "first_name": "Morgan",
+                "last_name": "Garcia"
+              },
+              "hours_worked": "4.4",
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+{
+  "id": 147,
+  "title": "FSU Alumni Wedding Reception",
+  "staffing_percentage": 63,
+  "total_workers_needed": 8,
+  "assigned_workers_count": 5,
+  "shifts_by_role": [
+    {
+      "role_name": "Event Helper",
+      "total_shifts": 4,
+      "filled_shifts": 2,
+      "shifts": [
+        {
+          "id": 565,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 567,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 566,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 365,
+              "worker": {
+                "id": 575,
+                "first_name": "River",
+                "last_name": "Lopez"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        },
+        {
+          "id": 568,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 364,
+              "worker": {
+                "id": 558,
+                "first_name": "Morgan",
+                "last_name": "Garcia"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role_name": "Bartender",
+      "total_shifts": 2,
+      "filled_shifts": 1,
+      "shifts": [
+        {
+          "id": 570,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 569,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 367,
+              "worker": {
+                "id": 567,
+                "first_name": "Taylor",
+                "last_name": "Young"
+              },
+              "hours_worked": "4.7",
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role_name": "Banquet Server/Runner",
+      "total_shifts": 2,
+      "filled_shifts": 2,
+      "shifts": [
+        {
+          "id": 572,
+          "role_needed": "Banquet Server/Runner",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 366,
+              "worker": {
+                "id": 577,
+                "first_name": "Rowan",
+                "last_name": "Young"
+              },
+              "hours_worked": "7.1",
+              "status": "assigned"
+            }
+          ]
+        },
+        {
+          "id": 571,
+          "role_needed": "Banquet Server/Runner",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 363,
+              "worker": {
+                "id": 561,
+                "first_name": "River",
+                "last_name": "Hernandez"
+              },
+              "hours_worked": "5.9",
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+{
+  "id": 148,
+  "title": "Private Birthday Party",
+  "staffing_percentage": 33,
+  "total_workers_needed": 3,
+  "assigned_workers_count": 1,
+  "shifts_by_role": [
+    {
+      "role_name": "Bartender",
+      "total_shifts": 1,
+      "filled_shifts": 0,
+      "shifts": [
+        {
+          "id": 573,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        }
+      ]
+    },
+    {
+      "role_name": "Event Helper",
+      "total_shifts": 2,
+      "filled_shifts": 1,
+      "shifts": [
+        {
+          "id": 575,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 574,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 368,
+              "worker": {
+                "id": 579,
+                "first_name": "Harper",
+                "last_name": "Young"
+              },
+              "hours_worked": "3.4",
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+{
+  "id": 149,
+  "title": "Business Networking Event",
+  "staffing_percentage": 50,
+  "total_workers_needed": 4,
+  "assigned_workers_count": 2,
+  "shifts_by_role": [
+    {
+      "role_name": "Event Helper",
+      "total_shifts": 3,
+      "filled_shifts": 1,
+      "shifts": [
+        {
+          "id": 576,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 578,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 0,
+            "required": 1,
+            "percentage": 0
+          },
+          "assignments": []
+        },
+        {
+          "id": 577,
+          "role_needed": "Event Helper",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 370,
+              "worker": {
+                "id": 567,
+                "first_name": "Taylor",
+                "last_name": "Young"
+              },
+              "hours_worked": null,
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "role_name": "Bartender",
+      "total_shifts": 1,
+      "filled_shifts": 1,
+      "shifts": [
+        {
+          "id": 579,
+          "role_needed": "Bartender",
+          "capacity": 1,
+          "staffing_progress": {
+            "assigned": 1,
+            "required": 1,
+            "percentage": 100
+          },
+          "assignments": [
+            {
+              "id": 369,
+              "worker": {
+                "id": 577,
+                "first_name": "Rowan",
+                "last_name": "Young"
+              },
+              "hours_worked": "7.8",
+              "status": "assigned"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

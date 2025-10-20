@@ -45,3 +45,4 @@ export function SimpleStatCard({ label, value, isHero, onClick }: SimpleStatCard
     </div>
   );
 }
+

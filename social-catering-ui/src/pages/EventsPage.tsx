@@ -18,9 +18,12 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { AssignmentModal } from '../components/AssignmentModal';
+import { Toast } from '../components/common/Toast';
+import { ConfirmationModal } from '../components/common/ConfirmationModal';
+import { QuickFillModal } from '../components/QuickFillModal';
 import { apiClient } from '../lib/api';
 
-type TabType = 'draft' | 'active' | 'past';
+type TabType = 'draft' | 'active' | 'past' | 'completed';
 type FilterType = 'all' | 'needs_workers' | 'partially_filled' | 'fully_staffed';
 
 interface Event {
@@ -83,7 +86,7 @@ export function EventsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const initialTab = (searchParams.get('tab') as TabType) || 'active';
+  const initialTab = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
   const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
   
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -99,6 +102,36 @@ export function EventsPage() {
     isOpen: boolean;
     shiftId?: number;
   }>({ isOpen: false });
+
+  // Toast state
+  const [toast, setToast] = useState<{
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ isVisible: false, message: '', type: 'success' });
+
+  // Publish modal state
+  const [publishModal, setPublishModal] = useState<{
+    isOpen: boolean;
+    eventId?: number;
+    isLoading: boolean;
+  }>({ isOpen: false, isLoading: false });
+
+  // Unassign modal state
+  const [unassignModal, setUnassignModal] = useState<{
+    isOpen: boolean;
+    assignmentId?: number;
+    isLoading: boolean;
+    workerName?: string;
+  }>({ isOpen: false, isLoading: false });
+  
+  // Quick Fill modal state
+  const [quickFill, setQuickFill] = useState<{
+    isOpen: boolean;
+    eventId?: number;
+    roleName?: string;
+    unfilledShiftIds: number[];
+  }>({ isOpen: false, unfilledShiftIds: [] });
   
   useEffect(() => {
     loadEvents();
@@ -107,7 +140,8 @@ export function EventsPage() {
   async function loadEvents() {
     setLoading(true);
     try {
-      const url = `/events?tab=${activeTab}${
+      const tabForApi = activeTab === 'completed' ? 'completed' : activeTab;
+      const url = `/events?tab=${tabForApi}${
         filterStatus !== 'all' ? `&filter=${filterStatus}` : ''
       }`;
       
@@ -157,20 +191,56 @@ export function EventsPage() {
     }
   }
   
-  async function handlePublish(eventId: number) {
-    if (!confirm('Publish this event? This will create shifts and make them available for staffing.')) return;
-    
+  function handlePublish(eventId: number) {
+    setPublishModal({ isOpen: true, eventId, isLoading: false });
+  }
+
+  async function confirmPublish() {
+    if (!publishModal.eventId) return;
+    setPublishModal(prev => ({ ...prev, isLoading: true }));
     try {
-      const response = await apiClient.post(`/events/${eventId}/publish`);
-      
+      const response = await apiClient.post(`/events/${publishModal.eventId}/publish`);
       if (response.data.status === 'success') {
-        alert(response.data.message);
+        setToast({ isVisible: true, message: response.data.message || 'Event published', type: 'success' });
+        setPublishModal({ isOpen: false, isLoading: false });
         loadEvents();
       } else {
-        alert(response.data.message || 'Failed to publish event');
+        setToast({ isVisible: true, message: response.data.message || 'Failed to publish event', type: 'error' });
+        setPublishModal({ isOpen: false, isLoading: false });
       }
     } catch (error) {
       console.error('Failed to publish event:', error);
+      setToast({ isVisible: true, message: 'Failed to publish event', type: 'error' });
+      setPublishModal({ isOpen: false, isLoading: false });
+    }
+  }
+
+  function closePublishModal() {
+    setPublishModal({ isOpen: false, isLoading: false });
+  }
+
+  // Unassign flow
+  function handleUnassignOpen(assignmentId: number, workerName?: string) {
+    setUnassignModal({ isOpen: true, assignmentId, isLoading: false, workerName });
+  }
+
+  async function confirmUnassign() {
+    if (!unassignModal.assignmentId) return;
+    setUnassignModal(prev => ({ ...prev, isLoading: true }));
+    try {
+      const response = await apiClient.delete(`/staffing/${unassignModal.assignmentId}`);
+      if (response.data?.status === 'success') {
+        setToast({ isVisible: true, message: 'Worker unassigned', type: 'success' });
+        setUnassignModal({ isOpen: false, isLoading: false });
+        loadEvents();
+      } else {
+        setToast({ isVisible: true, message: response.data?.message || 'Failed to unassign worker', type: 'error' });
+        setUnassignModal({ isOpen: false, isLoading: false });
+      }
+    } catch (error) {
+      console.error('Failed to unassign worker:', error);
+      setToast({ isVisible: true, message: 'Failed to unassign worker', type: 'error' });
+      setUnassignModal({ isOpen: false, isLoading: false });
     }
   }
   
@@ -184,6 +254,11 @@ export function EventsPage() {
   
   const handleAssignmentSuccess = () => {
     closeAssignmentModal();
+    setToast({
+      isVisible: true,
+      message: 'Worker assigned successfully',
+      type: 'success'
+    });
     loadEvents();
   };
   
@@ -253,14 +328,14 @@ export function EventsPage() {
             Active Events
           </button>
           <button
-            onClick={() => handleTabChange('past')}
+            onClick={() => handleTabChange('completed')}
             className={`pb-3 px-1 font-medium transition-colors border-b-2 ${
-              activeTab === 'past'
+              activeTab === 'completed'
                 ? 'border-teal-600 text-teal-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            Past Events
+            Completed Events
           </button>
         </div>
         
@@ -356,11 +431,14 @@ export function EventsPage() {
                 expandedEvents={expandedEvents}
                 onToggleEvent={toggleEvent}
                 onAssignWorker={openAssignmentModal}
+                onUnassign={handleUnassignOpen}
+                onQuickFill={(eventId, roleName, unfilled) => setQuickFill({ isOpen: true, eventId, roleName, unfilledShiftIds: unfilled })}
+                onDelete={handleDelete}
                 searchQuery={searchQuery}
               />
             )}
             
-            {activeTab === 'past' && (
+            {activeTab === 'completed' && (
               <PastEventsTab
                 events={filteredEvents}
                 expandedEvents={expandedEvents}
@@ -380,6 +458,53 @@ export function EventsPage() {
           onSuccess={handleAssignmentSuccess}
         />
       )}
+
+      {/* Toast Notifications */}
+      <Toast
+        isVisible={toast.isVisible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
+
+      {/* Publish Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={publishModal.isOpen}
+        onClose={closePublishModal}
+        onConfirm={confirmPublish}
+        title="Publish Event"
+        message="Publish this event? This will create shifts and make them available for staffing."
+        confirmText={publishModal.isLoading ? 'Publishing…' : 'Publish'}
+        cancelText="Cancel"
+        isLoading={publishModal.isLoading}
+        isDestructive={false}
+      />
+
+      {/* Unassign Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={unassignModal.isOpen}
+        onClose={() => setUnassignModal({ isOpen: false, isLoading: false })}
+        onConfirm={confirmUnassign}
+        title="Unassign Worker"
+        message={`Remove ${unassignModal.workerName || 'this worker'} from this shift?`}
+        confirmText={unassignModal.isLoading ? 'Removing…' : 'Unassign'}
+        cancelText="Cancel"
+        isLoading={unassignModal.isLoading}
+        isDestructive={true}
+      />
+
+      <QuickFillModal
+        isOpen={quickFill.isOpen}
+        eventId={quickFill.eventId || 0}
+        roleName={quickFill.roleName || ''}
+        unfilledShiftIds={quickFill.unfilledShiftIds}
+        onClose={() => setQuickFill({ isOpen: false, unfilledShiftIds: [] })}
+        onDone={({ assigned, conflicts }) => {
+          setQuickFill({ isOpen: false, unfilledShiftIds: [] });
+          setToast({ isVisible: true, message: `Assigned ${assigned} workers • ${conflicts} skipped`, type: conflicts > 0 ? 'error' : 'success' });
+          loadEvents();
+        }}
+      />
     </div>
   );
 }
@@ -516,6 +641,9 @@ interface ActiveEventsTabProps {
   expandedEvents: Set<number>;
   onToggleEvent: (id: number) => void;
   onAssignWorker: (shiftId: number) => void;
+  onUnassign: (assignmentId: number, workerName?: string) => void;
+  onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[]) => void;
+  onDelete?: (eventId: number) => void;
   searchQuery: string;
 }
 
@@ -524,6 +652,9 @@ function ActiveEventsTab({
   expandedEvents, 
   onToggleEvent, 
   onAssignWorker,
+  onUnassign,
+  onQuickFill,
+  onDelete,
   searchQuery 
 }: ActiveEventsTabProps) {
   const formatDate = (dateString: string) => {
@@ -654,21 +785,37 @@ function ActiveEventsTab({
                 )}
               </div>
               
-              <div className="ml-4">
-                {isExpanded ? (
-                  <ChevronUp size={20} className="text-gray-400" />
-                ) : (
-                  <ChevronDown size={20} className="text-gray-400" />
+              <div className="ml-4 flex items-center gap-2">
+                {/* Action buttons for events with no shifts */}
+                {(!event.shifts_by_role || event.shifts_by_role.length === 0) && onDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(event.id);
+                    }}
+                    className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Delete Event
+                  </button>
                 )}
+                
+                <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  {isExpanded ? (
+                    <ChevronUp size={24} className="text-gray-600 hover:text-gray-800" />
+                  ) : (
+                    <ChevronDown size={24} className="text-gray-600 hover:text-gray-800" />
+                  )}
+                </div>
               </div>
             </button>
             
             {/* Expanded Content - Shifts by Role */}
-            {isExpanded && event.shifts_by_role && (
+            {isExpanded && (
               <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-                <div className="space-y-4">
-                  {event.shifts_by_role.map((roleGroup) => (
-                    <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
+                {event.shifts_by_role && event.shifts_by_role.length > 0 ? (
+                  <div className="space-y-4">
+                    {event.shifts_by_role.map((roleGroup) => (
+                      <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <h4 className="font-medium text-gray-900">{roleGroup.role_name}</h4>
@@ -676,12 +823,29 @@ function ActiveEventsTab({
                             {roleGroup.filled_shifts}/{roleGroup.total_shifts} assigned
                           </span>
                         </div>
-                        
-                        {roleGroup.filled_shifts < roleGroup.total_shifts && (
-                          <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                            {roleGroup.total_shifts - roleGroup.filled_shifts} needed
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {roleGroup.filled_shifts < roleGroup.total_shifts && (
+                            <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                              {roleGroup.total_shifts - roleGroup.filled_shifts} needed
+                            </span>
+                          )}
+                          {roleGroup.filled_shifts < roleGroup.total_shifts && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const unfilled = roleGroup.shifts
+                                  .filter((s) => s.staffing_progress.percentage < 100)
+                                  .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime())
+                                  .map((s) => s.id);
+                                onQuickFill(event.id, roleGroup.role_name, unfilled);
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold bg-teal-600 text-white rounded hover:bg-teal-700"
+                              title="Quick Fill by Skill"
+                            >
+                              Quick Fill by Skill
+                            </button>
+                          )}
+                        </div>
                       </div>
                       
                       <div className="space-y-2">
@@ -691,9 +855,9 @@ function ActiveEventsTab({
                             className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border border-gray-200"
                           >
                             <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-gray-600">
-                                #{index + 1}
-                              </span>
+                              <div className="w-6 h-6 bg-gray-200 text-gray-700 rounded-md flex items-center justify-center text-xs font-medium">
+                                {index + 1}
+                              </div>
                               <span className="text-sm text-gray-700">
                                 {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
                               </span>
@@ -701,12 +865,23 @@ function ActiveEventsTab({
                               {shift.assignments.length > 0 && (
                                 <div className="flex items-center gap-1">
                                   {shift.assignments.map((assignment) => (
-                                    <span 
-                                      key={assignment.id}
-                                      className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded"
-                                    >
-                                      {assignment.worker.first_name} {assignment.worker.last_name[0]}.
-                                    </span>
+                                    <div key={assignment.id} className="flex items-center gap-1">
+                                      <span 
+                                        className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded"
+                                      >
+                                        {assignment.worker.first_name} {assignment.worker.last_name[0]}.
+                                      </span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onUnassign(assignment.id, `${assignment.worker.first_name} ${assignment.worker.last_name}`);
+                                        }}
+                                        className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                        title="Unassign worker"
+                                      >
+                                        <X size={12} />
+                                      </button>
+                                    </div>
                                   ))}
                                 </div>
                               )}
@@ -734,6 +909,46 @@ function ActiveEventsTab({
                     </div>
                   ))}
                 </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-500 mb-4">
+                      {event.status === 'draft' ? (
+                        <>
+                          <p className="font-medium">This event is still in draft status</p>
+                          <p className="text-sm">Publish the event to generate shifts and assign workers</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium">No shifts available</p>
+                          <p className="text-sm">This event may not have any shifts generated yet</p>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-center gap-3">
+                      {event.status === 'draft' && (
+                        <button
+                          onClick={() => {
+                            // Navigate to edit event page or show publish modal
+                            console.log('Publish event:', event.id);
+                          }}
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                        >
+                          Publish Event
+                        </button>
+                      )}
+                      
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(event.id)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          Delete Event
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -837,12 +1052,14 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                 </div>
               </div>
               
-              <div className="ml-4">
-                {isExpanded ? (
-                  <ChevronUp size={20} className="text-gray-400" />
-                ) : (
-                  <ChevronDown size={20} className="text-gray-400" />
-                )}
+              <div className="ml-4 flex items-center">
+                <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  {isExpanded ? (
+                    <ChevronUp size={24} className="text-gray-600 hover:text-gray-800" />
+                  ) : (
+                    <ChevronDown size={24} className="text-gray-600 hover:text-gray-800" />
+                  )}
+                </div>
               </div>
             </button>
             

@@ -26,13 +26,15 @@ import {
   parseISO
 } from 'date-fns';
 import { apiClient } from '../lib/api';
-import { TestApiConnection } from '../components/TestApiConnection';
 
 interface DashboardStats {
-  draft_jobs: number;
-  published_jobs: number;
-  completed_jobs: number;
+  draft_events: number;
+  published_events: number;
+  completed_events: number;
+  total_workers: number;
   gaps_to_fill: number;
+  urgent_events: number;
+  month_events: number;
 }
 
 interface DayData {
@@ -68,10 +70,13 @@ export function DashboardPage() {
   const navigate = useNavigate();
   
   const [stats, setStats] = useState<DashboardStats>({
-    draft_jobs: 0,
-    published_jobs: 0,
-    completed_jobs: 0,
-    gaps_to_fill: 0
+    draft_events: 0,
+    published_events: 0,
+    completed_events: 0,
+    total_workers: 0,
+    gaps_to_fill: 0,
+    urgent_events: 0,
+    month_events: 0
   });
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -86,101 +91,103 @@ export function DashboardPage() {
   async function loadDashboardData() {
     setLoading(true);
     try {
-      // Load all events to calculate stats
-      const eventsResponse = await apiClient.get('/events');
+      // Load dashboard stats from the dedicated endpoint
+      const dashboardResponse = await apiClient.get('/dashboard');
       
-      if (eventsResponse.data.status === 'success') {
-        const events = eventsResponse.data.data;
-        
-        // Calculate stats
-        const draftCount = events.filter((e: any) => e.status === 'draft').length;
-        const publishedCount = events.filter((e: any) => e.status === 'published').length;
-        const completedCount = events.filter((e: any) => e.status === 'completed').length;
-        const gapsCount = events
-          .filter((e: any) => e.status === 'published')
-          .reduce((sum: number, e: any) => sum + (e.unfilled_roles_count || 0), 0);
+      if (dashboardResponse.data.status === 'success') {
+        const dashboardData = dashboardResponse.data.data;
         
         setStats({
-          draft_jobs: draftCount,
-          published_jobs: publishedCount,
-          completed_jobs: completedCount,
-          gaps_to_fill: gapsCount
+          draft_events: dashboardData.draft_events,
+          published_events: dashboardData.published_events,
+          completed_events: dashboardData.completed_events,
+          total_workers: dashboardData.total_workers,
+          gaps_to_fill: dashboardData.gaps_to_fill,
+          urgent_events: dashboardData.urgent_events,
+          month_events: dashboardData.month_events
         });
         
-        // Prepare calendar data
-        const monthStart = startOfMonth(currentMonth);
-        const monthEnd = endOfMonth(currentMonth);
+        // Load events for calendar and urgent events
+        const eventsResponse = await apiClient.get('/events');
         
-        const publishedEvents = events.filter((e: any) => e.status === 'published');
-        const daysMap: Record<string, DayData> = {};
-        
-        publishedEvents.forEach((event: any) => {
-          if (!event.schedule) return;
+        if (eventsResponse.data.status === 'success') {
+          const events = eventsResponse.data.data;
           
-          const eventDate = parseISO(event.schedule.start_time_utc);
+          // Prepare calendar data
+          const monthStart = startOfMonth(currentMonth);
+          const monthEnd = endOfMonth(currentMonth);
           
-          if (eventDate >= monthStart && eventDate <= monthEnd) {
-            const dateKey = format(eventDate, 'yyyy-MM-dd');
+          const publishedEvents = events.filter((e: any) => e.status === 'published');
+          const daysMap: Record<string, DayData> = {};
+          
+          publishedEvents.forEach((event: any) => {
+            if (!event.schedule) return;
             
-            if (!daysMap[dateKey]) {
-              daysMap[dateKey] = {
-                date: eventDate,
-                status: 'fully_staffed',
-                events: [],
-                shifts_count: 0,
-                needs_workers_count: 0
+            const eventDate = parseISO(event.schedule.start_time_utc);
+            
+            if (eventDate >= monthStart && eventDate <= monthEnd) {
+              const dateKey = format(eventDate, 'yyyy-MM-dd');
+              
+              if (!daysMap[dateKey]) {
+                daysMap[dateKey] = {
+                  date: eventDate,
+                  status: 'fully_staffed',
+                  events: [],
+                  shifts_count: 0,
+                  needs_workers_count: 0
+                };
+              }
+              
+              daysMap[dateKey].events.push({
+                id: event.id,
+                title: event.title,
+                unfilled_roles_count: event.unfilled_roles_count || 0
+              });
+              
+              daysMap[dateKey].shifts_count += event.total_shifts_count || 0;
+              daysMap[dateKey].needs_workers_count += event.unfilled_roles_count || 0;
+              
+              // Determine worst status for the day
+              if (event.staffing_status === 'needs_workers') {
+                daysMap[dateKey].status = 'needs_workers';
+              } else if (
+                event.staffing_status === 'partially_staffed' && 
+                daysMap[dateKey].status !== 'needs_workers'
+              ) {
+                daysMap[dateKey].status = 'partially_staffed';
+              }
+            }
+          });
+          
+          setCalendarData(Object.values(daysMap));
+          
+          // Get urgent events (upcoming with gaps)
+          const urgent = publishedEvents
+            .filter((e: any) => {
+              if (!e.schedule || (e.unfilled_roles_count || 0) === 0) return false;
+              const eventDate = parseISO(e.schedule.start_time_utc);
+              return eventDate >= new Date();
+            })
+            .map((e: any) => {
+              const eventDate = parseISO(e.schedule.start_time_utc);
+              const daysUntil = Math.ceil((eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              
+              return {
+                ...e,
+                days_until: daysUntil
               };
-            }
-            
-            daysMap[dateKey].events.push({
-              id: event.id,
-              title: event.title,
-              unfilled_roles_count: event.unfilled_roles_count || 0
-            });
-            
-            daysMap[dateKey].shifts_count += event.total_shifts_count || 0;
-            daysMap[dateKey].needs_workers_count += event.unfilled_roles_count || 0;
-            
-            // Determine worst status for the day
-            if (event.staffing_status === 'needs_workers') {
-              daysMap[dateKey].status = 'needs_workers';
-            } else if (
-              event.staffing_status === 'partially_staffed' && 
-              daysMap[dateKey].status !== 'needs_workers'
-            ) {
-              daysMap[dateKey].status = 'partially_staffed';
-            }
-          }
-        });
-        
-        setCalendarData(Object.values(daysMap));
-        
-        // Get urgent events (upcoming with gaps)
-        const urgent = publishedEvents
-          .filter((e: any) => {
-            if (!e.schedule || (e.unfilled_roles_count || 0) === 0) return false;
-            const eventDate = parseISO(e.schedule.start_time_utc);
-            return eventDate >= new Date();
-          })
-          .map((e: any) => {
-            const eventDate = parseISO(e.schedule.start_time_utc);
-            const daysUntil = Math.ceil((eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-            
-            return {
-              ...e,
-              days_until: daysUntil
-            };
-          })
-          .sort((a: any, b: any) => {
-            // Sort by urgency: days until event, then by percentage filled
-            if (a.days_until !== b.days_until) {
-              return a.days_until - b.days_until;
-            }
-            return a.staffing_percentage - b.staffing_percentage;
-          })
-          .slice(0, 5); // Top 5 most urgent
-        
-        setUrgentEvents(urgent);
+            })
+            .sort((a: any, b: any) => {
+              // Sort by urgency: days until event, then by percentage filled
+              if (a.days_until !== b.days_until) {
+                return a.days_until - b.days_until;
+              }
+              return a.staffing_percentage - b.staffing_percentage;
+            })
+            .slice(0, 5); // Top 5 most urgent
+          
+          setUrgentEvents(urgent);
+        }
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -217,9 +224,6 @@ export function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-8">
-        {/* API Connection Test */}
-        <TestApiConnection />
-        
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -239,21 +243,21 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Draft Events"
-            value={stats.draft_jobs}
+            value={stats.draft_events}
             onClick={() => navigate('/events?tab=draft')}
             color="gray"
           />
           
           <StatCard
-            label="Published Events"
-            value={stats.published_jobs}
-            onClick={() => navigate('/events?tab=published')}
+            label="Active Events"
+            value={stats.published_events}
+            onClick={() => navigate('/events?tab=active')}
             color="blue"
           />
           
           <StatCard
             label="Completed Events"
-            value={stats.completed_jobs}
+            value={stats.completed_events}
             onClick={() => navigate('/events?tab=past')}
             color="green"
           />

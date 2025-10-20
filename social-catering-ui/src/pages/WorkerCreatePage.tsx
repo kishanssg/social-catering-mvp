@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   ChevronRight,
@@ -6,11 +6,18 @@ import {
   X,
   Plus,
   Upload,
-  User,
-  Award
+  User
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import checkIcon from '../assets/icons/check.svg';
+import ellipseIcon from '../assets/icons/Ellipse_workerscreen.svg';
+import workerCheckIcon from '../assets/icons/worker_check.svg';
+import bartenderIcon from '../assets/icons/Skills/Bartender.svg';
+import banquetServerIcon from '../assets/icons/Skills/Banquet Server.svg';
+import captainIcon from '../assets/icons/Skills/Captain.svg';
+import eventHelperIcon from '../assets/icons/Skills/Event Helper.svg';
+import prepCookIcon from '../assets/icons/Skills/Prep Cook.svg';
 
 type Step = 'details' | 'skills';
 
@@ -19,35 +26,22 @@ interface WorkerForm {
   last_name: string;
   email: string;
   phone: string;
-  notes: string;
+  address_line1: string;
+  address_line2: string;
+  profile_photo_url: string;
   skills: string[];
   certifications: Array<{
+    certification_id: number;
     name: string;
     expires_at_utc: string;
   }>;
 }
 
-const AVAILABLE_SKILLS = [
-  'Server',
-  'Bartender',
-  'Chef',
-  'Line Cook',
-  'Sous Chef',
-  'Captain',
-  'Busser',
-  'Host/Hostess',
-  'Banquet Server/Runner',
-  'Dishwasher'
-];
-
 const PRESET_CERTIFICATIONS = [
-  'Food Handler Certificate',
-  'ServSafe Manager',
-  'TIPS Certification',
-  'Alcohol Service License',
-  'SafeStaff',
-  'CPR Certified',
-  'First Aid Certified'
+  { id: 70, name: 'Food Handler Certificate' },
+  { id: 71, name: 'ServSafe' },
+  { id: 72, name: 'TIPS Certification' },
+  { id: 69, name: 'Alcohol Service License' },
 ];
 
 export function WorkerCreatePage() {
@@ -55,6 +49,8 @@ export function WorkerCreatePage() {
   const navigate = useNavigate();
   const isEditMode = !!id;
   
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [currentStep, setCurrentStep] = useState<Step>('details');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,11 +61,36 @@ export function WorkerCreatePage() {
     first_name: '',
     last_name: '',
     email: '',
-    phone: '',
-    notes: '',
+    phone: '123-456-7890',
+    address_line1: '',
+    address_line2: '',
+    profile_photo_url: '',
     skills: [],
     certifications: []
   });
+
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  // Available skills with icons (matching CreateEventWizard)
+  const availableSkills = [
+    { name: 'Bartender', icon: bartenderIcon },
+    { name: 'Banquet Server/Runner', icon: banquetServerIcon },
+    { name: 'Captain', icon: captainIcon },
+    { name: 'Event Helper', icon: eventHelperIcon },
+    { name: 'Prep Cook', icon: prepCookIcon },
+  ];
+
+  const getSkillIcon = (skillName: string) => {
+    const skillIconMap: { [key: string]: string } = {
+      'Bartender': bartenderIcon,
+      'Banquet Server/Runner': banquetServerIcon,
+      'Captain': captainIcon,
+      'Event Helper': eventHelperIcon,
+      'Prep Cook': prepCookIcon,
+    };
+    return skillIconMap[skillName] || bartenderIcon; // Default to bartender icon
+  };
   
   useEffect(() => {
     if (isEditMode) {
@@ -83,20 +104,24 @@ export function WorkerCreatePage() {
       const response = await apiClient.get(`/workers/${id}`);
       
       if (response.data.status === 'success') {
-        // The API returns { worker: {...} } not { data: {...} }
-        const worker = response.data.worker;
+        // The API returns { data: { worker: {...} }, status: "success" }
+        const worker = response.data.data.worker;
         setFormData({
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
           email: worker.email || '',
-          phone: worker.phone || '',
-          notes: worker.notes || '',
+          phone: worker.phone || '123-456-7890',
+          address_line1: worker.address_line1 || '',
+          address_line2: worker.address_line2 || '',
+          profile_photo_url: worker.profile_photo_url || '',
           skills: worker.skills_json || [],
-          certifications: worker.certifications?.map((c: any) => ({
-            name: c.name,
-            expires_at_utc: c.expires_at_utc ? c.expires_at_utc.split('T')[0] : ''
+          certifications: worker.worker_certifications?.map((wc: any) => ({
+            certification_id: wc.certification_id,
+            name: wc.certification?.name || '',
+            expires_at_utc: wc.expires_at_utc ? wc.expires_at_utc.split('T')[0] : ''
           })) || []
         });
+        if (worker.profile_photo_url) setPhotoPreview(worker.profile_photo_url);
       }
     } catch (error) {
       console.error('Failed to load worker:', error);
@@ -104,88 +129,43 @@ export function WorkerCreatePage() {
       setLoading(false);
     }
   }
-  
-  function handleAddSkill(skill: string) {
-    if (!formData.skills.includes(skill)) {
-      setFormData(prev => ({
-        ...prev,
-        skills: [...prev.skills, skill]
-      }));
-    }
-    setShowSkillDropdown(false);
+
+  function onChoosePhoto() {
+    fileInputRef.current?.click();
   }
-  
-  function handleRemoveSkill(skill: string) {
-    setFormData(prev => ({
-      ...prev,
-      skills: prev.skills.filter(s => s !== skill)
-    }));
-  }
-  
-  function handleAddCertification(certName: string) {
-    setFormData(prev => ({
-      ...prev,
-      certifications: [...prev.certifications, {
-        name: certName,
-        expires_at_utc: ''
-      }]
-    }));
-    setShowCertDropdown(false);
-  }
-  
-  function handleRemoveCertification(index: number) {
-    setFormData(prev => ({
-      ...prev,
-      certifications: prev.certifications.filter((_, i) => i !== index)
-    }));
-  }
-  
-  function handleUpdateCertExpiry(index: number, date: string) {
-    setFormData(prev => ({
-      ...prev,
-      certifications: prev.certifications.map((cert, i) => 
-        i === index ? { ...cert, expires_at_utc: date } : cert
-      )
-    }));
+
+  function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPhotoPreview(reader.result as string);
+    reader.readAsDataURL(file);
   }
   
   async function handleSubmit() {
-    // Validate
-    if (!formData.first_name || !formData.last_name || !formData.email) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    if (currentStep === 'details') {
-      setCurrentStep('skills');
-      return;
-    }
-    
     setSubmitting(true);
-    
     try {
-      const url = isEditMode ? `/workers/${id}` : '/workers';
       const method = isEditMode ? 'PATCH' : 'POST';
-      
-      const response = await apiClient({
-        method,
-        url,
-        data: {
-          worker: {
-            first_name: formData.first_name,
-            last_name: formData.last_name,
-            email: formData.email,
-            phone: formData.phone,
-            notes: formData.notes,
-            skills_json: formData.skills,
-            active: true,
-            certifications_attributes: formData.certifications.map(cert => ({
-              name: cert.name,
-              expires_at_utc: cert.expires_at_utc || null
-            }))
-          }
-        }
+      const url = isEditMode ? `/workers/${id}` : '/workers';
+
+      const form = new FormData();
+      form.append('worker[first_name]', formData.first_name);
+      form.append('worker[last_name]', formData.last_name);
+      form.append('worker[email]', formData.email);
+      form.append('worker[phone]', formData.phone);
+      form.append('worker[address_line1]', formData.address_line1);
+      form.append('worker[address_line2]', formData.address_line2);
+      formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
+      formData.certifications.forEach((c, i) => {
+        form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
+        if (c.expires_at_utc) form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
       });
+      if (photoFile) form.append('profile_photo', photoFile);
+
+      const response = await apiClient.request({ method, url, data: form, headers: { 'Content-Type': 'multipart/form-data' } });
       
       if (response.data.status === 'success') {
         navigate('/workers');
@@ -200,14 +180,44 @@ export function WorkerCreatePage() {
     }
   }
   
-  const availableSkillsFiltered = AVAILABLE_SKILLS.filter(
-    skill => !formData.skills.includes(skill)
-  );
   
   const availableCertsFiltered = PRESET_CERTIFICATIONS.filter(
-    cert => !formData.certifications.some(c => c.name === cert)
+    cert => !formData.certifications.some(c => c.certification_id === cert.id)
   );
-  
+
+  // Define steps similar to CreateEventWizard
+  const steps = [
+    {
+      id: 1,
+      title: 'Add New Worker',
+      description: 'Invite a new user to join as a Worker.',
+      completed: currentStep === 'skills',
+      active: currentStep === 'details'
+    },
+    {
+      id: 2,
+      title: 'Add Skills',
+      description: 'Specify Worker\'s Skills.',
+      completed: false,
+      active: currentStep === 'skills'
+    }
+  ];
+
+  const canContinue = () => {
+    if (currentStep === 'details') {
+      return formData.first_name.trim() && formData.last_name.trim() && formData.email.trim();
+    }
+    return true;
+  };
+
+  const handleContinue = () => {
+    if (currentStep === 'details') {
+      setCurrentStep('skills');
+    } else {
+      handleSubmit();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -218,313 +228,353 @@ export function WorkerCreatePage() {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
-          <button
-            onClick={() => navigate('/workers')}
-            className="hover:text-gray-900 transition"
-          >
-            Workers
-          </button>
-          <ChevronRight size={16} />
-          <span className="text-gray-900">{isEditMode ? 'Edit Worker' : 'Add New Worker'}</span>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <button
+              onClick={() => navigate('/workers')}
+              className="hover:text-gray-900 transition"
+            >
+              Workers
+            </button>
+            <ChevronRight size={16} />
+            <span className="text-gray-900">{isEditMode ? 'Edit Worker' : 'Add New Worker'}</span>
+          </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left: Steps */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-8">
-              {/* Step 1 */}
-              <div className="flex items-start gap-4 mb-6">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  currentStep === 'skills' 
-                    ? 'bg-teal-600 text-white' 
-                    : 'bg-gray-900 text-white'
-                }`}>
-                  {currentStep === 'skills' ? <Check size={16} /> : '1'}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-1 justify-center gap-12 px-8 min-h-0" style={{ paddingTop: '80px', paddingBottom: '40px' }}>
+        {/* Progress rail */}
+        <div className="w-[280px] flex-shrink-0 self-start">
+          {steps.map((step, index) => (
+            <div key={step.id} className="flex gap-4" style={{ minHeight: index < steps.length - 1 ? '100px' : 'auto' }}>
+              <div className="flex flex-col items-center">
+                <div
+                  className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: step.completed ? '#FFFFFF' : step.active ? '#000000' : 'transparent',
+                    border: step.completed || step.active ? '2px solid #000000' : '0.8px solid #292826',
+                    boxShadow: (step.active || step.completed) ? '0 2px 8px 0 rgba(0,0,0,0.04)' : 'none',
+                  }}
+                >
+                  {step.completed ? (
+                    <img src={checkIcon} width="18" height="18" alt="Completed" className="flex-shrink-0" />
+                  ) : step.active ? (
+                    <div className="rounded-full bg-white" style={{ width: '12px', height: '12px' }} />
+                  ) : null}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Add New Worker</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Invite a new user to join as a Worker.
-                  </p>
-                </div>
+                {index < steps.length - 1 && <div className="flex-1" style={{ width: '2px', backgroundColor: 'rgba(0,0,0,0.5)' }} />}
               </div>
-              
-              {/* Step 2 */}
-              <div className="flex items-start gap-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  currentStep === 'skills'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-200 text-gray-500'
-                }`}>
-                  2
-                </div>
-                <div>
-                  <h3 className={`font-semibold ${
-                    currentStep === 'skills' ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
-                    Add Skills
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Specify Worker's Skills
-                  </p>
-                </div>
+
+              <div className="flex flex-col gap-1 pt-1">
+                <span className="text-sm font-bold font-manrope leading-[140%] text-font-primary">{step.title}</span>
+                <span className="text-sm font-normal font-manrope leading-[140%] text-font-secondary">{step.description}</span>
               </div>
             </div>
-          </div>
-          
-          {/* Right: Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg border border-gray-200 p-8">
-              {currentStep === 'details' ? (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Worker Details</h2>
-                  
-                  {/* Phone Number */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone number
-                    </label>
+          ))}
+        </div>
+
+        {/* Card */}
+        <div className="flex flex-col p-8 rounded-lg border border-primary-color/10 bg-white self-start overflow-visible"
+             style={{ boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)', maxWidth: '850px', width: '100%', minHeight: '600px' }}>
+          {/* Form Content */}
+          <div className="flex flex-col gap-6 flex-1 overflow-visible pr-2"
+            style={{
+              fontFamily: 'Manrope, sans-serif',
+            }}>
+            
+            {currentStep === 'details' ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-xl font-bold text-font-primary">Worker Details</h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Phone number */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-font-primary">Phone number</label>
                     <input
                       type="tel"
-                      placeholder="123-456-7890"
                       value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      placeholder="123-456-7890"
                     />
                   </div>
-                  
-                  {/* Full Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Full name
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
+
+                  {/* Full name */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-font-primary">First name</label>
                       <input
                         type="text"
-                        placeholder="First name"
                         value={formData.first_name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        required
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        placeholder="First name"
                       />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-font-primary">Last name</label>
                       <input
                         type="text"
-                        placeholder="Last name"
                         value={formData.last_name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                        required
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        placeholder="Last name"
                       />
                     </div>
                   </div>
-                  
-                  {/* Email */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email address
-                    </label>
+
+                  {/* Email address */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-font-primary">Email address</label>
                     <input
                       type="email"
-                      placeholder="Email address"
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      required
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      placeholder="Email address"
                     />
                   </div>
-                  
-                  {/* Home Address */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Notes
-                    </label>
-                    <textarea
-                      placeholder="Additional notes about this worker..."
-                      value={formData.notes}
-                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                      rows={3}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
+
+                  {/* Home address */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-font-primary">Home address</label>
+                    <div className="grid grid-cols-1 gap-4">
+                      <input
+                        type="text"
+                        value={formData.address_line1}
+                        onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        placeholder="Address line 1"
+                      />
+                      <input
+                        type="text"
+                        value={formData.address_line2}
+                        onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
+                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        placeholder="Address line 2"
+                      />
+                    </div>
                   </div>
-                  
+
+                  {/* Profile Photo */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-font-primary">Profile Photo</label>
+                    <div className="flex items-center gap-4 p-4 border border-gray-300 rounded-lg">
+                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Preview" className="w-16 h-16 object-cover" />
+                        ) : (
+                          <User size={24} className="text-gray-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPhotoChange} />
+                        <button type="button" onClick={onChoosePhoto} className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2">
+                          <Upload size={16} />
+                          {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                        </button>
+                        {photoPreview && (
+                          <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="text-red-600 hover:text-red-700 text-sm">
+                            Remove
+                          </button>
+                        )}
+                        <span className="text-xs text-gray-500">JPG, PNG up to 5MB</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Skills & Certifications</h2>
-                  
-                  {/* Skills */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Skills
-                    </label>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-xl font-bold text-font-primary">Worker Skills</h2>
+                </div>
+
+                <div className="flex flex-col gap-6">
+                  {/* Skills Section */}
+                  <div className="flex flex-col gap-4">
+                    <label className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">Skills</label>
                     
-                    {/* Selected Skills */}
-                    <div className="space-y-2 mb-3">
-                      {formData.skills.map((skill, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center">
-                              <Award size={16} className="text-gray-600" />
+                    {/* Skills Dropdown */}
+                    <div className="relative">
+                      <div 
+                        className="flex items-center justify-between h-11 px-4 rounded-lg border border-primary-color/10 bg-white cursor-pointer hover:border-primary-color/30 transition-colors"
+                        onClick={() => setShowSkillDropdown(!showSkillDropdown)}
+                      >
+                        <span className="text-sm font-normal font-manrope leading-[140%] text-primary-color">
+                          {formData.skills.length > 0 ? formData.skills.join(', ') : 'Pick the Skills the Worker Has'}
+                        </span>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M4 6L8 10L12 6" stroke="#292826" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+
+                      {/* Skills Dropdown */}
+                      {showSkillDropdown && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-primary-color/10 rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                          {availableSkills
+                            .filter(skill => !formData.skills.includes(skill.name))
+                            .map((skill) => (
+                              <div
+                                key={skill.name}
+                                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
+                                onClick={() => {
+                                  setFormData({ ...formData, skills: [...formData.skills, skill.name] });
+                                  setShowSkillDropdown(false);
+                                }}
+                              >
+                                <img 
+                                  src={skill.icon} 
+                                  width="20" 
+                                  height="20" 
+                                  alt={skill.name}
+                                  className="flex-shrink-0"
+                                  style={{ imageRendering: 'crisp-edges' }}
+                                />
+                                <span className="text-sm font-normal font-manrope leading-[140%] text-font-primary">
+                                  {skill.name}
+                                </span>
+                              </div>
+                            ))}
+                          {formData.skills.length === availableSkills.length && (
+                            <div className="px-3 py-2.5 text-sm text-gray-500 text-center">
+                              All skills selected
                             </div>
-                            <span className="font-medium text-gray-900">{skill}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected Skills Cards */}
+                    {formData.skills.length > 0 && (
+                      <div className="flex flex-col gap-3">
+                        {formData.skills.map((skillName) => (
+                          <div
+                            key={skillName}
+                            className="flex items-center justify-between p-3 rounded-lg border border-primary-color/10 bg-white"
+                            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <img 
+                                src={getSkillIcon(skillName)} 
+                                width="24" 
+                                height="24" 
+                                alt={skillName}
+                                className="flex-shrink-0"
+                                style={{ imageRendering: 'crisp-edges' }}
+                              />
+                              <span className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
+                                {skillName}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setFormData({ ...formData, skills: formData.skills.filter(s => s !== skillName) })}
+                              className="flex items-center justify-center w-6 h-6 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Certifications */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-font-primary">Certifications</label>
+                    <div className="space-y-3">
+                      {formData.certifications.map((cert, index) => (
+                        <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={cert.name}
+                              onChange={(e) => {
+                                const newCerts = [...formData.certifications];
+                                newCerts[index].name = e.target.value;
+                                setFormData({ ...formData, certifications: newCerts });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                              placeholder="Certification name"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <input
+                              type="date"
+                              value={cert.expires_at_utc}
+                              onChange={(e) => {
+                                const newCerts = [...formData.certifications];
+                                newCerts[index].expires_at_utc = e.target.value;
+                                setFormData({ ...formData, certifications: newCerts });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            />
                           </div>
                           <button
-                            onClick={() => handleRemoveSkill(skill)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition"
+                            onClick={() => setFormData({ ...formData, certifications: formData.certifications.filter((_, i) => i !== index) })}
+                            className="text-red-600 hover:text-red-800"
                           >
-                            <X size={18} />
+                            <X size={16} />
                           </button>
                         </div>
                       ))}
                     </div>
                     
-                    {/* Add Skill Dropdown */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowSkillDropdown(!showSkillDropdown)}
-                        className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition flex items-center justify-between"
-                      >
-                        <span>Pick the Skills Needed</span>
-                        <Plus size={20} />
-                      </button>
-                      
-                      {showSkillDropdown && (
-                        <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {availableSkillsFiltered.length === 0 ? (
-                            <div className="p-4 text-center text-gray-500 text-sm">
-                              All skills added
-                            </div>
-                          ) : (
-                            availableSkillsFiltered.map(skill => (
-                              <button
-                                key={skill}
-                                onClick={() => handleAddSkill(skill)}
-                                className="w-full px-4 py-2 text-left hover:bg-gray-50 transition"
-                              >
-                                {skill}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Certifications */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Certifications (Optional)
-                    </label>
-                    
-                    {/* Selected Certifications */}
-                    <div className="space-y-2 mb-3">
-                      {formData.certifications.map((cert, index) => (
-                        <div
-                          key={index}
-                          className="px-4 py-3 bg-gray-50 rounded-lg border border-gray-200"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
-                                <Award size={16} className="text-teal-600" />
-                              </div>
-                              <span className="font-medium text-gray-900">{cert.name}</span>
-                            </div>
-                            <button
-                              onClick={() => handleRemoveCertification(index)}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded transition"
-                            >
-                              <X size={18} />
-                            </button>
-                          </div>
-                          {/* Expiry Date */}
-                          <div className="ml-11">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">
-                              Expiration Date (Optional)
-                            </label>
-                            <input
-                              type="date"
-                              value={cert.expires_at_utc}
-                              onChange={(e) => handleUpdateCertExpiry(index, e.target.value)}
-                              className="px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Add Certification Dropdown */}
                     <div className="relative">
                       <button
                         onClick={() => setShowCertDropdown(!showCertDropdown)}
-                        className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition flex items-center justify-between"
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                       >
+                        <Plus size={16} />
                         <span>Add Certification</span>
-                        <Plus size={20} />
                       </button>
                       
                       {showCertDropdown && (
-                        <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {availableCertsFiltered.length === 0 ? (
-                            <div className="p-4 text-center text-gray-500 text-sm">
-                              All preset certifications added
-                            </div>
-                          ) : (
-                            availableCertsFiltered.map(cert => (
-                              <button
-                                key={cert}
-                                onClick={() => handleAddCertification(cert)}
-                                className="w-full px-4 py-2 text-left hover:bg-gray-50 transition"
-                              >
-                                {cert}
-                              </button>
-                            ))
-                          )}
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                          {availableCertsFiltered.map((cert) => (
+                            <button
+                              key={cert.id}
+                              onClick={() => {
+                                setFormData({ ...formData, certifications: [...formData.certifications, { certification_id: cert.id, name: cert.name, expires_at_utc: '' }] });
+                                setShowCertDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                            >
+                              {cert.name}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
-        </div>
-        
-        {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 mt-6">
-          <button
-            onClick={() => {
-              if (currentStep === 'skills') {
-                setCurrentStep('details');
-              } else {
-                navigate('/workers');
-              }
-            }}
-            className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
-          >
-            {currentStep === 'skills' ? 'Back' : 'Cancel'}
-          </button>
-          
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-6 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting 
-              ? 'Saving...' 
-              : currentStep === 'details' 
-                ? 'Continue' 
-                : isEditMode 
-                  ? 'Update Worker' 
-                  : 'Create User & Invite'
-            }
-          </button>
+
+          {/* Action buttons */}
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => navigate('/workers')}
+              className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleContinue}
+              disabled={!canContinue() || submitting}
+              className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {submitting ? 'Saving...' : currentStep === 'details' ? 'Continue' : (isEditMode ? 'Update Worker' : 'Create Worker')}
+            </button>
+          </div>
         </div>
       </div>
     </div>

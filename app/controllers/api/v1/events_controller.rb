@@ -8,8 +8,9 @@ class Api::V1::EventsController < Api::V1::BaseController
     events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
                             shifts: { assignments: :worker })
     
-    # Filter by tab
-    case params[:tab]
+    # Filter by tab (support 'completed' alias for 'past')
+    tab_param = params[:tab] == 'completed' ? 'past' : params[:tab]
+    case tab_param
     when 'draft'
       events = events.draft
     when 'active'
@@ -44,7 +45,7 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     render json: {
       status: 'success',
-      data: events.map { |event| serialize_event(event, params[:tab]) }
+      data: events.map { |event| serialize_event(event, tab_param) }
     }
   end
 
@@ -213,7 +214,9 @@ class Api::V1::EventsController < Api::V1::BaseController
   private
 
   def set_event
-    @event = Event.find(params[:id])
+    @event = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
+                           shifts: { assignments: :worker })
+                  .find(params[:id])
   end
 
   def event_params
@@ -338,6 +341,12 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
   
   def group_shifts_by_role(shifts)
+    Rails.logger.info "=== GROUP_SHIFTS_BY_ROLE DEBUG ==="
+    Rails.logger.info "Shifts count: #{shifts.count}"
+    shifts.each_with_index do |shift, index|
+      Rails.logger.info "Shift #{index + 1}: ID=#{shift.id}, role_needed=#{shift.role_needed.inspect}, capacity=#{shift.capacity.inspect}"
+    end
+    
     grouped = {}
     
     shifts.each do |shift|
@@ -354,10 +363,13 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       grouped[role][:shifts] << {
         id: shift.id,
+        role_needed: shift.role_needed,
+        capacity: shift.capacity,
         start_time_utc: shift.start_time_utc,
         end_time_utc: shift.end_time_utc,
         status: shift.current_status,
         staffing_progress: shift.staffing_progress,
+        fully_staffed: shift.fully_staffed?,
         assignments: shift.assignments.map { |a|
           {
             id: a.id,
@@ -373,6 +385,7 @@ class Api::V1::EventsController < Api::V1::BaseController
       }
     end
     
+    Rails.logger.info "Grouped result: #{grouped.keys}"
     grouped.values
   end
 end

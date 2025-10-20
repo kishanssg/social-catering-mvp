@@ -54,23 +54,36 @@ module Api
         shift_ids = params[:shift_ids] || []
         hours_worked = params[:hours_worked]
 
-        unless worker_id.present? && shift_ids.any?
-          return render json: { status: 'error', message: 'worker_id and shift_ids are required' }, status: :bad_request
+        unless worker_id.present?
+          return render json: { status: 'error', message: 'worker_id is required' }, status: :bad_request
+        end
+
+        # Handle empty shift_ids array gracefully
+        if shift_ids.empty?
+          return render json: { 
+            status: 'success', 
+            message: 'No shifts to assign', 
+            data: { successful: [], failed: [] } 
+          }
         end
 
         worker = Worker.find(worker_id)
         results = { successful: [], failed: [] }
 
         shift_ids.each do |shift_id|
-          shift = Shift.find(shift_id)
-          assignment = Assignment.new(worker: worker, shift: shift, hours_worked: hours_worked)
-          assignment.assigned_by = current_user
-          assignment.assigned_at_utc ||= Time.current
-          assignment.status ||= 'assigned'
-          if assignment.save
-            results[:successful] << { shift_id: shift.id, shift_name: shift.client_name, assignment_id: assignment.id }
-          else
-            results[:failed] << { shift_id: shift.id, shift_name: shift.client_name, errors: assignment.errors.full_messages }
+          begin
+            shift = Shift.find(shift_id)
+            assignment = Assignment.new(worker: worker, shift: shift, hours_worked: hours_worked)
+            assignment.assigned_by = current_user
+            assignment.assigned_at_utc ||= Time.current
+            assignment.status ||= 'assigned'
+            if assignment.save
+              results[:successful] << { shift_id: shift.id, shift_name: shift.client_name, assignment_id: assignment.id }
+            else
+              results[:failed] << { shift_id: shift.id, shift_name: shift.client_name, errors: assignment.errors.full_messages }
+            end
+          rescue ActiveRecord::RecordNotFound
+            results[:failed] << { shift_id: shift_id, shift_name: "Shift #{shift_id}", errors: ["Shift not found"] }
           end
         end
 
@@ -159,7 +172,7 @@ module Api
       private
 
       def set_assignment
-        @assignment = Assignment.includes(:worker, shift: :job).find(params[:id])
+        @assignment = Assignment.includes(:worker, shift: :event).find(params[:id])
       end
 
       def assignment_params
@@ -185,8 +198,13 @@ module Api
             start_time_utc: assignment.shift.start_time_utc,
             end_time_utc: assignment.shift.end_time_utc,
             location: assignment.shift.location,
-            job_id: assignment.shift.job_id,
-            job_title: assignment.shift.job&.title
+            event_id: assignment.shift.event_id,
+            event_title: assignment.shift.event&.title,
+            event: assignment.shift.event ? {
+              id: assignment.shift.event.id,
+              title: assignment.shift.event.title,
+              venue_name: assignment.shift.event.venue&.name
+            } : nil
           },
           hours_worked: assignment.hours_worked,
           hourly_rate: assignment.hourly_rate,

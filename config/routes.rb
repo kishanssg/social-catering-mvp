@@ -16,7 +16,7 @@ Rails.application.routes.draw do
       post "login", to: "sessions#create"
       delete "logout", to: "sessions#destroy"
 
-      resources :workers, only: [ :index, :show, :create, :update ] do
+      resources :workers, only: [ :index, :show, :create, :update, :destroy ] do
         member do
           post "certifications", to: "workers#add_certification"
           delete "certifications/:certification_id", to: "workers#remove_certification"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Users, Clock, MapPin, AlertCircle } from 'lucide-react';
+import { X, Search, Users, Clock, MapPin, AlertCircle, Check } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { apiClient } from '../lib/api';
 
@@ -45,8 +45,13 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
 
   useEffect(() => {
     loadShiftDetails();
-    loadAvailableWorkers();
   }, [shiftId]);
+
+  useEffect(() => {
+    if (shift) {
+      loadAvailableWorkers();
+    }
+  }, [shift]);
 
   useEffect(() => {
     if (!searchQuery) {
@@ -58,7 +63,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
           worker.first_name.toLowerCase().includes(query) ||
           worker.last_name.toLowerCase().includes(query) ||
           worker.email.toLowerCase().includes(query) ||
-          worker.skills.some(skill => skill.toLowerCase().includes(query))
+          worker.skills_json?.some(skill => skill.toLowerCase().includes(query))
         )
       );
     }
@@ -81,10 +86,20 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
 
   async function loadAvailableWorkers() {
     try {
-      const response = await apiClient.get('/workers');
+      const response = await apiClient.get('/workers?active=true');
       
       if (response.data.status === 'success') {
-        setWorkers(response.data.data.workers || response.data.data);
+        const allWorkers = response.data.data.workers || response.data.data;
+        
+        // Filter workers by required skill if shift has one
+        if (shift?.role_needed) {
+          const filteredWorkers = allWorkers.filter(worker => 
+            worker.skills_json?.includes(shift.role_needed)
+          );
+          setWorkers(filteredWorkers);
+        } else {
+          setWorkers(allWorkers);
+        }
       } else {
         setError('Failed to load workers');
       }
@@ -104,10 +119,12 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
 
     try {
       const response = await apiClient.post('/staffing', {
-        shift_id: shift.id,
-        worker_id: selectedWorker.id,
-        status: 'assigned',
-        assigned_at_utc: new Date().toISOString(),
+        assignment: {
+          shift_id: shift.id,
+          worker_id: selectedWorker.id,
+          status: 'assigned',
+          assigned_at_utc: new Date().toISOString(),
+        }
       });
 
       const data = response.data;
@@ -115,11 +132,24 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       if (data.status === 'success') {
         onSuccess();
       } else {
-        setError(data.message || 'Failed to assign worker');
+        // Display specific error messages from backend
+        const errorMessage = data.errors ? data.errors.join('. ') : (data.message || 'Failed to assign worker');
+        setError(errorMessage);
       }
     } catch (error) {
       console.error('Failed to assign worker:', error);
-      setError('Failed to assign worker');
+      
+      // Try to extract specific error message from axios error
+      let errorMessage = 'Failed to assign worker';
+      if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.join('. ');
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setAssigning(false);
     }
@@ -196,7 +226,9 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                     
                     <div className="flex items-start gap-3">
                       <MapPin size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-gray-900">{shift.location}</div>
+                      <div className="text-sm text-gray-900">
+                        {shift.location || shift.event?.venue?.formatted_address || 'Location not specified'}
+                      </div>
                     </div>
                     
                     <div className="flex items-start gap-3">
@@ -223,7 +255,21 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                     {shift.notes && (
                       <div className="pt-2 border-t border-gray-200">
                         <div className="text-sm text-gray-600">
-                          <span className="font-medium">Notes:</span> {shift.notes}
+                          <span className="font-medium">Notes:</span>
+                          <div className="mt-1 whitespace-pre-line">
+                            {shift.notes.split('Uniform:').map((part, index) => {
+                              if (index === 0) {
+                                return part.trim();
+                              } else {
+                                return (
+                                  <div key={index}>
+                                    <br />
+                                    <span className="font-medium">Uniform:</span> {part.trim()}
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -265,68 +311,48 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                 <div className="text-center py-8">
                   <Users size={32} className="text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600">
-                    {searchQuery ? 'No workers found matching your search' : 'No available workers'}
+                    {searchQuery 
+                      ? 'No workers found matching your search' 
+                      : shift?.role_needed 
+                        ? `No workers found with "${shift.role_needed}" skill`
+                        : 'No available workers'
+                    }
                   </p>
+                  {shift?.role_needed && !searchQuery && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Try adding "{shift.role_needed}" skill to workers or select a different shift.
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {filteredWorkers.map((worker) => (
-                    <div
-                      key={worker.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedWorker?.id === worker.id
-                          ? 'border-teal-500 bg-teal-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                      onClick={() => setSelectedWorker(worker)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
-                              <span className="text-sm font-medium text-teal-700">
-                                {worker.first_name[0]}{worker.last_name[0]}
-                              </span>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <ul>
+                    {filteredWorkers.map((worker) => {
+                      const isSelected = selectedWorker?.id === worker.id;
+                      return (
+                        <li
+                          key={worker.id}
+                          className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'} cursor-pointer`}
+                          onClick={() => setSelectedWorker(worker)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
+                              {worker.first_name[0]}{worker.last_name[0]}
                             </div>
                             <div>
-                              <h4 className="font-medium text-gray-900">
-                                {worker.first_name} {worker.last_name}
-                              </h4>
-                              <p className="text-sm text-gray-600">{worker.email}</p>
+                              <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
+                              <div className="text-xs text-gray-600">{worker.skills_json?.slice(0,3).join(', ')}</div>
                             </div>
                           </div>
-                          
-                          {worker.skills.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {worker.skills.slice(0, 3).map((skill, index) => (
-                                <span
-                                  key={index}
-                                  className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
-                                >
-                                  {skill}
-                                </span>
-                              ))}
-                              {worker.skills.length > 3 && (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                                  +{worker.skills.length - 3} more
-                                </span>
-                              )}
+                          {isSelected && (
+                            <div className="w-6 h-6 rounded-full bg-teal-600 flex items-center justify-center text-white">
+                              <Check size={14} />
                             </div>
                           )}
-                          
-                          {worker.phone && (
-                            <p className="text-sm text-gray-600">{worker.phone}</p>
-                          )}
-                        </div>
-                        
-                        {selectedWorker?.id === worker.id && (
-                          <div className="w-6 h-6 rounded-full bg-teal-600 flex items-center justify-center">
-                            <X size={14} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </div>

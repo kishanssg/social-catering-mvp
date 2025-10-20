@@ -25,7 +25,7 @@ export function AppLayout() {
             to="/dashboard" 
             className={({ isActive }) => 
               `flex items-center gap-3 px-0 py-2 self-stretch rounded-xl relative ${
-                isActive ? 'bg-gray-50' : ''
+                isActive ? 'bg-gray-50 -ml-6 pl-6 ' : ''
               }`
             }
           >
@@ -81,7 +81,7 @@ export function AppLayout() {
             to="/events" 
             className={({ isActive }) => 
               `flex items-center gap-3 px-0 py-2 self-stretch relative ${
-                isActive ? 'bg-gray-50' : ''
+                isActive ? 'bg-gray-50 -ml-6 pl-6 ' : ''
               }`
             }
           >
@@ -122,7 +122,7 @@ export function AppLayout() {
             to="/workers" 
             className={({ isActive }) => 
               `flex items-center gap-3 px-0 py-2 self-stretch relative ${
-                isActive ? 'bg-gray-50' : ''
+                isActive ? 'bg-gray-50 -ml-6 pl-6 ' : ''
               }`
             }
           >
@@ -154,7 +154,7 @@ export function AppLayout() {
             to="/reports" 
             className={({ isActive }) => 
               `flex items-center gap-3 px-0 py-2 self-stretch relative ${
-                isActive ? 'bg-gray-50' : ''
+                isActive ? 'bg-gray-50 -ml-6 pl-6 ' : ''
               }`
             }
           >

@@ -144,3 +144,4 @@ export function CalendarWidget({ shifts, onDayClick }: CalendarWidgetProps) {
     </div>
   );
 }
+

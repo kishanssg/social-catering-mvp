@@ -1,31 +1,8 @@
 import { apiClient } from '../lib/api';
+import type { Venue, VenueSearchResult, VenueSearchResponse, VenueSelectResponse } from '../types/venues';
 
-export interface Venue {
-  id: number;
-  name: string;
-  formatted_address: string;
-  place_id?: string;
-  arrival_instructions?: string;
-  parking_info?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface VenueSearchResult {
-  place_id: string;
-  name: string;
-  address: string;
-}
-
-export interface VenueSearchResponse {
-  cached: VenueSearchResult[];
-  google_results: VenueSearchResult[];
-  session_token: string;
-}
-
-export interface VenueSelectResponse {
-  venue: Venue;
-}
+// Re-export types for backward compatibility
+export type { Venue, VenueSearchResult, VenueSearchResponse, VenueSelectResponse };
 
 export const venuesApi = {
   // Search venues

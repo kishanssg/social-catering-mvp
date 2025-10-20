@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiClient } from '../lib/api';
 import { 
   Download, 
   FileText, 
@@ -30,7 +31,41 @@ export function ReportsPage() {
   });
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [workers, setWorkers] = useState<Array<{ id: number; name: string; skills_json?: string[] }>>([]);
+  const [events, setEvents] = useState<Array<{ id: number; title: string }>>([]);
+  const [skills, setSkills] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.get('/workers?active=true');
+        const list = res.data?.data?.workers || res.data?.data || [];
+        const mapped = list.map((w: any) => ({
+          id: w.id,
+          name: `${w.first_name} ${w.last_name}`,
+          skills_json: w.skills_json || []
+        }));
+        setWorkers(mapped);
+        const skillSet = new Set<string>();
+        mapped.forEach(w => (w.skills_json || []).forEach((s: string) => skillSet.add(s)));
+        setSkills(Array.from(skillSet).sort());
+      } catch (e) {
+        console.error('Failed to load workers for filters', e);
+      }
+    })();
+
+    (async () => {
+      try {
+        const res = await apiClient.get('/events?tab=active');
+        const list = res.data?.data || [];
+        setEvents(list.map((ev: any) => ({ id: ev.id, title: ev.title })));
+      } catch (e) {
+        console.error('Failed to load events for filters', e);
+      }
+    })();
+  }, []);
   
   // Calculate date range based on preset
   const getDateRange = (): DateRange => {
@@ -81,34 +116,49 @@ export function ReportsPage() {
     
     try {
       const dateRange = getDateRange();
-      let url = '';
+      let endpoint = '';
       
       switch (reportType) {
         case 'timesheet':
-          url = `/api/v1/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
-          if (selectedEventId) url += `&event_id=${selectedEventId}`;
-          if (selectedWorkerId) url += `&worker_id=${selectedWorkerId}`;
+          endpoint = `/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
+          if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
+          if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
           break;
           
         case 'payroll':
-          url = `/api/v1/reports/payroll?start_date=${dateRange.start}&end_date=${dateRange.end}`;
-          if (selectedEventId) url += `&event_id=${selectedEventId}`;
-          if (selectedWorkerId) url += `&worker_id=${selectedWorkerId}`;
+          endpoint = `/reports/payroll?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
+          if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
           break;
           
         case 'worker_hours':
-          url = `/api/v1/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
-          if (selectedWorkerId) url += `&worker_id=${selectedWorkerId}`;
+          endpoint = `/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
+          if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
           break;
           
         case 'event_summary':
-          url = `/api/v1/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
-          if (selectedEventId) url += `&event_id=${selectedEventId}`;
+          endpoint = `/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
           break;
       }
-      
-      // Open in new tab to download
-      window.open(url, '_blank');
+
+      // Request as blob via API client and trigger download
+      const response = await apiClient.get(endpoint, { responseType: 'blob' });
+
+      const disposition = (response.headers as any)['content-disposition'] as string | undefined;
+      const suggestedName = disposition?.match(/filename="?([^";]+)"?/i)?.[1];
+      const fileName = suggestedName || `report_${dateRange.start}_to_${dateRange.end}.csv`;
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Failed to export:', error);
       alert('Failed to export report');
@@ -385,10 +435,9 @@ export function ReportsPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         >
                           <option value="">All Workers</option>
-                          {/* These would be populated from API */}
-                          <option value="1">John Smith</option>
-                          <option value="2">Jane Doe</option>
-                          <option value="3">Mike Chen</option>
+                          {workers.map(w => (
+                            <option key={w.id} value={w.id}>{w.name}</option>
+                          ))}
                         </select>
                       </div>
                     )}
@@ -405,10 +454,28 @@ export function ReportsPage() {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                         >
                           <option value="">All Events</option>
-                          {/* These would be populated from API */}
-                          <option value="1">Corporate Holiday Gala</option>
-                          <option value="2">Wedding Reception</option>
-                          <option value="3">Birthday Party</option>
+                          {events.map(ev => (
+                            <option key={ev.id} value={ev.id}>{ev.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Skill Filter */}
+                    {(selectedReport === 'timesheet' || selectedReport === 'worker_hours') && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          Filter by Skill (optional)
+                        </label>
+                        <select
+                          value={selectedSkill || ''}
+                          onChange={(e) => setSelectedSkill(e.target.value || null)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        >
+                          <option value="">All Skills</option>
+                          {skills.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
                         </select>
                       </div>
                     )}

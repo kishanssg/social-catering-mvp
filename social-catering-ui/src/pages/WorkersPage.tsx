@@ -20,6 +20,8 @@ import {
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { EmptyState } from '../components/common/EmptyState';
+import { ConfirmationModal } from '../components/common/ConfirmationModal';
+import { Toast } from '../components/common/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 
@@ -66,6 +68,22 @@ export function WorkersPage() {
     isOpen: boolean;
     worker?: Worker;
   }>({ isOpen: false });
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Delete confirmation modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    worker?: Worker;
+  }>({ isOpen: false });
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Toast state
+  const [toast, setToast] = useState<{
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ isVisible: false, message: '', type: 'success' });
   
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
@@ -92,31 +110,59 @@ export function WorkersPage() {
     }
   }
   
-  async function handleDeleteWorker(workerId: number) {
-    if (!confirm('Are you sure you want to delete this worker?')) return;
+  const handleDeleteClick = (worker: Worker) => {
+    setDeleteModal({ isOpen: true, worker });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.worker) return;
     
+    setIsDeleting(true);
     try {
-      const response = await apiClient.delete(`/workers/${workerId}`);
+      const response = await apiClient.delete(`/workers/${deleteModal.worker.id}`);
       
       if (response.data.status === 'success') {
+        setToast({
+          isVisible: true,
+          message: `${deleteModal.worker.first_name} ${deleteModal.worker.last_name} has been deleted successfully`,
+          type: 'success'
+        });
         loadWorkers();
+        setDeleteModal({ isOpen: false });
       }
     } catch (error) {
       console.error('Failed to delete worker:', error);
-      alert('Failed to delete worker');
+      setToast({
+        isVisible: true,
+        message: 'Failed to delete worker. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsDeleting(false);
     }
-  }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({ isOpen: false });
+  };
   
   const openBulkAssignModal = (worker: Worker) => {
     setBulkAssignModal({ isOpen: true, worker });
+    setConflicts([]); // Clear any previous conflicts
+    setError(null); // Clear any previous errors
   };
   
   const closeBulkAssignModal = () => {
     setBulkAssignModal({ isOpen: false });
   };
   
-  const handleBulkAssignSuccess = () => {
+  const handleBulkAssignSuccess = (message?: string) => {
     closeBulkAssignModal();
+    setToast({
+      isVisible: true,
+      message: message || 'Worker scheduled successfully',
+      type: 'success'
+    });
     loadWorkers();
   };
   
@@ -382,8 +428,9 @@ export function WorkersPage() {
                         </button>
                         <button
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            handleDeleteWorker(worker.id);
+                            handleDeleteClick(worker);
                           }}
                           className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
                           title="Delete"
@@ -408,6 +455,28 @@ export function WorkersPage() {
           onSuccess={handleBulkAssignSuccess}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Worker"
+        message="Are you sure you want to delete this worker?"
+        confirmText="Delete Worker"
+        cancelText="Cancel"
+        isLoading={isDeleting}
+        isDestructive={true}
+        workerName={deleteModal.worker ? `${deleteModal.worker.first_name} ${deleteModal.worker.last_name}` : undefined}
+      />
+
+      {/* Toast Notifications */}
+      <Toast
+        isVisible={toast.isVisible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
     </div>
   );
 }
@@ -416,7 +485,7 @@ export function WorkersPage() {
 interface BulkAssignmentModalProps {
   worker: Worker;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message?: string) => void;
 }
 
 function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModalProps) {
@@ -520,8 +589,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       });
       
       if (response.data.status === 'success') {
-        alert(response.data.message); // Shows success message
-        onSuccess();
+        onSuccess(response.data.message);
       } else {
         setError(response.data.message || 'Failed to schedule worker for shifts');
       }

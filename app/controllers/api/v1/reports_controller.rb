@@ -35,11 +35,9 @@ module Api
         start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
-        # Only export completed/approved assignments from past shifts
-        assignments = Assignment.includes(worker: [], shift: [:event, :event_schedule])
-                           .for_date_range(start_date, end_date)
+        # Only export completed/approved assignments (regardless of shift timing)
+        assignments = Assignment.for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
-                           .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
         
         csv_data = generate_payroll_csv(assignments)
         
@@ -95,9 +93,9 @@ module Api
             worker = staffing.worker
             
             # ✅ FIX 2: Get break from event schedule (event-wide policy)
-            # Default to 30 minutes (0.5 hours) if not set
-            break_minutes = event&.event_schedule&.break_minutes || 30
-            break_hours = (break_minutes / 60.0).round(1)
+            # Default to 0 minutes if not set
+            break_minutes = event&.event_schedule&.break_minutes || 0
+            break_hours_numeric = (break_minutes / 60.0).round(2)
             
             # ✅ FIX 3: Calculate total hours properly
             total_hours = if staffing.hours_worked.present?
@@ -106,8 +104,12 @@ module Api
             else
               # Calculate from shift times minus event-wide break
               shift_duration = calculate_duration(shift.start_time_utc, shift.end_time_utc)
-              [shift_duration - break_hours, 0].max # Ensure non-negative
+              [shift_duration - break_hours_numeric, 0].max # Ensure non-negative
             end
+            
+            # Debug output
+            Rails.logger.info "DEBUG: break_hours_numeric=#{break_hours_numeric}, formatted=#{sprintf('%.2f', break_hours_numeric)}"
+            Rails.logger.info "DEBUG: total_hours=#{total_hours}, formatted=#{sprintf('%.2f', total_hours.round(2))}"
             
             csv << [
               event&.id || shift.id,                    # JOB_ID
@@ -117,8 +119,8 @@ module Api
               shift.start_time_utc.strftime('%m/%d/%Y'), # SHIFT_DATE (MM/DD/YYYY)
               shift.start_time_utc.strftime('%I:%M %p'), # SHIFT_START_TIME (12-hour format)
               shift.end_time_utc.strftime('%I:%M %p'),   # SHIFT_END_TIME (12-hour format)
-              break_hours,                              # UNPAID_BREAK (1 decimal)
-              total_hours.round(2),                     # TOTAL_HOURS (2 decimals)
+              sprintf('%.2f', break_hours_numeric),    # UNPAID_BREAK (2 decimals)
+              sprintf('%.2f', total_hours.round(2)),    # TOTAL_HOURS (2 decimals)
               event&.supervisor_name || '',             # SHIFT_SUPERVISOR
               staffing.notes || ''                      # REMARKS
             ]
@@ -126,7 +128,7 @@ module Api
         end
       end
       
-      def generate_payroll_csv(staffing_records)
+      def generate_payroll_csv(assignments)
         require 'csv'
         
         CSV.generate(headers: true) do |csv|
@@ -142,37 +144,30 @@ module Api
             'Total Pay'
           ]
           
-          # Data rows
-          staffing_records.each do |staffing|
-            shift = staffing.shift
-            event = shift.event
-            worker = staffing.worker
-            
-            # Use event-wide break policy (same as timesheet)
-            break_minutes = event&.event_schedule&.break_minutes || 30
-            break_hours = (break_minutes / 60.0).round(1)
-            
-            # Calculate total hours with proper break deduction
-            total_hours = if staffing.hours_worked.present?
-              staffing.hours_worked  # Already NET of breaks
-            else
-              shift_duration = calculate_duration(shift.start_time_utc, shift.end_time_utc)
-              [shift_duration - break_hours, 0].max
-            end
-            
-            # Determine effective rate (priority: assignment rate > shift rate > default)
-            effective_rate = staffing.hourly_rate || 
-                           shift.pay_rate || 
-                           worker.default_hourly_rate || 
-                           0
-            
-            # Calculate total pay
+          # Data rows - use simple approach to avoid association loading issues
+          assignments.each do |assignment|
+            # Get basic data directly from assignment
+            total_hours = assignment.hours_worked || 0.0
+            effective_rate = assignment.hourly_rate || 15.0  # Default rate
             total_pay = total_hours * effective_rate
+            
+            # Get shift data with simple queries
+            shift = Shift.find(assignment.shift_id)
+            worker = Worker.find(assignment.worker_id)
+            
+            # Get event data if available
+            event_title = 'Unknown Event'
+            location = 'Unknown Location'
+            if shift.event_id
+              event = Event.find(shift.event_id)
+              event_title = event.title
+              location = event.venue&.name || 'Unknown Location'
+            end
             
             csv << [
               shift.start_time_utc.strftime('%Y-%m-%d'),
-              event&.title || shift.client_name || 'Unknown Event',
-              shift.location || event&.venue&.name || 'Unknown Location',
+              event_title,
+              location,
               shift.role_needed,
               "#{worker.first_name} #{worker.last_name}",
               total_hours.round(2),
@@ -210,7 +205,7 @@ module Api
               event.venue&.name || '',
               event.status,
               event.total_workers_needed,
-              event.total_assignments_count,
+              event.assigned_workers_count,
               "#{event.staffing_percentage}%",
               event.shifts.count,
               event.supervisor_name || ''

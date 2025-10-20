@@ -119,8 +119,8 @@ class Api::V1::Reports::TimesheetsController < ApplicationController
           shift.start_time_utc.strftime('%m/%d/%Y'),
           shift.start_time_utc.strftime('%I:%M %p'),
           shift.end_time_utc.strftime('%I:%M %p'),
-          break_hours.round(1), # Show break in hours with 1 decimal
-          total_hours.round(2), # Show total hours with 2 decimals
+          sprintf('%.2f', break_hours.round(2)), # Show break in hours with 2 decimals
+          sprintf('%.2f', total_hours.round(2)), # Show total hours with 2 decimals
           event&.supervisor_name || '',
           assignment.notes || ''
         ]

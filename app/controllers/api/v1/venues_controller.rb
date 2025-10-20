@@ -28,17 +28,20 @@ class Api::V1::VenuesController < Api::V1::BaseController
     end
     
     render json: {
-      cached: local_venues.map { |v| 
-        { 
-          id: v.id,
-          place_id: v.place_id, 
-          name: v.name, 
-          address: v.formatted_address,
-          source: 'local'
-        } 
-      },
-      google_results: [],
-      status: 'success'
+      status: 'success',
+      data: {
+        cached: local_venues.map { |v| 
+          { 
+            id: v.id,
+            place_id: v.place_id, 
+            name: v.name, 
+            address: v.formatted_address,
+            source: 'local'
+          } 
+        },
+        google_results: [],
+        session_token: nil
+      }
     }
   rescue => e
     Rails.logger.error("Venues Search Error: #{e.message}\n#{e.backtrace.join("\n")}")
@@ -57,9 +60,11 @@ class Api::V1::VenuesController < Api::V1::BaseController
     
     if venue
       render json: {
-        venue: venue_json(venue),
-        source: 'local',
-        status: 'success'
+        status: 'success',
+        data: {
+          venue: venue_json(venue),
+          source: 'local'
+        }
       }
     else
       render json: { 
@@ -81,8 +86,10 @@ class Api::V1::VenuesController < Api::V1::BaseController
     
     if venue.update(update_params)
       render json: {
-        venue: venue_json(venue),
-        status: 'success'
+        status: 'success',
+        data: {
+          venue: venue_json(venue)
+        }
       }
     else
       render json: { error: 'Update failed', errors: venue.errors.full_messages, status: 'error' }, status: 422

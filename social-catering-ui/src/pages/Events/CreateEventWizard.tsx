@@ -14,18 +14,8 @@ import theBistroIcon from '../../assets/icons/Uniforms/the_bistro.png';
 import blackAndWhiteIcon from '../../assets/icons/Uniforms/black_and_white.png';
 import chefsCoatIcon from '../../assets/icons/Uniforms/chef_coat.png';
 import { VenueAutocomplete } from '../../components/ui/VenueAutocomplete';
-// Temporary Venue type until venuesApi is properly implemented
-interface Venue {
-  id: number;
-  name: string;
-  formatted_address: string;
-  place_id?: string;
-  arrival_instructions?: string;
-  parking_info?: string;
-  created_at: string;
-  updated_at: string;
-}
 import { createEvent, updateEvent, type Event } from '../../services/eventsApi';
+import type { Venue } from '../../types/venues';
 
 // Define types locally to avoid import issues
 interface EventSkillRequirement {
@@ -74,7 +64,9 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const [selectedSkillDetails, setSelectedSkillDetails] = useState<SkillDetail[]>([]);
   const [openUniformDropdown, setOpenUniformDropdown] = useState<string | null>(null);
   const [openCertificationDropdown, setOpenCertificationDropdown] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   
   // Schedule step state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -240,8 +232,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const steps: Step[] = [
     {
       id: 1,
-      title: 'Create New Event',
-      description: 'Pick the skills needed and assign your team.',
+      title: 'Event Details',
+      description: 'Enter event title and pick the skills needed.',
       completed: completedSteps.includes(0) || currentStepIndex > 0,
       active: currentStepIndex === 0,
     },
@@ -325,13 +317,14 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
       // Create event data
       const eventData = {
         title: eventTitle || 'New Event',
-        status: editEvent?.status || 'published' as const, // Auto-publish new events
+        status: editEvent?.status || 'draft' as const, // Create as draft first
           venue_id: selectedVenue?.id,
           check_in_instructions: checkInText,
           supervisor_name: selectedSupervisor,
           supervisor_phone: phoneNumber,
           skill_requirements: skillRequirements,
-          schedule: schedule
+          schedule: schedule,
+          auto_publish: !isEditing // Auto-publish new events, not edits
       };
 
       let response;
@@ -352,6 +345,50 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
       // You might want to show an error message to the user here
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (isSavingDraft) return;
+    setIsSavingDraft(true);
+    try {
+      const skillRequirements: EventSkillRequirement[] = selectedSkillDetails.map(skill => ({
+        skill_name: skill.name,
+        needed_workers: skill.neededWorkers,
+        description: skill.description,
+        uniform_name: skill.uniform,
+        certification_name: skill.certification || undefined
+      }));
+
+      const schedule: EventSchedule = {
+        start_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${startTime}:00.000Z`).toISOString(),
+        end_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${endTime}:00.000Z`).toISOString(),
+        break_minutes: breakMinutes
+      };
+
+      const eventData = {
+        title: eventTitle || 'New Event',
+        status: 'draft' as const,
+        venue_id: selectedVenue?.id,
+        check_in_instructions: checkInText,
+        supervisor_name: selectedSupervisor,
+        supervisor_phone: phoneNumber,
+        skill_requirements: skillRequirements,
+        schedule: schedule,
+        auto_publish: false
+      };
+
+      if (isEditing && editEvent) {
+        await updateEvent(editEvent.id!, eventData);
+      } else {
+        await createEvent(eventData);
+      }
+
+      navigate('/events?tab=draft');
+    } catch (error) {
+      console.error('Error saving draft event:', error);
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -483,6 +520,15 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     }));
   };
 
+  const handleUpdateDescription = (skillName: string, newDescription: string) => {
+    setSelectedSkillDetails(selectedSkillDetails.map(skill => {
+      if (skill.name === skillName) {
+        return { ...skill, description: newDescription };
+      }
+      return skill;
+    }));
+  };
+
   const handleVenueSelect = (venue: Venue) => {
     setSelectedVenue(venue);
   };
@@ -497,7 +543,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   };
 
   const canContinue = currentStepIndex === 0 
-    ? selectedSkillDetails.some(skill => skill.neededWorkers > 0)
+    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0)
     : currentStepIndex === 1
     ? selectedVenue !== null
     : true;
@@ -562,6 +608,20 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
               {/* Step 0: Skills Selection */}
               {currentStepIndex === 0 && (
                 <>
+              {/* Event Title Field */}
+              <div className="flex flex-col gap-3 self-stretch">
+                <label className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
+                  Event Title
+                </label>
+                <input
+                  type="text"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  placeholder="Enter event title (e.g., Corporate Holiday Party)"
+                  className="w-full h-11 px-4 border border-primary-color/10 rounded-lg text-sm bg-white focus:outline-none focus:border-primary-color text-font-primary placeholder:text-font-secondary"
+                />
+              </div>
+
               {/* Skills Field */}
               <div className="flex flex-col gap-3 self-stretch relative">
                 <label className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
@@ -682,13 +742,27 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                       <span className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
                       Event description
                       </span>
-                      <button className="text-sm font-normal font-manrope leading-[140%] text-primary-color hover:underline">
-                        Edit
+                      <button 
+                        className="text-sm font-normal font-manrope leading-[140%] text-primary-color hover:underline"
+                        onClick={() => setEditingDescription(editingDescription === skill.name ? null : skill.name)}
+                      >
+                        {editingDescription === skill.name ? 'Save' : 'Edit'}
                       </button>
                     </div>
-                    <p className="text-sm font-normal font-manrope leading-[140%] text-font-secondary">
-                      {skill.description}
-                    </p>
+                    {editingDescription === skill.name ? (
+                      <textarea
+                        value={skill.description}
+                        onChange={(e) => handleUpdateDescription(skill.name, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm font-normal font-manrope leading-[140%] text-font-secondary resize-none"
+                        rows={3}
+                        placeholder="Enter event description..."
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="text-sm font-normal font-manrope leading-[140%] text-font-secondary">
+                        {skill.description}
+                      </p>
+                    )}
                   </div>
 
                   {/* Uniform Selector */}
@@ -1116,6 +1190,17 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                 <div className="flex flex-col gap-6">
                 <h2 className="text-xl font-bold font-manrope leading-[140%] text-font-primary">Event Summary</h2>
 
+                  {/* Event Title Summary */}
+                  <div className="rounded-lg border border-primary-color/20 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-primary-color/10">
+                      <span className="text-sm font-semibold text-font-primary">Event Title</span>
+                      <button onClick={() => setCurrentStepIndex(0)} className="text-sm text-primary-color hover:underline">Edit</button>
+                    </div>
+                    <div className="px-5 py-4">
+                      <p className="text-sm text-font-primary">{eventTitle || 'No title entered'}</p>
+                    </div>
+                  </div>
+
                   {/* Skill Summary */}
                   <div className="rounded-lg border border-primary-color/20 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
                     <div className="flex items-center justify-between px-5 py-4 border-b border-primary-color/10">
@@ -1274,6 +1359,15 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
             <button onClick={handleCancel}
                     className="flex justify-center items-center gap-2.5 px-6 py-2.5 rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary hover:bg-gray-50">
                 Cancel
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={!canContinue || isSavingDraft}
+                className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary border border-gray-300 bg-white ${
+                  canContinue && !isSavingDraft ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                {isSavingDraft ? 'Saving…' : 'Save as Draft'}
               </button>
               <button
                 onClick={handleContinue}

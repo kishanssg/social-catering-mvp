@@ -67,22 +67,14 @@ class Shift < ApplicationRecord
   end
 
   def fully_staffed?
-    required_count = if event_id.present? && skill_requirement
-      skill_requirement.needed_workers
-    else
-      capacity
-    end
-
-    assignments.count >= required_count
+    # For individual shifts, use capacity as the required count
+    assignments.count >= capacity
   end
 
   def staffing_progress
-    required_count = if event_id.present? && skill_requirement
-      skill_requirement.needed_workers
-    else
-      capacity
-    end
-
+    # For individual shifts, use capacity as the required count
+    # The skill requirement's needed_workers is used at the event level
+    required_count = capacity
     assigned = assignments.count
     percentage = required_count.positive? ? (assigned.to_f / required_count * 100).round(0) : 0
 

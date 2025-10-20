@@ -12,6 +12,8 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       'http://localhost:5173',
       'http://localhost:5174',
       'http://localhost:5175',
+      'http://localhost:5176',
+      'http://localhost:5177',  # Current frontend port
       'http://localhost:3000',
       'https://your-frontend-name.netlify.app',  # Update with actual URL
       'https://your-custom-domain.com',  # If you have custom domain

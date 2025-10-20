@@ -66,24 +66,33 @@ export function WorkerDetailPage() {
   }, [id]);
   
   async function loadWorkerData() {
+    if (!id) return;
+    
+    console.log('Loading worker data for ID:', id, 'Type:', typeof id);
+    
     setLoading(true);
     try {
       // Load worker details
       const workerResponse = await apiClient.get(`/workers/${id}`);
       
+      console.log('Worker API response:', workerResponse.data);
+      
       if (workerResponse.data.status === 'success') {
-        // The API returns { worker: {...} } not { data: {...} }
-        setWorker(workerResponse.data.worker);
+        // The API returns { data: { worker: {...} }, status: "success" }
+        setWorker(workerResponse.data.data.worker);
       }
       
       // Load worker assignments
       const assignmentsResponse = await apiClient.get(`/assignments?worker_id=${id}`);
+      
+      console.log('Assignments API response:', assignmentsResponse.data);
       
       if (assignmentsResponse.data.status === 'success') {
         setAssignments(assignmentsResponse.data.data || []);
       }
     } catch (error) {
       console.error('Failed to load worker data:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -120,12 +129,31 @@ export function WorkerDetailPage() {
     );
   }
   
+  if (!id) {
+    return (
+      <div className="p-8">
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Invalid Worker ID</h3>
+          <p className="text-gray-600 mb-4">No worker ID provided in the URL.</p>
+          <button
+            onClick={() => navigate('/workers')}
+            className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
+          >
+            Back to Workers
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   if (!worker) {
     return (
       <div className="p-8">
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
           <div className="text-6xl mb-4">❌</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Worker Not Found</h3>
+          <p className="text-gray-600 mb-4">Worker with ID "{id}" could not be found.</p>
           <button
             onClick={() => navigate('/workers')}
             className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"

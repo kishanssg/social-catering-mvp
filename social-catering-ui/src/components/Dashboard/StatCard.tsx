@@ -38,3 +38,4 @@ export function StatCard({ label, value, icon, trend, onClick }: StatCardProps) 
     </div>
   );
 }
+

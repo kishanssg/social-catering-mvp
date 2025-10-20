@@ -1,22 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-
-// Temporary types until venuesApi is properly implemented
-interface Venue {
-  id: number;
-  name: string;
-  formatted_address: string;
-  place_id?: string;
-  arrival_instructions?: string;
-  parking_info?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface VenueSearchResult {
-  place_id: string;
-  name: string;
-  address: string;
-}
+import { venuesApi } from '../../services/venuesApi';
+import type { Venue, VenueSearchResult } from '../../types/venues';
 import chevronUpDownIcon from '../../assets/icons/chevron-up-down.svg';
 import checkIcon from '../../assets/icons/check.svg';
 
@@ -56,14 +40,18 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   }, [selectedVenue]);
 
-  // Debounced search - temporarily disabled until venuesApi is implemented
+  // Debounced search
   const performSearch = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
     try {
-      // TODO: Implement venue search when venuesApi is ready
-      console.log('Venue search for:', searchQuery);
-      setCachedResults([]);
-      setGoogleResults([]);
+      const response = await venuesApi.search(searchQuery, sessionToken);
+      setCachedResults(response.cached || []);
+      setGoogleResults(response.google_results || []);
+      
+      // Update session token if provided
+      if (response.session_token) {
+        setSessionToken(response.session_token);
+      }
     } catch (error) {
       console.error('Venue search error:', error);
       setCachedResults([]);
@@ -88,24 +76,12 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }, 300); // 300ms debounce
   };
 
-  // Handle venue selection - temporarily disabled until venuesApi is implemented
+  // Handle venue selection
   const handleSelectVenue = async (result: VenueSearchResult) => {
     setIsLoading(true);
     try {
-      // TODO: Implement venue selection when venuesApi is ready
-      console.log('Venue selected:', result);
-      // For now, create a mock venue object
-      const mockVenue: Venue = {
-        id: Math.random(),
-        name: result.name,
-        formatted_address: result.address,
-        place_id: result.place_id,
-        arrival_instructions: '',
-        parking_info: '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      onVenueSelect(mockVenue);
+      const response = await venuesApi.select(result.place_id, sessionToken);
+      onVenueSelect(response.venue);
       setIsOpen(false);
       setQuery('');
     } catch (error) {
@@ -115,14 +91,16 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   };
 
-  // Handle save instructions - temporarily disabled until venuesApi is implemented
+  // Handle save instructions
   const handleSaveInstructions = async () => {
     if (!selectedVenue) return;
 
     setIsSavingInstructions(true);
     try {
-      // TODO: Implement venue update when venuesApi is ready
-      console.log('Saving instructions:', { arrivalInstructions, parkingInfo });
+      await venuesApi.update(selectedVenue.id, {
+        arrival_instructions: arrivalInstructions,
+        parking_info: parkingInfo,
+      });
       
       if (onInstructionsUpdate) {
         onInstructionsUpdate(selectedVenue.id, {
@@ -169,7 +147,7 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                 setIsOpen(true);
                 // Load all venues when input is focused (if not already loaded)
                 if (cachedResults.length === 0 && googleResults.length === 0) {
-                  performSearch('');
+                  performSearch(''); // Load all venues
                 }
               }}
               placeholder="Search for a venue..."
@@ -188,7 +166,7 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
           {/* Dropdown Results */}
           {showDropdown && (
             <div className="absolute z-[999] w-full mt-1 bg-white border border-primary-color/20 rounded-lg shadow-lg max-h-[280px] overflow-y-auto">
-              {isLoading && query.length >= 3 ? (
+              {isLoading ? (
                 <div className="px-4 py-3 text-sm text-font-secondary">Searching...</div>
               ) : allResults.length > 0 ? (
                 <>
@@ -230,9 +208,9 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                     </div>
                   )}
                 </>
-              ) : query.length >= 3 ? (
+              ) : (
                 <div className="px-4 py-3 text-sm text-font-secondary">No venues found</div>
-              ) : null}
+              )}
             </div>
           )}
         </div>

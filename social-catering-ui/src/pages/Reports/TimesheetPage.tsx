@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Calendar, DollarSign, Users, Clock } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { SortableTable } from '../../components/ui/SortableTable';
-import type { Column } from '../../components/ui/SortableTable';
-import { FilterBar } from '../../components/ui/FilterBar';
-import { apiService } from '../../services/api';
-import { useWorkers } from '../../hooks/useWorkers';
-import { useLocations } from '../../hooks/useLocations';
+// import { SortableTable } from '../../components/ui/SortableTable'; // Component doesn't exist yet
+// import type { Column } from '../../components/ui/SortableTable'; // Component doesn't exist yet
+// import { FilterBar } from '../../components/ui/FilterBar'; // Component doesn't exist yet
+import { apiClient } from '../../lib/api';
+// import { useWorkers } from '../../hooks/useWorkers'; // Hook doesn't exist yet
+// import { useLocations } from '../../hooks/useLocations'; // Hook doesn't exist yet
 
 interface TimesheetData {
   id: number;
@@ -40,8 +40,10 @@ interface TimesheetSummary {
 }
 
 export default function TimesheetPage() {
-  const { workers } = useWorkers();
-  const { locations } = useLocations();
+  // const { workers } = useWorkers(); // Hook doesn't exist yet
+  // const { locations } = useLocations(); // Hook doesn't exist yet
+  const [workers, setWorkers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   
   const [timesheetData, setTimesheetData] = useState<TimesheetData[]>([]);
   const [summary, setSummary] = useState<TimesheetSummary | null>(null);
@@ -98,7 +100,7 @@ export default function TimesheetPage() {
         ...(locationId !== 'all' && { location_id: locationId })
       });
 
-      const response = await apiService.get(`/reports/timesheet/preview?${params}`);
+      const response = await apiClient.get(`/reports/timesheet/preview?${params}`);
       
       if (response.data.status === 'success') {
         setTimesheetData(response.data.data.assignments);
@@ -121,7 +123,7 @@ export default function TimesheetPage() {
         ...(locationId !== 'all' && { location_id: locationId })
       });
 
-      const response = await apiService.get(`/reports/timesheet?${params}`, {
+      const response = await apiClient.get(`/reports/timesheet?${params}`, {
         responseType: 'blob'
       });
 
@@ -155,85 +157,7 @@ export default function TimesheetPage() {
     );
   });
 
-  // Table columns
-  const columns: Column<TimesheetData>[] = [
-    {
-      key: 'date',
-      label: 'Date',
-      sortable: true,
-      render: (item) => (
-        <div>
-          <div className="font-medium">{format(new Date(item.date), 'MMM dd, yyyy')}</div>
-          <div className="text-xs text-gray-500">{format(new Date(item.date), 'EEEE')}</div>
-        </div>
-      )
-    },
-    {
-      key: 'worker',
-      label: 'Worker',
-      sortable: true,
-      render: (item) => (
-        <div>
-          <div className="font-medium">{item.worker.name}</div>
-          <div className="text-xs text-gray-500">{item.worker.email}</div>
-        </div>
-      )
-    },
-    {
-      key: 'shift',
-      label: 'Shift Details',
-      render: (item) => (
-        <div>
-          <div className="font-medium">{item.shift.client_name}</div>
-          <div className="text-sm text-gray-600">{item.shift.role_needed}</div>
-          <div className="text-xs text-gray-500">{item.shift.location}</div>
-        </div>
-      )
-    },
-    {
-      key: 'hours_worked',
-      label: 'Hours',
-      sortable: true,
-      render: (item) => (
-        <span className="font-medium">{item.hours_worked.toFixed(2)}</span>
-      )
-    },
-    {
-      key: 'hourly_rate',
-      label: 'Rate',
-      sortable: true,
-      render: (item) => (
-        <span>${item.hourly_rate.toFixed(2)}</span>
-      )
-    },
-    {
-      key: 'total_pay',
-      label: 'Total',
-      sortable: true,
-      render: (item) => (
-        <span className="font-semibold text-green-600">
-          ${item.total_pay.toFixed(2)}
-        </span>
-      )
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (item) => (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            item.status === 'completed'
-              ? 'bg-green-100 text-green-800'
-              : item.status === 'assigned'
-              ? 'bg-blue-100 text-blue-800'
-              : 'bg-gray-100 text-gray-800'
-          }`}
-        >
-          {item.status}
-        </span>
-      )
-    }
-  ];
+  // Table columns removed - using simple table instead
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -335,48 +259,67 @@ export default function TimesheetPage() {
           )}
         </div>
 
-        <FilterBar
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          filters={[
-            {
-              key: 'worker',
-              label: 'Worker',
-              value: workerId,
-              options: [
-                { value: 'all', label: 'All Workers' },
-                ...workers.map(w => ({
-                  value: w.id.toString(),
-                  label: `${w.first_name} ${w.last_name}`
-                }))
-              ],
-              onChange: setWorkerId
-            },
-            {
-              key: 'location',
-              label: 'Location',
-              value: locationId,
-              options: [
-                { value: 'all', label: 'All Locations' },
-                ...locations.map(l => ({
-                  value: l.id.toString(),
-                  label: l.display_name
-                }))
-              ],
-              onChange: setLocationId
-            }
-          ]}
-          actions={
-            <button
-              onClick={handleExport}
-              disabled={!timesheetData.length}
-              className="btn-green flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              placeholder="Search workers, events..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Worker
+            </label>
+            <select
+              value={workerId}
+              onChange={(e) => setWorkerId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <Download className="w-5 h-5" />
-              Export CSV
-            </button>
-          }
-        />
+              <option value="all">All Workers</option>
+              {workers.map(w => (
+                <option key={w.id} value={w.id.toString()}>
+                  {w.first_name} {w.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Locations</option>
+              {locations.map(l => (
+                <option key={l.id} value={l.id.toString()}>
+                  {l.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={handleExport}
+            disabled={!timesheetData.length}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Data Table */}
@@ -385,12 +328,76 @@ export default function TimesheetPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <SortableTable
-          data={filteredData}
-          columns={columns}
-          keyExtractor={(item) => item.id}
-          emptyMessage="No timesheet data found for the selected period"
-        />
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {filteredData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No timesheet data found for the selected period</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Date</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Worker</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Shift Details</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Hours</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Rate</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Total</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredData.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{format(new Date(item.date), 'MMM dd, yyyy')}</div>
+                        <div className="text-xs text-gray-500">{format(new Date(item.date), 'EEEE')}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{item.worker.name}</div>
+                        <div className="text-xs text-gray-500">{item.worker.email}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{item.shift.client_name}</div>
+                        <div className="text-sm text-gray-600">{item.shift.role_needed}</div>
+                        <div className="text-xs text-gray-500">{item.shift.location}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="font-medium">{item.hours_worked.toFixed(2)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span>${item.hourly_rate.toFixed(2)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="font-semibold text-green-600">
+                        ${item.total_pay.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : item.status === 'assigned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
     </div>
   );
