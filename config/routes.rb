@@ -105,7 +105,7 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  # Serve React app for all non-API routes (Rails will handle static files automatically)
+  # Serve React app for all non-API routes (public, no auth)
   get "*path", to: "home#index", constraints: lambda { |req| 
     !req.path.start_with?("/api") && 
     !req.path.start_with?("/assets") &&
