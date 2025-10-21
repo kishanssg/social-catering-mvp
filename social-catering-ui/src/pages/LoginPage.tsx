@@ -64,32 +64,6 @@ export function LoginPage() {
     }
   }
 
-  const handleTestLogin = async () => {
-    try {
-      setIsLoading(true)
-      setApiError('')
-
-      // Auto-fill the form fields with actual admin credentials
-      setValue('email', 'admin@socialcatering.com')
-      setValue('password', 'password123')
-
-      // Small delay to show the fields being filled
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      await login('admin@socialcatering.com', 'password123')
-      if (isMountedRef.current) {
-        navigate(redirectTo)
-      }
-    } catch (err: any) {
-      if (isMountedRef.current) {
-        setApiError(err.message || 'Test login failed. Please try again.')
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false)
-      }
-    }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -187,33 +161,6 @@ export function LoginPage() {
             </button>
           </div>
 
-          {/* Test Login Button */}
-          <div>
-            <button
-              type="button"
-              onClick={handleTestLogin}
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Testing login...
-                </span>
-              ) : (
-                '🚀 Test Login (Auto-fill & Sign in)'
-              )}
-            </button>
-          </div>
-
-          {/* Test Credentials Hint */}
-          <div className="text-center text-sm text-gray-500">
-            <p>Test credentials:</p>
-            <p className="font-mono text-xs mt-1">admin@socialcatering.com / password123</p>
-          </div>
           </form>
         </div>
       </div>

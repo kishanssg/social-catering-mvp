@@ -32,5 +32,11 @@ export const venuesApi = {
   async getAll(): Promise<{ venues: Venue[] }> {
     const response = await apiClient.get('/venues');
     return response.data.data;
+  },
+
+  // Get venue by ID
+  async getById(id: number): Promise<Venue> {
+    const response = await apiClient.get(`/venues/${id}`);
+    return response.data.data;
   }
 };

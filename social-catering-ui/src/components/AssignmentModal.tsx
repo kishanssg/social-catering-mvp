@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Users, Clock, MapPin, AlertCircle, Check } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { formatDateTime, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 
 interface Worker {
@@ -133,7 +133,12 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
         onSuccess();
       } else {
         // Display specific error messages from backend
-        const errorMessage = data.errors ? data.errors.join('. ') : (data.message || 'Failed to assign worker');
+        let errorMessage = data.message || 'Failed to assign worker';
+        if (data.details && data.details.length > 0) {
+          errorMessage += '\n\nDetails:\n• ' + data.details.join('\n• ');
+        } else if (data.errors) {
+          errorMessage += '\n\nDetails:\n• ' + data.errors.join('\n• ');
+        }
         setError(errorMessage);
       }
     } catch (error) {
@@ -141,8 +146,10 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       
       // Try to extract specific error message from axios error
       let errorMessage = 'Failed to assign worker';
-      if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors.join('. ');
+      if (error.response?.data?.details && error.response.data.details.length > 0) {
+        errorMessage += '\n\nDetails:\n• ' + error.response.data.details.join('\n• ');
+      } else if (error.response?.data?.errors) {
+        errorMessage += '\n\nDetails:\n• ' + error.response.data.errors.join('\n• ');
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
@@ -155,21 +162,6 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
     }
   }
 
-  const formatDateTime = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), 'MMM d, yyyy h:mm a');
-    } catch {
-      return dateString;
-    }
-  };
-
-  const formatTime = (dateString: string) => {
-    try {
-      return format(parseISO(dateString), 'h:mm a');
-    } catch {
-      return dateString;
-    }
-  };
 
   if (loading) {
     return (
@@ -305,7 +297,13 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
               {error ? (
                 <div className="text-center py-8">
                   <AlertCircle size={32} className="text-red-400 mx-auto mb-2" />
-                  <p className="text-sm text-red-600">{error}</p>
+                  <div className="text-sm text-red-600">
+                    {error.split('\n').map((line, index) => (
+                      <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               ) : filteredWorkers.length === 0 ? (
                 <div className="text-center py-8">
@@ -361,7 +359,13 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
             <div className="p-6 border-t border-gray-200 bg-gray-50">
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{error}</p>
+                  <div className="text-sm text-red-600">
+                    {error.split('\n').map((line, index) => (
+                      <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
               

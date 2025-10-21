@@ -16,7 +16,7 @@ class Api::V1::EventsController < Api::V1::BaseController
     when 'active'
       events = events.published
                    .joins(:event_schedule)
-                   .where('event_schedules.start_time_utc > ?', Time.current)
+                   .where('event_schedules.end_time_utc > ?', Time.current)
                    .order('event_schedules.start_time_utc ASC')
     when 'past'
       events = events.completed
@@ -378,7 +378,7 @@ class Api::V1::EventsController < Api::V1::BaseController
               first_name: a.worker.first_name,
               last_name: a.worker.last_name
             },
-            hours_worked: a.hours_worked,
+            hours_worked: a.hours_worked&.to_f,
             status: a.status
           }
         }

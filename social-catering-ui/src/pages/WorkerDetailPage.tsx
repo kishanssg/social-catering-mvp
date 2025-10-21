@@ -13,7 +13,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { formatDate, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
@@ -168,13 +168,6 @@ export function WorkerDetailPage() {
   const upcomingAssignments = assignments.filter(a => !a.is_completed);
   const pastAssignments = assignments.filter(a => a.is_completed);
   
-  const formatDate = (dateString: string) => {
-    return format(parseISO(dateString), 'MMM d, yyyy');
-  };
-  
-  const formatTime = (dateString: string) => {
-    return format(parseISO(dateString), 'h:mm a');
-  };
   
   return (
     <div className="min-h-screen bg-gray-50">

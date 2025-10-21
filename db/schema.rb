@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_20_121023) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_21_091122) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -182,6 +182,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_20_121023) do
     t.string "required_skill"
     t.string "uniform_name"
     t.index ["auto_generated"], name: "index_shifts_on_auto_generated"
+    t.index ["event_id", "role_needed", "start_time_utc", "end_time_utc"], name: "index_shifts_on_event_role_time_unique", unique: true, where: "(event_id IS NOT NULL)"
     t.index ["event_id", "status", "start_time_utc"], name: "index_shifts_on_event_status_time"
     t.index ["event_id"], name: "index_shifts_on_event_id"
     t.index ["event_skill_requirement_id"], name: "index_shifts_on_event_skill_requirement_id"

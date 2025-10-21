@@ -105,9 +105,21 @@ module Api
         conflicts = check_scheduling_conflicts(worker, shifts)
         
         if conflicts.any?
+          conflict_details = conflicts.map do |c|
+            new_shift = c[:new_shift]
+            conflicting_shifts = c[:conflicting_shifts]
+            
+            conflict_messages = conflicting_shifts.map do |s|
+              "#{s.event&.title} (#{s.start_time_utc.strftime('%m/%d at %I:%M %p')} - #{s.end_time_utc.strftime('%I:%M %p')})"
+            end
+            
+            "#{new_shift.event&.title} (#{new_shift.start_time_utc.strftime('%m/%d at %I:%M %p')} - #{new_shift.end_time_utc.strftime('%I:%M %p')}) conflicts with: #{conflict_messages.join(', ')}"
+          end
+          
           return render json: {
             status: 'error',
-            message: 'Worker has conflicting shift times',
+            message: 'Scheduling conflicts detected',
+            details: conflict_details,
             conflicts: conflicts.map { |c|
               {
                 new_shift: {
@@ -135,6 +147,17 @@ module Api
         
         ActiveRecord::Base.transaction do
           shifts.each do |shift|
+            # Check for conflicts using the shift's conflict_reason method
+            conflict_reason = shift.conflict_reason(worker)
+            if conflict_reason.present?
+              errors << {
+                shift_id: shift.id,
+                event: shift.event&.title,
+                errors: [conflict_reason]
+              }
+              next
+            end
+            
             assignment = Assignment.new(
               worker: worker,
               shift: shift,
@@ -173,9 +196,17 @@ module Api
         end
         
         if errors.any?
+          # Create user-friendly error messages
+          error_messages = errors.map do |error|
+            shift_info = "Shift #{error[:shift_id]} (#{error[:event]})"
+            error_details = error[:errors].join(', ')
+            "#{shift_info}: #{error_details}"
+          end
+          
           render json: {
             status: 'error',
-            message: 'Failed to create some assignments',
+            message: 'Some assignments could not be created',
+            details: error_messages,
             errors: errors
           }, status: :unprocessable_entity
         else
@@ -277,7 +308,8 @@ module Api
         
         # Get all existing confirmed assignments for this worker
         existing_assignments = worker.assignments
-                                    .where(status: ['confirmed', 'completed'])
+                                    .where(status: ['assigned', 'confirmed', 'completed'])
+                                    .where.not(worker_id: nil, shift_id: nil)
                                     .joins(:shift)
                                     .where('shifts.start_time_utc >= ?', Time.current)
                                     .includes(:shift)

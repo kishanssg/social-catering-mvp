@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Search, 
   Plus, 
@@ -51,10 +51,15 @@ interface AvailableShift {
   end_time_utc: string;
   location: string;
   current_status: string;
+  total_positions?: number;
+  filled_positions?: number;
+  available_positions?: number;
+  all_shift_ids?: number[]; // All shift IDs for this role at this event
 }
 
 export function WorkersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -90,6 +95,13 @@ export function WorkersPage() {
       loadWorkers();
     }
   }, [isAuthenticated, authLoading]);
+
+  // Refresh workers when navigating back to this page (e.g., after creating a worker)
+  useEffect(() => {
+    if (isAuthenticated && !authLoading && location.pathname === '/workers') {
+      loadWorkers();
+    }
+  }, [location.pathname, isAuthenticated, authLoading]);
   
   async function loadWorkers() {
     setLoading(true);
@@ -97,7 +109,7 @@ export function WorkersPage() {
       const response = await apiClient.get('/workers');
       
       if (response.data.status === 'success') {
-        const workersData = response.data.data.workers || [];
+        const workersData = response.data.data || [];
         setWorkers(workersData);
       } else {
         setWorkers([]);
@@ -178,7 +190,15 @@ export function WorkersPage() {
           worker.first_name.toLowerCase().includes(query) ||
           worker.last_name.toLowerCase().includes(query) ||
           worker.email.toLowerCase().includes(query) ||
-          worker.phone?.includes(query)
+          worker.phone?.includes(query) ||
+          // Search by skills
+          worker.skills_json.some(skill => 
+            skill.toLowerCase().includes(query)
+          ) ||
+          // Search by certifications
+          worker.certifications?.some(cert => 
+            cert.name.toLowerCase().includes(query)
+          )
         );
       }
       
@@ -242,7 +262,7 @@ export function WorkersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search"
+              placeholder="Search workers by name, email, phone, skills, or certifications"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -516,31 +536,47 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       if (response.data.status === 'success') {
         const events = response.data.data;
         
-        // Flatten all shifts from all events
+        // Group shifts by role per event - show only one entry per role per event
         const shifts: AvailableShift[] = [];
         events.forEach((event: any) => {
           if (event.shifts_by_role) {
             event.shifts_by_role.forEach((roleGroup: any) => {
-              roleGroup.shifts.forEach((shift: any) => {
-                // Only include shifts that match worker's skills and aren't full
-                if (
-                  worker.skills_json.includes(roleGroup.role_name) &&
-                  shift.staffing_progress.percentage < 100
-                ) {
-                  shifts.push({
-                    id: shift.id,
-                    event: {
-                      id: event.id,
-                      title: event.title
-                    },
-                    role_needed: roleGroup.role_name,
-                    start_time_utc: shift.start_time_utc,
-                    end_time_utc: shift.end_time_utc,
-                    location: event.venue?.formatted_address || 'Location TBD',
-                    current_status: shift.status
-                  });
+              // Only include roles that match worker's skills and aren't fully staffed
+              if (
+                worker.skills_json.includes(roleGroup.role_name) &&
+                roleGroup.filled_shifts < roleGroup.total_shifts
+              ) {
+                // Filter to only include shifts with available capacity
+                const availableShifts = roleGroup.shifts.filter((s: any) => {
+                  const filled = s.filled_positions || 0;
+                  return s.capacity > filled;
+                });
+                
+                if (availableShifts.length === 0) {
+                  return; // Skip this role if no shifts have available capacity
                 }
-              });
+                
+                // Use the first available shift as representative
+                const representativeShift = availableShifts[0];
+                const allShiftIds = availableShifts.map((s: any) => s.id);
+                shifts.push({
+                  id: representativeShift.id,
+                  event: {
+                    id: event.id,
+                    title: event.title
+                  },
+                  role_needed: roleGroup.role_name,
+                  start_time_utc: representativeShift.start_time_utc,
+                  end_time_utc: representativeShift.end_time_utc,
+                  location: event.venue?.formatted_address || 'Location TBD',
+                  current_status: representativeShift.status,
+                  // Add metadata about available positions only
+                  total_positions: availableShifts.length,
+                  filled_positions: availableShifts.reduce((sum, s) => sum + (s.filled_positions || 0), 0),
+                  available_positions: availableShifts.reduce((sum, s) => sum + (s.capacity - (s.filled_positions || 0)), 0),
+                  all_shift_ids: allShiftIds
+                });
+              }
             });
           }
         });
@@ -557,12 +593,32 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
   
   const toggleShift = (shiftId: number) => {
     const newSelected = new Set(selectedShiftIds);
+    const shiftToToggle = availableShifts.find(s => s.id === shiftId);
+    
+    if (!shiftToToggle) return;
+    
     if (newSelected.has(shiftId)) {
+      // Removing selection - always allowed
       newSelected.delete(shiftId);
     } else {
+      // Adding selection - check for conflicts
+      const hasConflict = Array.from(newSelected).some(selectedId => {
+        const selectedShift = availableShifts.find(s => s.id === selectedId);
+        return selectedShift && 
+               selectedShift.event.id === shiftToToggle.event.id &&
+               selectedShift.role_needed !== shiftToToggle.role_needed;
+      });
+      
+      if (hasConflict) {
+        setError(`Cannot select multiple roles for the same event (${shiftToToggle.event.title}). Please deselect other roles for this event first.`);
+        return;
+      }
+      
       newSelected.add(shiftId);
     }
+    
     setSelectedShiftIds(newSelected);
+    setError(null); // Clear any previous errors
   };
   
   const toggleAll = () => {
@@ -583,24 +639,51 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     setError(null);
     
     try {
+      // Get all actual shift IDs for the selected roles
+      const allShiftIds: number[] = [];
+      const selectedShifts = availableShifts.filter(shift => selectedShiftIds.has(shift.id));
+      
+      // For each selected role, get all shift IDs for that role at that event
+      selectedShifts.forEach(shift => {
+        if (shift.all_shift_ids) {
+          allShiftIds.push(...shift.all_shift_ids);
+        }
+      });
+      
+      // Remove duplicates
+      const uniqueShiftIds = [...new Set(allShiftIds)];
+      
       const response = await apiClient.post('/staffing/bulk_create', {
         worker_id: worker.id,
-        shift_ids: Array.from(selectedShiftIds)
+        shift_ids: uniqueShiftIds
       });
       
       if (response.data.status === 'success') {
         onSuccess(response.data.message);
       } else {
-        setError(response.data.message || 'Failed to schedule worker for shifts');
+        // Show detailed error messages if available
+        let errorMessage = response.data.message || 'Failed to schedule worker for shifts';
+        if (response.data.details && response.data.details.length > 0) {
+          errorMessage += '\n\nDetails:\n• ' + response.data.details.join('\n• ');
+        }
+        setError(errorMessage);
       }
     } catch (error: any) {
       console.error('Failed to bulk assign:', error);
       
       if (error.response?.data?.conflicts) {
         setConflicts(error.response.data.conflicts);
-        setError('Scheduling conflicts detected. Please review below.');
+        let errorMessage = 'Scheduling conflicts detected. Please review below.';
+        if (error.response.data.details && error.response.data.details.length > 0) {
+          errorMessage += '\n\nConflicts:\n• ' + error.response.data.details.join('\n• ');
+        }
+        setError(errorMessage);
       } else {
-        setError(error.response?.data?.message || 'Failed to schedule worker for shifts');
+        let errorMessage = error.response?.data?.message || 'Failed to schedule worker for shifts';
+        if (error.response?.data?.details && error.response.data.details.length > 0) {
+          errorMessage += '\n\nDetails:\n• ' + error.response.data.details.join('\n• ');
+        }
+        setError(errorMessage);
       }
     } finally {
       setSubmitting(false);
@@ -634,6 +717,18 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     
     return true;
   });
+
+  // Check for conflicts for each shift
+  const getShiftConflictStatus = (shift: AvailableShift) => {
+    const hasOtherRoleSelected = Array.from(selectedShiftIds).some(selectedId => {
+      const selectedShift = availableShifts.find(s => s.id === selectedId);
+      return selectedShift && 
+             selectedShift.event.id === shift.event.id &&
+             selectedShift.role_needed !== shift.role_needed;
+    });
+    
+    return hasOtherRoleSelected;
+  };
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -677,7 +772,13 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                   <X size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700">{error}</p>
+                  <div className="text-sm text-red-700">
+                    {error.split('\n').map((line, index) => (
+                      <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
+                        {line}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
               
@@ -768,6 +869,8 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filteredShifts.map((shift) => {
                     const isSelected = selectedShiftIds.has(shift.id);
+                    const hasConflict = getShiftConflictStatus(shift);
+                    const isDisabled = hasConflict && !isSelected;
                     
                     return (
                       <button
@@ -783,20 +886,45 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={isDisabled}
                             onChange={() => toggleShift(shift.id)}
-                            className="mt-1 w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                            className={`mt-1 w-4 h-4 rounded focus:ring-teal-500 ${
+                              isDisabled 
+                                ? 'text-gray-400 cursor-not-allowed' 
+                                : 'text-teal-600'
+                            }`}
                             onClick={(e) => e.stopPropagation()}
                           />
                           
                           <div className="flex-1">
                             <div className="flex items-start justify-between mb-2">
                               <div>
-                                <h4 className="font-medium text-gray-900">
+                                <h4 className={`font-medium ${
+                                  isDisabled ? 'text-gray-500' : 'text-gray-900'
+                                }`}>
                                   {shift.event.title}
                                 </h4>
-                                <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded mt-1">
-                                  {shift.role_needed}
-                                </span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                                    isDisabled 
+                                      ? 'bg-gray-200 text-gray-500' 
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {shift.role_needed}
+                                  </span>
+                                  {shift.total_positions && shift.total_positions > 1 && (
+                                    <span className={`text-xs ${
+                                      isDisabled ? 'text-gray-400' : 'text-gray-500'
+                                    }`}>
+                                      {shift.available_positions} of {shift.total_positions} positions available
+                                    </span>
+                                  )}
+                                  {hasConflict && !isSelected && (
+                                    <span className="text-xs text-red-600 font-medium">
+                                      (Conflicts with selected role)
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { apiClient } from '../lib/api';
+import { Toast } from '../components/common/Toast';
 import { 
   Download, 
   FileText, 
@@ -36,6 +37,13 @@ export function ReportsPage() {
   const [workers, setWorkers] = useState<Array<{ id: number; name: string; skills_json?: string[] }>>([]);
   const [events, setEvents] = useState<Array<{ id: number; title: string }>>([]);
   const [skills, setSkills] = useState<string[]>([]);
+
+  // Toast state
+  const [toast, setToast] = useState<{
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ isVisible: false, message: '', type: 'success' });
 
   React.useEffect(() => {
     (async () => {
@@ -161,7 +169,11 @@ export function ReportsPage() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('Failed to export:', error);
-      alert('Failed to export report');
+      setToast({
+        isVisible: true,
+        message: 'Failed to export report',
+        type: 'error'
+      });
     } finally {
       setExporting(false);
     }
@@ -535,6 +547,14 @@ export function ReportsPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toast
+        isVisible={toast.isVisible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { Toast } from '../components/common/Toast';
 import checkIcon from '../assets/icons/check.svg';
 import ellipseIcon from '../assets/icons/Ellipse_workerscreen.svg';
 import workerCheckIcon from '../assets/icons/worker_check.svg';
@@ -38,10 +39,10 @@ interface WorkerForm {
 }
 
 const PRESET_CERTIFICATIONS = [
-  { id: 70, name: 'Food Handler Certificate' },
-  { id: 71, name: 'ServSafe' },
-  { id: 72, name: 'TIPS Certification' },
-  { id: 69, name: 'Alcohol Service License' },
+  { id: 79, name: 'Food Handler Certificate' },
+  { id: 78, name: 'ServSafe' },
+  { id: 80, name: 'TIPS Certification' },
+  { id: 77, name: 'Alcohol Service License' },
 ];
 
 export function WorkerCreatePage() {
@@ -71,6 +72,13 @@ export function WorkerCreatePage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  // Toast state
+  const [toast, setToast] = useState<{
+    isVisible: boolean;
+    message: string;
+    type: 'success' | 'error';
+  }>({ isVisible: false, message: '', type: 'success' });
 
   // Available skills with icons (matching CreateEventWizard)
   const availableSkills = [
@@ -159,22 +167,44 @@ export function WorkerCreatePage() {
       form.append('worker[address_line1]', formData.address_line1);
       form.append('worker[address_line2]', formData.address_line2);
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
-      formData.certifications.forEach((c, i) => {
+      // Only include certifications that have a valid expiration date
+      const certsToSend = formData.certifications.filter(
+        (c) => !!c.expires_at_utc && !!c.certification_id
+      );
+      certsToSend.forEach((c, i) => {
         form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
-        if (c.expires_at_utc) form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
+        form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
       });
       if (photoFile) form.append('profile_photo', photoFile);
 
-      const response = await apiClient.request({ method, url, data: form, headers: { 'Content-Type': 'multipart/form-data' } });
+      const response = await apiClient.request({ method, url, data: form });
       
       if (response.data.status === 'success') {
         navigate('/workers');
       } else {
-        alert(response.data.errors?.join(', ') || 'Failed to save worker');
+        setToast({
+          isVisible: true,
+          message: response.data.errors?.join(', ') || 'Failed to save worker',
+          type: 'error'
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save worker:', error);
-      alert('Failed to save worker');
+      let errorMessage = 'Failed to save worker';
+      
+      if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.join(', ');
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setToast({
+        isVisible: true,
+        message: errorMessage,
+        type: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -215,6 +245,12 @@ export function WorkerCreatePage() {
       setCurrentStep('skills');
     } else {
       handleSubmit();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 'skills') {
+      setCurrentStep('details');
     }
   };
 
@@ -560,23 +596,49 @@ export function WorkerCreatePage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => navigate('/workers')}
-              className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleContinue}
-              disabled={!canContinue() || submitting}
-              className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            >
-              {submitting ? 'Saving...' : currentStep === 'details' ? 'Continue' : (isEditMode ? 'Update Worker' : 'Create Worker')}
-            </button>
+          <div className="flex justify-between items-center gap-4 pt-6 border-t border-gray-200">
+            {/* Left side - Back button */}
+            <div>
+              {currentStep === 'skills' && (
+                <button 
+                  onClick={handleBack}
+                  className="flex items-center gap-2 px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Back
+                </button>
+              )}
+            </div>
+
+            {/* Right side - Cancel and Continue/Create */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => navigate('/workers')}
+                className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleContinue}
+                disabled={!canContinue() || submitting}
+                className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {submitting ? 'Saving...' : currentStep === 'details' ? 'Continue' : (isEditMode ? 'Update Worker' : 'Create Worker')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <Toast
+        isVisible={toast.isVisible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
     </div>
   );
 }

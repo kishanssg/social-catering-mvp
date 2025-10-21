@@ -124,6 +124,14 @@ export function EventsPage() {
     isLoading: boolean;
     workerName?: string;
   }>({ isOpen: false, isLoading: false });
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    isLoading: boolean;
+    eventId?: number;
+    eventTitle?: string;
+  }>({ isOpen: false, isLoading: false });
   
   // Quick Fill modal state
   const [quickFill, setQuickFill] = useState<{
@@ -136,6 +144,26 @@ export function EventsPage() {
   useEffect(() => {
     loadEvents();
   }, [activeTab, filterStatus]);
+
+  // Auto-expand event based on URL parameters
+  useEffect(() => {
+    const eventIdParam = searchParams.get('event_id');
+    const shiftIdParam = searchParams.get('shift_id');
+    
+    if (eventIdParam) {
+      const eventId = parseInt(eventIdParam);
+      if (!isNaN(eventId)) {
+        // Auto-expand the specific event
+        setExpandedEvents(new Set([eventId]));
+        
+        // If there's also a shift_id, we could scroll to that specific shift
+        // For now, just expanding the event is sufficient
+        if (shiftIdParam) {
+          console.log(`Auto-expanding event ${eventId} with shift ${shiftIdParam}`);
+        }
+      }
+    }
+  }, [searchParams]);
   
   async function loadEvents() {
     setLoading(true);
@@ -178,17 +206,53 @@ export function EventsPage() {
   };
   
   async function handleDelete(eventId: number) {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+    // Find the event to get its title
+    const event = events?.find(e => e.id === eventId);
+    setDeleteModal({ 
+      isOpen: true, 
+      isLoading: false, 
+      eventId, 
+      eventTitle: event?.title 
+    });
+  }
+
+  async function confirmDelete() {
+    if (!deleteModal.eventId) return;
+    
+    setDeleteModal(prev => ({ ...prev, isLoading: true }));
     
     try {
-      const response = await apiClient.delete(`/events/${eventId}`);
+      const response = await apiClient.delete(`/events/${deleteModal.eventId}`);
       
       if (response.data.status === 'success') {
+        setDeleteModal({ isOpen: false, isLoading: false });
+        setToast({ 
+          isVisible: true, 
+          message: 'Event deleted successfully', 
+          type: 'success' 
+        });
         loadEvents();
+      } else {
+        setToast({ 
+          isVisible: true, 
+          message: response.data.message || 'Failed to delete event', 
+          type: 'error' 
+        });
       }
     } catch (error) {
       console.error('Failed to delete event:', error);
+      setToast({ 
+        isVisible: true, 
+        message: 'Failed to delete event', 
+        type: 'error' 
+      });
+    } finally {
+      setDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
+  }
+
+  function closeDeleteModal() {
+    setDeleteModal({ isOpen: false, isLoading: false });
   }
   
   function handlePublish(eventId: number) {
@@ -433,6 +497,7 @@ export function EventsPage() {
                 onAssignWorker={openAssignmentModal}
                 onUnassign={handleUnassignOpen}
                 onQuickFill={(eventId, roleName, unfilled) => setQuickFill({ isOpen: true, eventId, roleName, unfilledShiftIds: unfilled })}
+                onPublish={handlePublish}
                 onDelete={handleDelete}
                 searchQuery={searchQuery}
               />
@@ -490,6 +555,19 @@ export function EventsPage() {
         confirmText={unassignModal.isLoading ? 'Removing…' : 'Unassign'}
         cancelText="Cancel"
         isLoading={unassignModal.isLoading}
+        isDestructive={true}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete Event"
+        message={`Are you sure you want to delete "${deleteModal.eventTitle}"? This action cannot be undone.`}
+        confirmText={deleteModal.isLoading ? 'Deleting…' : 'Delete'}
+        cancelText="Cancel"
+        isLoading={deleteModal.isLoading}
         isDestructive={true}
       />
 
@@ -643,6 +721,7 @@ interface ActiveEventsTabProps {
   onAssignWorker: (shiftId: number) => void;
   onUnassign: (assignmentId: number, workerName?: string) => void;
   onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[]) => void;
+  onPublish: (eventId: number) => void;
   onDelete?: (eventId: number) => void;
   searchQuery: string;
 }
@@ -654,6 +733,7 @@ function ActiveEventsTab({
   onAssignWorker,
   onUnassign,
   onQuickFill,
+  onPublish,
   onDelete,
   searchQuery 
 }: ActiveEventsTabProps) {
@@ -798,6 +878,16 @@ function ActiveEventsTab({
                     Delete Event
                   </button>
                 )}
+                {/* Compact delete button for all events */}
+                {onDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(event.id); }}
+                    title="Delete"
+                    className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
                 
                 <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
                   {isExpanded ? (
@@ -928,10 +1018,7 @@ function ActiveEventsTab({
                     <div className="flex items-center justify-center gap-3">
                       {event.status === 'draft' && (
                         <button
-                          onClick={() => {
-                            // Navigate to edit event page or show publish modal
-                            console.log('Publish event:', event.id);
-                          }}
+                          onClick={() => onPublish(event.id)}
                           className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                         >
                           Publish Event
@@ -1004,11 +1091,16 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
         event.shifts_by_role?.forEach(roleGroup => {
           roleGroup.shifts.forEach(shift => {
             shift.assignments.forEach(assignment => {
-              totalHours += assignment.hours_worked || 0;
+              // Handle both string and number values from API
+              const hours = assignment.hours_worked ? parseFloat(assignment.hours_worked.toString()) : 0;
+              totalHours += hours;
               // totalPay += assignment.total_pay || 0; // Add if available
             });
           });
         });
+        
+        // Ensure totalHours is always a valid number
+        totalHours = Number(totalHours) || 0;
         
         return (
           <div 
@@ -1115,7 +1207,7 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 {assignment.hours_worked && (
                                   <span className="font-medium">
-                                    {assignment.hours_worked.toFixed(2)} hrs
+                                    {parseFloat(assignment.hours_worked.toString()).toFixed(2)} hrs
                                   </span>
                                 )}
                                 <span className="text-xs text-gray-500">

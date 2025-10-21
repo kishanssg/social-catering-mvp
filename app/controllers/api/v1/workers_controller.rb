@@ -4,7 +4,7 @@ module Api
       before_action :set_worker, only: [:show, :update, :destroy]
 
       def index
-        workers = Worker.includes(:worker_certifications)
+        workers = Worker.includes(worker_certifications: :certification)
         render json: { status: 'success', data: workers.map { |w| serialize_worker(w) } }
       end
 
@@ -126,9 +126,16 @@ module Api
           address_line2: worker.try(:address_line2),
           active: worker.active,
           skills_json: worker.try(:skills_json),
-          worker_certifications: worker.worker_certifications.as_json,
+          certifications: worker.worker_certifications.includes(:certification).map { |wc|
+            {
+              id: wc.certification.id,
+              name: wc.certification.name,
+              expires_at_utc: wc.expires_at_utc
+            }
+          },
           profile_photo_url: worker.profile_photo_url,
-          profile_photo_thumb_url: worker.profile_photo_thumb_url
+          profile_photo_thumb_url: worker.profile_photo_thumb_url,
+          created_at: worker.created_at
         }
       end
     end

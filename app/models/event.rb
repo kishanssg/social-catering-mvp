@@ -155,39 +155,42 @@ class Event < ApplicationRecord
   def generate_shifts!
     return unless can_be_published?
     
-    # Only skip if shifts actually exist
-    if shifts_generated && shifts.any?
-      return shifts
-    end
-
-    generated = []
-    event_skill_requirements.find_each do |skill_req|
-      skill_req.needed_workers.times do
-        generated << shifts.create!(
-          client_name: title,
-          role_needed: skill_req.skill_name,
-          start_time_utc: event_schedule.start_time_utc,
-          end_time_utc: event_schedule.end_time_utc,
-          capacity: 1,
-          pay_rate: 0,
-          notes: check_in_instructions,
-          event_skill_requirement_id: skill_req.id,
-          auto_generated: true,
-          required_skill: skill_req.skill_name,
-          uniform_name: skill_req.uniform_name,
-          status: 'published',
-          created_by: Current.user || User.first
-        )
+    # Use a database lock to prevent race conditions
+    with_lock do
+      # Double-check if shifts already exist (prevents race conditions)
+      if shifts.any?
+        return shifts
       end
+
+      generated = []
+      event_skill_requirements.find_each do |skill_req|
+        skill_req.needed_workers.times do
+          generated << shifts.create!(
+            client_name: title,
+            role_needed: skill_req.skill_name,
+            start_time_utc: event_schedule.start_time_utc,
+            end_time_utc: event_schedule.end_time_utc,
+            capacity: 1,
+            pay_rate: 0,
+            notes: check_in_instructions,
+            event_skill_requirement_id: skill_req.id,
+            auto_generated: true,
+            required_skill: skill_req.skill_name,
+            uniform_name: skill_req.uniform_name,
+            status: 'published',
+            created_by: Current.user || User.first
+          )
+        end
+      end
+
+      update_columns(
+        total_shifts_count: shifts.count,
+        published_at_utc: Time.current,
+        shifts_generated: true
+      )
+
+      generated
     end
-
-    update_columns(
-      total_shifts_count: shifts.count,
-      published_at_utc: Time.current,
-      shifts_generated: true
-    )
-
-    generated
   end
 
   private

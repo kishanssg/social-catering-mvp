@@ -117,7 +117,7 @@ class Shift < ApplicationRecord
 
     conflicting = worker.shifts
                         .where.not(id: id)
-                        .where("start_time_utc < ? AND end_time_utc > ?", end_time_utc, start_time_utc)
+                        .where("start_time_utc < ? AND end_time_utc > ?", start_time_utc, end_time_utc)
                         .first
     if conflicting
       return "Worker already assigned to '#{conflicting.client_name}' at #{conflicting.start_time_utc.strftime('%I:%M %p')}"

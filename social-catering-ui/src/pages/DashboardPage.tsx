@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
   TrendingUp, 
@@ -68,6 +68,7 @@ interface UrgentEvent {
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [stats, setStats] = useState<DashboardStats>({
     draft_events: 0,
@@ -87,6 +88,40 @@ export function DashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [currentMonth]);
+
+  // Refresh data when component becomes visible (e.g., when navigating back from event creation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDashboardData();
+      }
+    };
+
+    const handleFocus = () => {
+      loadDashboardData();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentMonth]);
+
+  // Refresh data when navigating back to dashboard
+  useEffect(() => {
+    if (location.pathname === '/dashboard') {
+      // Small delay to prevent too many API calls when navigating quickly
+      const timeoutId = setTimeout(() => {
+        loadDashboardData();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [location.pathname]);
+
   
   async function loadDashboardData() {
     setLoading(true);

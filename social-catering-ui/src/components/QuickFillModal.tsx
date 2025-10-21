@@ -28,14 +28,23 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, on
 
   useEffect(() => {
     if (!isOpen) return;
+    
+    // Reset state when modal opens
+    setWorkers([]);
+    setSelected([]);
+    setSearch('');
+    setLoading(true);
+    
     (async () => {
-      setLoading(true);
       try {
         const res = await apiClient.get('/workers?active=true');
-        const list = res.data?.data?.workers || res.data?.data || [];
+        const list = res.data?.data || res.data || [];
         // Only show workers with the roleName in skills
         const filtered = list.filter((w: any) => (w.skills_json || []).includes(roleName));
+        console.log(`QuickFill: Found ${filtered.length} workers with skill "${roleName}"`);
         setWorkers(filtered);
+      } catch (error) {
+        console.error('Error loading workers:', error);
       } finally {
         setLoading(false);
       }

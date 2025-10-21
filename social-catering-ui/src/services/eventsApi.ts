@@ -14,6 +14,40 @@ export interface EventSchedule {
   break_minutes: number;
 }
 
+export interface Shift {
+  id: number;
+  role_needed: string;
+  capacity: number;
+  start_time_utc: string;
+  end_time_utc: string;
+  status: string;
+  staffing_progress: {
+    assigned: number;
+    required: number;
+    percentage: number;
+  };
+  fully_staffed: boolean;
+  assignments: Assignment[];
+}
+
+export interface Assignment {
+  id: number;
+  worker: {
+    id: number;
+    first_name: string;
+    last_name: string;
+  };
+  hours_worked?: number;
+  status: string;
+}
+
+export interface ShiftsByRole {
+  role_name: string;
+  total_shifts: number;
+  filled_shifts: number;
+  shifts: Shift[];
+}
+
 export interface Event {
   id: number;
   title: string;
@@ -36,6 +70,7 @@ export interface Event {
   staffing_percentage: number;
   staffing_summary: string;
   shifts_count: number;
+  shifts_by_role?: ShiftsByRole[];
   created_at: string;
   published_at?: string;
   check_in_instructions?: string;
@@ -96,23 +131,48 @@ export async function getEvent(id: number | string) {
 }
 
 export async function createEvent(eventData: any) {
-  const response = await apiClient.post('/events', { event: eventData });
-  
-  if (response.data.status === 'success') {
-    return response.data.data;
+  // Backend expects auto_publish at top-level (params[:auto_publish])
+  const { auto_publish, ...event } = eventData || {};
+  const payload: any = { event };
+  if (typeof auto_publish !== 'undefined') {
+    // Backend checks params[:auto_publish] == 'true'
+    payload.auto_publish = String(Boolean(auto_publish));
   }
-  
-  throw new Error(response.data.errors?.join(', ') || 'Failed to create event');
+
+  try {
+    const response = await apiClient.post('/events', payload);
+
+    if (response.data.status === 'success') {
+      return response.data.data;
+    }
+
+    const backendErrors = response.data?.errors;
+    throw new Error(Array.isArray(backendErrors) ? backendErrors.join(', ') : (response.data?.message || 'Failed to create event'));
+  } catch (err: any) {
+    const data = err?.response?.data;
+    // Prefer detailed backend messages when available
+    const details = Array.isArray(data?.errors) ? data.errors.join(', ') : undefined;
+    const message = data?.message || details || err?.message || 'Failed to create event';
+    throw new Error(message);
+  }
 }
 
 export async function updateEvent(id: number | string, eventData: any) {
-  const response = await apiClient.patch(`/events/${id}`, { event: eventData });
-  
-  if (response.data.status === 'success') {
-    return response.data.data;
+  try {
+    const response = await apiClient.patch(`/events/${id}`, { event: eventData });
+
+    if (response.data.status === 'success') {
+      return response.data.data;
+    }
+
+    const backendErrors = response.data?.errors;
+    throw new Error(Array.isArray(backendErrors) ? backendErrors.join(', ') : (response.data?.message || 'Failed to update event'));
+  } catch (err: any) {
+    const data = err?.response?.data;
+    const details = Array.isArray(data?.errors) ? data.errors.join(', ') : undefined;
+    const message = data?.message || details || err?.message || 'Failed to update event';
+    throw new Error(message);
   }
-  
-  throw new Error(response.data.errors?.join(', ') || 'Failed to update event');
 }
 
 export async function publishEvent(id: number | string) {

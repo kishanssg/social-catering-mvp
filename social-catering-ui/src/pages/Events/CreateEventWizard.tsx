@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import plusIcon from '../../assets/icons/plus.svg';
 import crossIcon from '../../assets/icons/cross.svg';
 import checkIcon from '../../assets/icons/check.svg';
@@ -14,8 +14,10 @@ import theBistroIcon from '../../assets/icons/Uniforms/the_bistro.png';
 import blackAndWhiteIcon from '../../assets/icons/Uniforms/black_and_white.png';
 import chefsCoatIcon from '../../assets/icons/Uniforms/chef_coat.png';
 import { VenueAutocomplete } from '../../components/ui/VenueAutocomplete';
-import { createEvent, updateEvent, type Event } from '../../services/eventsApi';
+import { createEvent, updateEvent, getEvent, type Event } from '../../services/eventsApi';
+import { venuesApi } from '../../services/venuesApi';
 import type { Venue } from '../../types/venues';
+import { Toast } from '../../components/common/Toast';
 
 // Define types locally to avoid import issues
 interface EventSkillRequirement {
@@ -58,6 +60,12 @@ interface CreateEventWizardProps {
 
 export default function CreateEventWizard({ editEvent, isEditing = false }: CreateEventWizardProps) {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  
+  // Determine if we're in edit mode based on URL params
+  const isEditMode = !!id;
+  const [currentEvent, setCurrentEvent] = useState<Event | null>(editEvent || null);
+  const [isLoadingEvent, setIsLoadingEvent] = useState(isEditMode && !editEvent);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isSkillsDropdownOpen, setIsSkillsDropdownOpen] = useState(false);
@@ -67,6 +75,9 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'error' });
+
+  const showError = (message: string) => setToast({ isVisible: true, message, type: 'error' });
   
   // Schedule step state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -78,7 +89,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const [isBreakOpen, setIsBreakOpen] = useState(false);
 
   // Build 15-min increment time options with 12-hour labels
-  const timeOptions = React.useMemo(() => {
+  const timeOptions = useMemo(() => {
     const options: { value: string; label: string }[] = [];
     for (let h = 0; h < 24; h++) {
       for (let m = 0; m < 60; m += 15) {
@@ -112,51 +123,78 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const [isCreating, setIsCreating] = useState(false);
   const [eventTitle, setEventTitle] = useState<string>('');
 
+  // Fetch event data when in edit mode
+  useEffect(() => {
+    if (isEditMode && id && !currentEvent) {
+      const fetchEventData = async () => {
+        try {
+          setIsLoadingEvent(true);
+          const event = await getEvent(parseInt(id));
+          setCurrentEvent(event);
+        } catch (error) {
+          console.error('Failed to fetch event:', error);
+          navigate('/events');
+        } finally {
+          setIsLoadingEvent(false);
+        }
+      };
+      fetchEventData();
+    }
+  }, [isEditMode, id, currentEvent, navigate]);
+
   // Initialize form with existing event data if editing
-  React.useEffect(() => {
-    if (editEvent && isEditing) {
-      setEventTitle(editEvent.title);
-      
-      // Set venue if exists
-      if (editEvent.venue_id) {
-        // You would need to fetch the venue details here
-        // For now, we'll set a placeholder
-        setSelectedVenue({
-          id: editEvent.venue_id,
-          name: 'Loading...',
-          formatted_address: 'Loading...'
-        } as Venue);
-      }
+  useEffect(() => {
+    const loadEventData = async () => {
+      const eventToUse = currentEvent || editEvent;
+      if (eventToUse && (isEditMode || isEditing)) {
+        setEventTitle(eventToUse.title);
+        
+        // Set venue if exists
+        if (eventToUse.venue_id) {
+          // Fetch the actual venue details
+          try {
+            const venue = await venuesApi.getById(eventToUse.venue_id);
+            setSelectedVenue(venue);
+          } catch (error) {
+            console.error('Failed to load venue:', error);
+            // Fallback to placeholder if venue fetch fails
+            setSelectedVenue({
+              id: eventToUse.venue_id,
+              name: 'Venue not found',
+              formatted_address: 'Address unavailable'
+            } as Venue);
+          }
+        }
       
       // Set check-in details
-      if (editEvent.check_in_instructions) {
-        setCheckInText(editEvent.check_in_instructions);
+      if (eventToUse.check_in_instructions) {
+        setCheckInText(eventToUse.check_in_instructions);
         setCheckInEdited(true);
       }
-      if (editEvent.supervisor_name) {
-        setSelectedSupervisor(editEvent.supervisor_name);
+      if (eventToUse.supervisor_name) {
+        setSelectedSupervisor(eventToUse.supervisor_name);
       }
-      if (editEvent.supervisor_phone) {
-        setPhoneNumber(editEvent.supervisor_phone);
+      if (eventToUse.supervisor_phone) {
+        setPhoneNumber(eventToUse.supervisor_phone);
       }
       
       // Set schedule if exists
-      if (editEvent.schedule) {
-        const startDate = new Date(editEvent.schedule.start_time_utc);
+      if (eventToUse.schedule) {
+        const startDate = new Date(eventToUse.schedule.start_time_utc);
         setSelectedDate(startDate);
         setStartTime(startDate.toTimeString().slice(0, 5));
         
-        const endDate = new Date(editEvent.schedule.end_time_utc);
+        const endDate = new Date(eventToUse.schedule.end_time_utc);
         setEndTime(endDate.toTimeString().slice(0, 5));
         
-        if (editEvent.schedule.break_minutes) {
-          setBreakMinutes(editEvent.schedule.break_minutes);
+        if (eventToUse.schedule.break_minutes) {
+          setBreakMinutes(eventToUse.schedule.break_minutes);
         }
       }
       
       // Set skill requirements if exist
-      if (editEvent.skill_requirements && editEvent.skill_requirements.length > 0) {
-        const skills: SkillDetail[] = editEvent.skill_requirements.map(req => ({
+      if (eventToUse.skill_requirements && eventToUse.skill_requirements.length > 0) {
+        const skills: SkillDetail[] = eventToUse.skill_requirements.map(req => ({
           name: req.skill_name,
           icon: getSkillIcon(req.skill_name),
           neededWorkers: req.needed_workers,
@@ -169,8 +207,11 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
       
       // Mark all steps as completed for editing
       setCompletedSteps([0, 1, 2, 3]);
-    }
-  }, [editEvent, isEditing]);
+      }
+    };
+    
+    loadEventData();
+  }, [currentEvent, editEvent, isEditMode, isEditing]);
 
   const getSkillIcon = (skillName: string): string => {
     const skillIconMap: { [key: string]: string } = {
@@ -272,9 +313,12 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   };
 
   const handleContinue = async () => {
-    // Check if at least one skill is selected with needed workers > 0
-    const hasValidSkills = selectedSkillDetails.some(skill => skill.neededWorkers > 0);
-    if (!hasValidSkills) return;
+    console.log('🔄 handleContinue called:', {
+      currentStepIndex,
+      stepsLength: steps.length,
+      isLastStep: currentStepIndex === steps.length - 1,
+      canContinue
+    });
 
     // Mark current step as completed
     if (!completedSteps.includes(currentStepIndex)) {
@@ -283,6 +327,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
 
     // If this is the last step (Event Summary), create the event
     if (currentStepIndex === steps.length - 1) {
+      console.log('🎯 Last step - calling handleCreateEvent');
       await handleCreateEvent();
       return;
     }
@@ -293,8 +338,41 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     }
   };
 
+  const handleBack = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  };
+
   const handleCreateEvent = async () => {
     if (isCreating) return;
+    
+    // Validate required fields
+    if (!selectedVenue) {
+      showError('Please select a venue before creating the event.');
+      return;
+    }
+    
+    if (!eventTitle || eventTitle.trim() === '') {
+      showError('Please enter an event title.');
+      return;
+    }
+    
+    if (selectedSkillDetails.length === 0) {
+      showError('Please add at least one skill requirement.');
+      return;
+    }
+    
+    console.log('🚀 Creating event with data:', {
+      eventTitle,
+      selectedVenue,
+      selectedDate,
+      startTime,
+      endTime,
+      selectedSkillDetails,
+      isEditMode,
+      isEditing
+    });
     
     setIsCreating(true);
     try {
@@ -307,30 +385,39 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         certification_name: skill.certification || undefined
       }));
 
+      // Build schedule safely, support overnight end times
+      const eventDateISO = selectedDate.toISOString().split('T')[0];
+      const start = new Date(`${eventDateISO}T${startTime}:00.000Z`);
+      let end = new Date(`${eventDateISO}T${endTime}:00.000Z`);
+      if (end <= start) {
+        // Treat as overnight event (ends next day)
+        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+      }
+
       // Create schedule data
       const schedule: EventSchedule = {
-        start_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${startTime}:00.000Z`).toISOString(),
-        end_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${endTime}:00.000Z`).toISOString(),
+        start_time_utc: start.toISOString(),
+        end_time_utc: end.toISOString(),
         break_minutes: breakMinutes
       };
 
       // Create event data
       const eventData = {
         title: eventTitle || 'New Event',
-        status: editEvent?.status || 'draft' as const, // Create as draft first
+        status: (isEditMode || isEditing) ? (editEvent?.status || 'draft') : 'published' as const, // Auto-publish new events
           venue_id: selectedVenue?.id,
           check_in_instructions: checkInText,
           supervisor_name: selectedSupervisor,
           supervisor_phone: phoneNumber,
           skill_requirements: skillRequirements,
           schedule: schedule,
-          auto_publish: !isEditing // Auto-publish new events, not edits
+          auto_publish: !isEditMode // Auto-publish new events, not edits
       };
 
       let response;
-      if (isEditing && editEvent) {
+      if ((isEditMode || isEditing) && currentEvent) {
         // Update existing event
-        response = await updateEvent(editEvent.id!, eventData);
+        response = await updateEvent(currentEvent.id!, eventData);
         console.log('Event updated successfully:', response);
       } else {
         // Create new event
@@ -338,11 +425,17 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         console.log('Event created and published successfully:', response);
       }
       
-      // Navigate back to events list
-      navigate('/events');
-    } catch (error) {
+      // If created and published, navigate to Active tab and auto-expand
+      if (!isEditMode && eventData.status === 'published' && response?.id) {
+        navigate(`/events?tab=active&event_id=${response.id}`);
+      } else {
+        // Fallback: navigate to events list
+        navigate('/events');
+      }
+    } catch (error: any) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
-      // You might want to show an error message to the user here
+      const errorMessage = error?.message || 'Failed to create event. Please try again.';
+      showError(errorMessage);
     } finally {
       setIsCreating(false);
     }
@@ -350,6 +443,26 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
 
   const handleSaveDraft = async () => {
     if (isSavingDraft) return;
+    
+    // Validate required fields for draft
+    if (!eventTitle || eventTitle.trim() === '') {
+      showError('Please enter an event title.');
+      return;
+    }
+    
+    if (selectedSkillDetails.length === 0) {
+      showError('Please add at least one skill requirement.');
+      return;
+    }
+    
+    // Build schedule safely, support overnight end times
+    const eventDateISO = selectedDate.toISOString().split('T')[0];
+    const start = new Date(`${eventDateISO}T${startTime}:00.000Z`);
+    let end = new Date(`${eventDateISO}T${endTime}:00.000Z`);
+    if (end <= start) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
+
     setIsSavingDraft(true);
     try {
       const skillRequirements: EventSkillRequirement[] = selectedSkillDetails.map(skill => ({
@@ -361,8 +474,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
       }));
 
       const schedule: EventSchedule = {
-        start_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${startTime}:00.000Z`).toISOString(),
-        end_time_utc: new Date(`${selectedDate.toISOString().split('T')[0]}T${endTime}:00.000Z`).toISOString(),
+        start_time_utc: start.toISOString(),
+        end_time_utc: end.toISOString(),
         break_minutes: breakMinutes
       };
 
@@ -378,15 +491,17 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         auto_publish: false
       };
 
-      if (isEditing && editEvent) {
-        await updateEvent(editEvent.id!, eventData);
+      if ((isEditMode || isEditing) && currentEvent) {
+        await updateEvent(currentEvent.id!, eventData);
       } else {
         await createEvent(eventData);
       }
 
       navigate('/events?tab=draft');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving draft event:', error);
+      const errorMessage = error?.message || 'Failed to save draft. Please try again.';
+      showError(errorMessage);
     } finally {
       setIsSavingDraft(false);
     }
@@ -546,10 +661,28 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0)
     : currentStepIndex === 1
     ? selectedVenue !== null
+    : currentStepIndex === 2
+    ? selectedDate && startTime && endTime
+    : currentStepIndex === 3
+    ? true // Check-in details are optional
+    : currentStepIndex === 4
+    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0) && selectedVenue !== null && selectedDate && startTime && endTime
     : true;
 
   return (
     <>
+      {/* Loading state for edit mode */}
+      {isLoadingEvent && (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading event details...</p>
+          </div>
+        </div>
+      )}
+      
+      {!isLoadingEvent && (
+        <>
         {/* Breadcrumbs */}
         <div className="flex items-center px-8 py-5">
           <div className="flex items-center gap-4">
@@ -1355,32 +1488,66 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end items-center gap-3 pt-6 mt-2 border-t border-primary-color/10">
-            <button onClick={handleCancel}
-                    className="flex justify-center items-center gap-2.5 px-6 py-2.5 rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary hover:bg-gray-50">
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveDraft}
-                disabled={!canContinue || isSavingDraft}
-                className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary border border-gray-300 bg-white ${
-                  canContinue && !isSavingDraft ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
-                }`}
-              >
-                {isSavingDraft ? 'Saving…' : 'Save as Draft'}
-              </button>
-              <button
-                onClick={handleContinue}
-                disabled={!canContinue || isCreating}
-              className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-white ${
-                canContinue && !isCreating ? 'bg-button-action hover:bg-button-action/90' : 'bg-gray-300 cursor-not-allowed'
-                }`}
-              >
-{isCreating ? (isEditing ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditing ? 'Update Event' : 'Create & Publish Event') : 'Continue')}
-              </button>
+            <div className="flex justify-between items-center gap-3 pt-6 mt-2 border-t border-primary-color/10">
+              {/* Left side - Back button */}
+              <div>
+                {currentStepIndex > 0 && (
+                  <button 
+                    onClick={handleBack}
+                    className="flex justify-center items-center gap-2.5 px-6 py-2.5 rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary border border-gray-300 bg-white hover:bg-gray-50"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Back
+                  </button>
+                )}
+              </div>
+
+              {/* Right side - Cancel, Save as Draft, Continue/Publish */}
+              <div className="flex items-center gap-3">
+                <button onClick={handleCancel}
+                        className="flex justify-center items-center gap-2.5 px-6 py-2.5 rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  
+                  {/* Show Save as Draft for new events or draft events in edit mode */}
+                  {(!isEditMode || (isEditMode && editEvent?.status === 'draft')) && (
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={!canContinue || isSavingDraft}
+                      className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-font-primary border border-gray-300 bg-white ${
+                        canContinue && !isSavingDraft ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      {isSavingDraft ? 'Saving…' : 'Save as Draft'}
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={handleContinue}
+                    disabled={!canContinue || isCreating}
+                    className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-white ${
+                      canContinue && !isCreating ? 'bg-button-action hover:bg-button-action/90' : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (editEvent?.status === 'draft' ? 'Publish Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
+                  </button>
+                </div>
             </div>
           </div>
         </div>
+        </>
+      )}
+      {/* Toast */}
+      {toast.isVisible && (
+        <Toast
+          isVisible={toast.isVisible}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, isVisible: false })}
+        />
+      )}
     </>
   );
 }
