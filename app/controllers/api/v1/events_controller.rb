@@ -365,6 +365,7 @@ class Api::V1::EventsController < Api::V1::BaseController
         id: shift.id,
         role_needed: shift.role_needed,
         capacity: shift.capacity,
+        filled_positions: shift.assignments.where(status: ['confirmed', 'assigned', 'completed']).count,
         start_time_utc: shift.start_time_utc,
         end_time_utc: shift.end_time_utc,
         status: shift.current_status,
