@@ -108,6 +108,11 @@ export function EventsPage() {
     isVisible: boolean;
     message: string;
     type: 'success' | 'error';
+    action?: {
+      label: string;
+      onClick: () => void;
+      variant?: 'primary' | 'secondary';
+    };
   }>({ isVisible: false, message: '', type: 'success' });
 
   // Publish modal state
@@ -228,8 +233,13 @@ export function EventsPage() {
         setDeleteModal({ isOpen: false, isLoading: false });
         setToast({ 
           isVisible: true, 
-          message: 'Event deleted successfully', 
-          type: 'success' 
+          message: `"${response.data.event_title}" moved to trash`, 
+          type: 'success',
+          action: {
+            label: 'Undo',
+            onClick: () => handleRestore(response.data.event_id),
+            variant: 'primary'
+          }
         });
         loadEvents();
       } else {
@@ -248,6 +258,34 @@ export function EventsPage() {
       });
     } finally {
       setDeleteModal(prev => ({ ...prev, isLoading: false }));
+    }
+  }
+
+  async function handleRestore(eventId: number) {
+    try {
+      const response = await apiClient.post(`/events/${eventId}/restore`);
+      
+      if (response.data.status === 'success') {
+        setToast({ 
+          isVisible: true, 
+          message: 'Event restored to draft', 
+          type: 'success' 
+        });
+        loadEvents();
+      } else {
+        setToast({ 
+          isVisible: true, 
+          message: response.data.message || 'Failed to restore event', 
+          type: 'error' 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to restore event:', error);
+      setToast({ 
+        isVisible: true, 
+        message: 'Failed to restore event', 
+        type: 'error' 
+      });
     }
   }
 
@@ -529,6 +567,7 @@ export function EventsPage() {
         isVisible={toast.isVisible}
         message={toast.message}
         type={toast.type}
+        action={toast.action}
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
 

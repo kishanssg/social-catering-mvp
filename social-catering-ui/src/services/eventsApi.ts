@@ -189,8 +189,22 @@ export async function deleteEvent(id: number | string) {
   const response = await apiClient.delete(`/events/${id}`);
   
   if (response.data.status === 'success') {
-    return true;
+    return {
+      success: true,
+      event_id: response.data.event_id,
+      event_title: response.data.event_title
+    };
   }
   
   throw new Error(response.data.message || 'Failed to delete event');
+}
+
+export async function restoreEvent(id: number | string) {
+  const response = await apiClient.post(`/events/${id}/restore`);
+  
+  if (response.data.status === 'success') {
+    return response.data.data;
+  }
+  
+  throw new Error(response.data.message || 'Failed to restore event');
 }

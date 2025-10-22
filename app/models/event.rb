@@ -14,7 +14,7 @@ class Event < ApplicationRecord
 
   # Validations
   validates :title, presence: true
-  validates :status, inclusion: { in: %w[draft published assigned completed] }
+  validates :status, inclusion: { in: %w[draft published assigned completed deleted] }
   validates :supervisor_phone, format: { 
     with: /\A\d{3}-\d{3}-\d{4}\z/, 
     message: "must be in format xxx-xxx-xxxx" 

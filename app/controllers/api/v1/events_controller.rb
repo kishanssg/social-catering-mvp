@@ -132,8 +132,32 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # DELETE /api/v1/events/:id
   def destroy
-    @event.destroy
-    render json: { status: 'success' }
+    # Instead of destroying, move to deleted status for potential undo
+    @event.update!(status: 'deleted')
+    render json: { 
+      status: 'success',
+      message: 'Event moved to trash',
+      event_id: @event.id,
+      event_title: @event.title
+    }
+  end
+
+  # POST /api/v1/events/:id/restore
+  # Restore a deleted event back to draft status
+  def restore
+    unless @event.status == 'deleted'
+      return render json: {
+        status: 'error',
+        message: 'Event is not deleted and cannot be restored'
+      }, status: :unprocessable_entity
+    end
+
+    @event.update!(status: 'draft')
+    render json: {
+      status: 'success',
+      message: 'Event restored to draft',
+      data: serialize_event(@event.reload)
+    }
   end
 
   # POST /api/v1/events/:id/publish

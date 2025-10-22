@@ -59,6 +59,7 @@ Rails.application.routes.draw do
           patch :update_status
           post :publish
           post :complete
+          post :restore
         end
         resources :event_skill_requirements, only: [:create, :update, :destroy]
       end

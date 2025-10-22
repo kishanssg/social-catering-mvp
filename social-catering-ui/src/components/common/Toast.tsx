@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle, XCircle, X } from 'lucide-react';
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
 interface ToastProps {
   message: string;
   type: 'success' | 'error';
   isVisible: boolean;
   onClose: () => void;
   duration?: number;
+  action?: ToastAction;
 }
 
 export function Toast({ 
@@ -15,7 +22,8 @@ export function Toast({
   type, 
   isVisible, 
   onClose, 
-  duration = 4000 
+  duration = 4000,
+  action
 }: ToastProps) {
   const [shouldRender, setShouldRender] = useState(isVisible);
 
@@ -66,14 +74,32 @@ export function Toast({
           }`} />
         </div>
         <p className="text-sm font-semibold font-manrope flex-1 leading-relaxed">{message}</p>
-        <button
-          onClick={onClose}
-          className={`flex-shrink-0 p-1.5 rounded-lg hover:bg-black/10 transition-all duration-200 ${
-            isSuccess ? 'text-green-600 hover:text-green-700 hover:bg-green-100' : 'text-red-600 hover:text-red-700 hover:bg-red-100'
-          }`}
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {action && (
+            <button
+              onClick={action.onClick}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                action.variant === 'primary'
+                  ? isSuccess 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700'
+                  : isSuccess
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-red-100 text-red-700 hover:bg-red-200'
+              }`}
+            >
+              {action.label}
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className={`flex-shrink-0 p-1.5 rounded-lg hover:bg-black/10 transition-all duration-200 ${
+              isSuccess ? 'text-green-600 hover:text-green-700 hover:bg-green-100' : 'text-red-600 hover:text-red-700 hover:bg-red-100'
+            }`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       
       <style jsx>{`
