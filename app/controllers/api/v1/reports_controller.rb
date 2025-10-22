@@ -47,6 +47,29 @@ module Api
                   disposition: 'attachment'
       end
       
+      # GET /api/v1/reports/worker_hours
+      # Aggregate hours worked per worker for the selected period
+      def worker_hours
+        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
+        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        
+        # Only export completed/approved assignments from past shifts
+        assignments = Assignment.includes(:worker, shift: [:event])
+                           .for_date_range(start_date, end_date)
+                           .where(status: ['completed', 'approved'])
+                           .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
+        
+        # Filter by worker if provided
+        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        
+        csv_data = generate_worker_hours_csv(assignments)
+        
+        send_data csv_data,
+                  filename: "worker_hours_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
+                  type: 'text/csv',
+                  disposition: 'attachment'
+      end
+      
       # GET /api/v1/reports/event_summary
       # Event staffing summary report
       def event_summary
@@ -173,6 +196,49 @@ module Api
               total_hours.round(2),
               effective_rate.round(2),
               total_pay.round(2)
+            ]
+          end
+        end
+      end
+      
+      def generate_worker_hours_csv(assignments)
+        require 'csv'
+        
+        # Group assignments by worker and aggregate hours
+        worker_hours = assignments.group_by(&:worker_id).map do |worker_id, worker_assignments|
+          worker = worker_assignments.first.worker
+          total_hours = worker_assignments.sum(&:hours_worked)
+          total_pay = worker_assignments.sum { |a| (a.hours_worked || 0) * (a.hourly_rate || 15.0) }
+          assignment_count = worker_assignments.count
+          
+          [worker, total_hours, total_pay, assignment_count]
+        end.sort_by { |worker, hours, pay, count| -hours } # Sort by hours descending
+        
+        CSV.generate(headers: true) do |csv|
+          # Headers for worker hours report
+          csv << [
+            'Worker Name',
+            'Total Hours',
+            'Total Assignments',
+            'Average Hours per Assignment',
+            'Total Pay',
+            'Average Rate',
+            'Skills'
+          ]
+          
+          # Data rows
+          worker_hours.each do |worker, total_hours, total_pay, assignment_count|
+            avg_hours = assignment_count > 0 ? (total_hours / assignment_count).round(2) : 0
+            avg_rate = total_hours > 0 ? (total_pay / total_hours).round(2) : 0
+            
+            csv << [
+              "#{worker.first_name} #{worker.last_name}",
+              total_hours.round(2),
+              assignment_count,
+              avg_hours,
+              total_pay.round(2),
+              avg_rate,
+              worker.skills_json&.join(', ') || ''
             ]
           end
         end

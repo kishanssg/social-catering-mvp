@@ -96,6 +96,7 @@ Rails.application.routes.draw do
       namespace :reports do
         get :timesheet
         get :payroll
+        get :worker_hours
         get :event_summary
       end
     end

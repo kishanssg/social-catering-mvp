@@ -141,13 +141,13 @@ export function ReportsPage() {
           break;
           
         case 'worker_hours':
-          endpoint = `/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          endpoint = `/reports/worker_hours?start_date=${dateRange.start}&end_date=${dateRange.end}`;
           if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
           if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
           break;
           
         case 'event_summary':
-          endpoint = `/reports/timesheet?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+          endpoint = `/reports/event_summary?start_date=${dateRange.start}&end_date=${dateRange.end}`;
           if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
           break;
       }
