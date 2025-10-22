@@ -150,19 +150,27 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         setEventTitle(eventToUse.title);
         
         // Set venue if exists
-        if (eventToUse.venue_id) {
-          // Fetch the actual venue details
-          try {
-            const venue = await venuesApi.getById(eventToUse.venue_id);
-            setSelectedVenue(venue);
-          } catch (error) {
-            console.error('Failed to load venue:', error);
-            // Fallback to placeholder if venue fetch fails
-            setSelectedVenue({
-              id: eventToUse.venue_id,
-              name: 'Venue not found',
-              formatted_address: 'Address unavailable'
-            } as Venue);
+        if (eventToUse.venue_id || eventToUse.venue) {
+          const venueId = eventToUse.venue_id || eventToUse.venue?.id;
+          if (venueId) {
+            // Fetch the actual venue details
+            try {
+              const venue = await venuesApi.getById(venueId);
+              setSelectedVenue(venue);
+            } catch (error) {
+              console.error('Failed to load venue:', error);
+              // Fallback to venue data from event if available
+              if (eventToUse.venue) {
+                setSelectedVenue(eventToUse.venue);
+              } else {
+                // Fallback to placeholder if venue fetch fails
+                setSelectedVenue({
+                  id: venueId,
+                  name: 'Venue not found',
+                  formatted_address: 'Address unavailable'
+                } as Venue);
+              }
+            }
           }
         }
       

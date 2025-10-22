@@ -240,6 +240,7 @@ class Api::V1::EventsController < Api::V1::BaseController
       title: event.title,
       status: event.status,
       staffing_status: event.staffing_status,
+      venue_id: event.venue_id,
       venue: event.venue ? {
         id: event.venue.id,
         name: event.venue.name,
