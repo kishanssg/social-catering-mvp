@@ -47,12 +47,6 @@ Rails.application.routes.draw do
         end
       end
       
-      # Reports
-      namespace :reports do
-        get 'timesheet', to: 'timesheets#export'
-        get 'timesheet/preview', to: 'timesheets#preview'
-      end
-      
       # Legacy exports (keep for backward compatibility)
       get "exports/timesheet", to: "exports#timesheet"
       

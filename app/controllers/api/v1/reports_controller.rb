@@ -10,7 +10,7 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Only export completed/approved assignments from past shifts
-        assignments = Assignment.includes(worker: [], shift: [:event, :event_schedule])
+        assignments = Assignment.includes(worker: [], shift: [event: :event_schedule])
                            .for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
                            .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
@@ -20,6 +20,11 @@ module Api
         
         # Filter by worker if provided
         assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        
+        # Filter by skill if provided
+        if params[:skill_name].present?
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+        end
         
         csv_data = generate_timesheet_csv(assignments)
         
@@ -38,6 +43,17 @@ module Api
         # Only export completed/approved assignments (regardless of shift timing)
         assignments = Assignment.for_date_range(start_date, end_date)
                            .where(status: ['completed', 'approved'])
+        
+        # Filter by event if provided
+        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
+        
+        # Filter by worker if provided
+        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        
+        # Filter by skill if provided
+        if params[:skill_name].present?
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+        end
         
         csv_data = generate_payroll_csv(assignments)
         
@@ -61,6 +77,11 @@ module Api
         
         # Filter by worker if provided
         assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        
+        # Filter by skill if provided
+        if params[:skill_name].present?
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+        end
         
         csv_data = generate_worker_hours_csv(assignments)
         
