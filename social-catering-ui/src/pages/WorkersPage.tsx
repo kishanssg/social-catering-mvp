@@ -570,9 +570,9 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                   end_time_utc: representativeShift.end_time_utc,
                   location: event.venue?.formatted_address || 'Location TBD',
                   current_status: representativeShift.status,
-                  // Add metadata about available positions only
-                  total_positions: availableShifts.length,
-                  filled_positions: availableShifts.reduce((sum, s) => sum + (s.filled_positions || 0), 0),
+                  // Add metadata about positions
+                  total_positions: roleGroup.total_shifts,
+                  filled_positions: roleGroup.filled_shifts,
                   available_positions: availableShifts.reduce((sum, s) => sum + (s.capacity - (s.filled_positions || 0)), 0),
                   all_shift_ids: allShiftIds
                 });
