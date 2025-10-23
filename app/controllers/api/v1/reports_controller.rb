@@ -243,14 +243,12 @@ module Api
             'Total Assignments',
             'Average Hours per Assignment',
             'Total Pay',
-            'Average Rate',
             'Skills'
           ]
           
           # Data rows
           worker_hours.each do |worker, total_hours, total_pay, assignment_count|
             avg_hours = assignment_count > 0 ? (total_hours / assignment_count).round(2) : 0
-            avg_rate = total_hours > 0 ? (total_pay / total_hours).round(2) : 0
             
             csv << [
               "#{worker.first_name} #{worker.last_name}",
@@ -258,7 +256,6 @@ module Api
               assignment_count,
               avg_hours,
               total_pay.round(2),
-              avg_rate,
               worker.skills_json&.join(', ') || ''
             ]
           end
