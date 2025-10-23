@@ -95,6 +95,7 @@ class Assignment < ApplicationRecord
     duration_from_clock_times - (break_duration_minutes || 0) / 60.0
   end
 
+  after_create :set_default_hours
   after_create :update_event_counts
   after_destroy :update_event_counts
   after_update :update_event_counts, if: :saved_change_to_hours_worked?
