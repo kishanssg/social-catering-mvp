@@ -6,16 +6,20 @@ class Api::V1::EventsController < Api::V1::BaseController
   # Supports: ?tab=draft|active|past
   def index
     # For staging compatibility - map shifts to events
-    if Event.table_exists?
+    begin
       events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
                               shifts: { assignments: :worker })
-    else
-      # Staging environment - use shifts as events
-      shifts = Shift.includes(:location, assignments: :worker)
-      return render json: {
-        status: 'success',
-        data: shifts.map { |shift| serialize_shift_as_event(shift) }
-      }
+    rescue ActiveRecord::StatementInvalid => e
+      if e.message.include?('relation "events" does not exist')
+        # Staging environment - use shifts as events
+        shifts = Shift.includes(:location, assignments: :worker)
+        return render json: {
+          status: 'success',
+          data: shifts.map { |shift| serialize_shift_as_event(shift) }
+        }
+      else
+        raise e
+      end
     end
     
     # Filter by tab (support 'completed' alias for 'past')
@@ -258,13 +262,17 @@ class Api::V1::EventsController < Api::V1::BaseController
   private
 
   def set_event
-    if Event.table_exists?
+    begin
       @event = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
                              shifts: { assignments: :worker })
                     .find(params[:id])
-    else
-      # Staging environment - use shifts as events
-      @event = Shift.includes(:location, assignments: :worker).find(params[:id])
+    rescue ActiveRecord::StatementInvalid => e
+      if e.message.include?('relation "events" does not exist')
+        # Staging environment - use shifts as events
+        @event = Shift.includes(:location, assignments: :worker).find(params[:id])
+      else
+        raise e
+      end
     end
   end
 
