@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_25_082842) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_25_192654) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -280,6 +280,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_25_082842) do
     t.string "address_line1"
     t.string "address_line2"
     t.string "profile_photo_url"
+    t.decimal "hourly_rate", precision: 8, scale: 2
     t.index ["active", "created_at"], name: "index_workers_on_active_and_created"
     t.index ["active"], name: "index_workers_on_active"
     t.index ["email"], name: "index_workers_on_email", unique: true, where: "(email IS NOT NULL)"
