@@ -107,7 +107,8 @@ Rails.application.routes.draw do
     !req.path.start_with?("/assets") &&
     !req.path.start_with?("/favicon") &&
     !req.path.start_with?("/robots") &&
-    !req.path.start_with?("/manifest")
+    !req.path.start_with?("/manifest") &&
+    !req.path.match?(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)
   }
 
   # Defines the root path route ("/")
