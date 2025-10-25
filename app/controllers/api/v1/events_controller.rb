@@ -5,8 +5,18 @@ class Api::V1::EventsController < Api::V1::BaseController
   # GET /api/v1/events
   # Supports: ?tab=draft|active|past
   def index
-    events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
-                            shifts: { assignments: :worker })
+    # For staging compatibility - map shifts to events
+    if Event.table_exists?
+      events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
+                              shifts: { assignments: :worker })
+    else
+      # Staging environment - use shifts as events
+      shifts = Shift.includes(:location, assignments: :worker)
+      return render json: {
+        status: 'success',
+        data: shifts.map { |shift| serialize_shift_as_event(shift) }
+      }
+    end
     
     # Filter by tab (support 'completed' alias for 'past')
     tab_param = params[:tab] == 'completed' ? 'past' : params[:tab]
@@ -248,9 +258,14 @@ class Api::V1::EventsController < Api::V1::BaseController
   private
 
   def set_event
-    @event = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
-                           shifts: { assignments: :worker })
-                  .find(params[:id])
+    if Event.table_exists?
+      @event = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
+                             shifts: { assignments: :worker })
+                    .find(params[:id])
+    else
+      # Staging environment - use shifts as events
+      @event = Shift.includes(:location, assignments: :worker).find(params[:id])
+    end
   end
 
   def event_params
@@ -425,5 +440,35 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     Rails.logger.info "Grouped result: #{grouped.keys}"
     grouped.values
+  end
+
+  def serialize_shift_as_event(shift)
+    {
+      id: shift.id,
+      title: shift.client_name,
+      status: shift.status,
+      staffing_status: shift.staffing_progress[:status],
+      venue_id: shift.location_id,
+      venue: shift.location ? {
+        id: shift.location.id,
+        name: shift.location.name,
+        formatted_address: "#{shift.location.address}, #{shift.location.city}, #{shift.location.state}"
+      } : nil,
+      schedule: {
+        start_time_utc: shift.start_time_utc,
+        end_time_utc: shift.end_time_utc,
+        break_minutes: 0
+      },
+      total_workers_needed: shift.capacity,
+      assigned_workers_count: shift.assignments.where(status: ['assigned', 'confirmed', 'completed']).count,
+      unfilled_roles_count: shift.capacity - shift.assignments.where(status: ['assigned', 'confirmed', 'completed']).count,
+      staffing_percentage: shift.staffing_progress[:percentage],
+      staffing_summary: shift.staffing_progress[:summary],
+      shifts_count: 1,
+      created_at: shift.created_at_utc,
+      role_needed: shift.role_needed,
+      pay_rate: shift.pay_rate,
+      notes: shift.notes
+    }
   end
 end
