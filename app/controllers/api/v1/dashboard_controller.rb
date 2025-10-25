@@ -2,22 +2,20 @@ module Api
   module V1
     class DashboardController < BaseController
       def index
-        # Calculate basic stats
-        # Calculate active events (published events that haven't ended yet)
-        active_events = Event.published
-          .joins(:event_schedule)
-          .where('event_schedules.end_time_utc > ?', Time.current)
+        # Calculate basic stats using Shifts instead of Events
+        # Calculate active shifts (published shifts that haven't ended yet)
+        active_shifts = Shift.where(status: 'published')
+          .where('end_time_utc > ?', Time.current)
         
-        # Calculate past events (published events that have ended)
-        past_events = Event.published
-          .joins(:event_schedule)
-          .where('event_schedules.end_time_utc <= ?', Time.current)
+        # Calculate past shifts (published shifts that have ended)
+        past_shifts = Shift.where(status: 'published')
+          .where('end_time_utc <= ?', Time.current)
         
         stats = {
-          draft_events: Event.draft.count,
-          published_events: active_events.count,  # Show active events, not all published
-          completed_events: past_events.count,    # Show all past events, not just manually completed
-          total_workers: Worker.active.count,
+          draft_events: Shift.where(status: 'draft').count,
+          published_events: active_shifts.count,  # Show active shifts, not all published
+          completed_events: past_shifts.count,    # Show all past shifts, not just manually completed
+          total_workers: Worker.where(active: true).count,
           gaps_to_fill: 0
         }
 
@@ -25,29 +23,33 @@ module Api
         current_month_start = Date.current.beginning_of_month
         current_month_end = Date.current.end_of_month
         
-        current_month_events = Event.published
-          .joins(:event_schedule)
-          .where('event_schedules.start_time_utc BETWEEN ? AND ?', 
+        current_month_shifts = Shift.where(status: 'published')
+          .where('start_time_utc BETWEEN ? AND ?', 
                  current_month_start.beginning_of_day, 
                  current_month_end.end_of_day)
         
-        stats[:gaps_to_fill] = current_month_events.sum(&:unfilled_roles_count)
+        # Calculate unfilled roles (capacity - assigned_count)
+        stats[:gaps_to_fill] = current_month_shifts.sum do |shift|
+          assigned_count = Assignment.where(shift_id: shift.id, status: 'assigned').count
+          [shift.capacity - assigned_count, 0].max
+        end
 
-        # Get urgent events (next 7 days with unfilled shifts)
-        urgent_events = Event.published
-          .joins(:event_schedule)
-          .where('event_schedules.start_time_utc BETWEEN ? AND ?',
+        # Get urgent shifts (next 7 days with unfilled capacity)
+        urgent_shifts = Shift.where(status: 'published')
+          .where('start_time_utc BETWEEN ? AND ?',
                  Time.current, 7.days.from_now)
-          .select { |e| e.has_unfilled_shifts? rescue false }
+          .select do |shift|
+            assigned_count = Assignment.where(shift_id: shift.id, status: 'assigned').count
+            assigned_count < shift.capacity
+          end
 
         # Get calendar data (current month)
         today = Date.today
         month_start = today.beginning_of_month
         month_end = today.end_of_month
         
-        month_events = Event.published
-          .joins(:event_schedule)
-          .where('event_schedules.start_time_utc BETWEEN ? AND ?',
+        month_shifts = Shift.where(status: 'published')
+          .where('start_time_utc BETWEEN ? AND ?',
                  month_start, month_end + 1.day)
 
         render_success({
@@ -56,8 +58,8 @@ module Api
           completed_events: stats[:completed_events],
           total_workers: stats[:total_workers],
           gaps_to_fill: stats[:gaps_to_fill],
-          urgent_events: urgent_events.count,
-          month_events: month_events.count
+          urgent_events: urgent_shifts.count,
+          month_events: month_shifts.count
         })
       end
     end
