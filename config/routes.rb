@@ -101,15 +101,13 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  # Serve React app for all non-API routes (public, no auth)
-  get "*path", to: "home#index", constraints: lambda { |req| 
-    !req.path.start_with?("/api") && 
-    !req.path.start_with?("/assets") &&
-    !req.path.start_with?("/favicon") &&
-    !req.path.start_with?("/robots") &&
-    !req.path.start_with?("/manifest") &&
-    !req.path.match?(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)
-  }
+  # Serve SPA for HTML paths only, never for real files
+  get '*path', to: 'home#index',
+    constraints: ->(req) {
+      req.format.html? &&
+      !req.path.match?(/\.(?:js|css|map|png|jpe?g|gif|svg|ico|json|txt|woff2?|ttf)$/) &&
+      !req.path.start_with?('/assets/')
+    }
 
   # Defines the root path route ("/")
   root "home#index"

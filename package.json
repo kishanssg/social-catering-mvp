@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "Social Catering Workforce Management MVP",
   "scripts": {
-    "build": "echo 'Using pre-built assets'",
-    "postinstall": "echo 'Skipping frontend build - using pre-built assets'"
+    "heroku-postbuild": "npm --prefix ./social-catering-ui ci && npm --prefix ./social-catering-ui run build && cp ./social-catering-ui/public/assets/index.html ./public/index.html"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -16,7 +16,8 @@ Rails.application.configure do
   config.action_controller.perform_caching = true
 
   # Enable serving of static files from the public directory
-  config.public_file_server.enabled = true
+  config.public_file_server.enabled = ENV['RAILS_SERVE_STATIC_FILES'].present? || true
+  config.assets.compile = false  # we are NOT using Sprockets for the SPA bundle
 
   # Cache assets for far-future expiry since they are all digest stamped.
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
