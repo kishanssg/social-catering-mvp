@@ -4,8 +4,58 @@ module Api
       before_action :set_worker, only: [:show, :update, :destroy]
 
       def index
+        # Start with all workers
         workers = Worker.includes(worker_certifications: :certification)
-        render json: { status: 'success', data: workers.map { |w| serialize_worker(w) } }
+        
+        # Apply search filter (name, email, phone)
+        if params[:search].present?
+          search_term = "%#{params[:search].downcase}%"
+          workers = workers.where(
+            "LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?",
+            search_term, search_term, search_term, search_term
+          )
+        end
+        
+        # Apply skills filter (must have ALL selected skills)
+        if params[:skills].present?
+          skills = params[:skills].is_a?(Array) ? params[:skills] : [params[:skills]]
+          skills.each do |skill|
+            workers = workers.where("skills_json @> ?", [skill].to_json)
+          end
+        end
+        
+        # Apply status filter
+        if params[:status].present?
+          case params[:status].downcase
+          when 'active'
+            workers = workers.where(active: true)
+          when 'inactive'
+            workers = workers.where(active: false)
+          end
+        end
+        
+        # Apply certification filter
+        if params[:certification_id].present?
+          certified_worker_ids = WorkerCertification
+            .where(certification_id: params[:certification_id])
+            .where("expires_at_utc >= ?", Time.current)
+            .pluck(:worker_id)
+          workers = workers.where(id: certified_worker_ids)
+        end
+        
+        # Order by name
+        workers = workers.order(:first_name, :last_name)
+        
+        render json: { 
+          status: 'success', 
+          data: workers.map { |w| serialize_worker(w) },
+          meta: {
+            total: workers.count,
+            search: params[:search],
+            skills: params[:skills],
+            status: params[:status]
+          }
+        }
       end
 
       def show
@@ -103,6 +153,7 @@ module Api
           :address_line2,
           :notes,
           :active,
+          :hourly_rate,
           skills_json: [],
           certification_ids: [],
           worker_certifications_attributes: [:id, :certification_id, :expires_at_utc, :_destroy]
@@ -125,17 +176,20 @@ module Api
           address_line1: worker.try(:address_line1),
           address_line2: worker.try(:address_line2),
           active: worker.active,
-          skills_json: worker.try(:skills_json),
+          hourly_rate: worker.hourly_rate,
+          skills_json: worker.try(:skills_json) || [],
           certifications: worker.worker_certifications.includes(:certification).map { |wc|
             {
               id: wc.certification.id,
               name: wc.certification.name,
-              expires_at_utc: wc.expires_at_utc
+              expires_at_utc: wc.expires_at_utc,
+              expired: wc.expires_at_utc && wc.expires_at_utc < Time.current
             }
           },
           profile_photo_url: worker.profile_photo_url,
           profile_photo_thumb_url: worker.profile_photo_thumb_url,
-          created_at: worker.created_at
+          created_at: worker.created_at,
+          updated_at: worker.updated_at
         }
       end
     end

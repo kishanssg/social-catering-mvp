@@ -91,10 +91,17 @@ class Shift < ApplicationRecord
     return false if fully_staffed?
     return false unless worker
 
-    # Overlap check
-    conflicting = worker.shifts
-                        .where.not(id: id)
-                        .where("start_time_utc < ? AND end_time_utc > ?", end_time_utc, start_time_utc)
+    # Check if worker has any conflicting assignments
+    # Two shifts overlap if: shift1_start < shift2_end AND shift1_end > shift2_start
+    conflicting = worker.assignments
+                        .joins(:shift)
+                        .where.not(shifts: { id: id })
+                        .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                        .where(
+                          "shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
+                          end_time_utc,   # This shift's end time
+                          start_time_utc  # This shift's start time
+                        )
     return false if conflicting.exists?
 
     # Required skill check if this shift is tied to a job requirement
@@ -112,15 +119,27 @@ class Shift < ApplicationRecord
   end
 
   def conflict_reason(worker)
-    return "Shift is fully staffed" if fully_staffed?
+    return "Shift is fully staffed (#{capacity} workers)" if fully_staffed?
     return "No worker specified" unless worker
 
-    conflicting = worker.shifts
-                        .where.not(id: id)
-                        .where("start_time_utc < ? AND end_time_utc > ?", start_time_utc, end_time_utc)
-                        .first
-    if conflicting
-      return "Worker already assigned to '#{conflicting.client_name}' at #{conflicting.start_time_utc.strftime('%I:%M %p')}"
+    # Find conflicting assignments (not just shifts, to include all assigned shifts)
+    conflicting_assignment = worker.assignments
+                                 .joins(:shift)
+                                 .where.not(shifts: { id: id })
+                                 .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                                 .where(
+                                   "shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
+                                   end_time_utc,
+                                   start_time_utc
+                                 )
+                                 .includes(:shift)
+                                 .first
+
+    if conflicting_assignment
+      conflicting_shift = conflicting_assignment.shift
+      start_time = conflicting_shift.start_time_utc.strftime('%I:%M %p')
+      end_time = conflicting_shift.end_time_utc.strftime('%I:%M %p')
+      return "Worker has conflicting shift '#{conflicting_shift.client_name}' (#{start_time} - #{end_time})"
     end
 
     if skill_requirement&.skill_name.present?

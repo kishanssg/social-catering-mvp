@@ -118,23 +118,45 @@ class Assignment < ApplicationRecord
 
   def shift_not_at_capacity
     return if shift.nil?
-    return if shift.id && shift.assignments.where.not(id: id).count < shift.capacity
-
-    errors.add(:base, "Shift is already at full capacity")
+    
+    # Count only active assignments (exclude cancelled and no-show)
+    active_assignments_count = shift.assignments
+                                    .where.not(id: id)  # Exclude current assignment if updating
+                                    .where.not(status: ['cancelled', 'no_show'])
+                                    .count
+    
+    # Check if adding this assignment would exceed capacity
+    if active_assignments_count >= shift.capacity
+      errors.add(:base, "Shift is already at full capacity (#{active_assignments_count}/#{shift.capacity} workers assigned)")
+    end
   end
 
   def worker_has_required_skills
     return if shift.nil? || worker.nil?
-    return unless shift.skill_requirement&.skill_name.present?
-
-    required_skill = shift.skill_requirement.skill_name
+    
+    # Determine required skill based on shift type
+    required_skill = nil
+    
+    if shift.skill_requirement&.skill_name.present?
+      # Event-based shift with specific skill requirement
+      required_skill = shift.skill_requirement.skill_name
+    elsif shift.role_needed.present?
+      # Standalone shift with role_needed
+      required_skill = shift.role_needed
+    end
+    
+    return if required_skill.blank?
+    
+    # Get worker's skills
     worker_skills = case worker.skills_json
                     when String then JSON.parse(worker.skills_json) rescue []
                     when Array then worker.skills_json
                     else []
                     end
+    
+    # Check if worker has the required skill
     unless worker_skills.include?(required_skill)
-      errors.add(:base, "Worker does not have required skill: #{required_skill}")
+      errors.add(:base, "Worker does not have required skill: #{required_skill}. Worker's skills: #{worker_skills.join(', ')}")
     end
   end
 
