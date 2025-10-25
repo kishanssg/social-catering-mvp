@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Social Catering Workforce Management MVP",
   "scripts": {
-    "build": "cd social-catering-ui && npm install --include=dev && npm run build && cd .. && cp -r social-catering-ui/dist/* public/",
+    "build": "cd social-catering-ui && npm install --include=dev && npm run build && cd .. && cp -r dist/* public/",
     "postinstall": "cd social-catering-ui && npm install --include=dev"
   },
   "engines": {
