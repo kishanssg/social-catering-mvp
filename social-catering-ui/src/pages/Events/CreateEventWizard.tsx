@@ -51,6 +51,7 @@ interface SkillDetail {
   uniform: string;
   description: string;
   certification: string;
+  pay_rate?: number;
 }
 
 interface CreateEventWizardProps {
@@ -73,11 +74,28 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   const [openUniformDropdown, setOpenUniformDropdown] = useState<string | null>(null);
   const [openCertificationDropdown, setOpenCertificationDropdown] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState<string | null>(null);
+  const [cachedPayRates, setCachedPayRates] = useState<{ [skillName: string]: number }>({});
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'error' });
 
   const showError = (message: string) => setToast({ isVisible: true, message, type: 'error' });
+  const showSuccess = (message: string) => setToast({ isVisible: true, message, type: 'success' });
+  
+  // Fetch suggested pay rate for a skill
+  const fetchSuggestedPayRate = async (skillName: string): Promise<number | null> => {
+    try {
+      const response = await fetch(`/api/v1/skills?name=${encodeURIComponent(skillName)}`);
+      if (response.ok) {
+        const skills = await response.json();
+        const skill = skills.find((s: any) => s.name === skillName);
+        return skill?.suggested_pay_rate || null;
+      }
+    } catch (error) {
+      console.error('Failed to fetch suggested pay rate:', error);
+    }
+    return null;
+  };
   
   // Schedule step state
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -208,7 +226,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
           neededWorkers: req.needed_workers,
           uniform: req.uniform_name || '',
           description: req.description || '',
-          certification: req.certification_name || ''
+          certification: req.certification_name || '',
+          pay_rate: req.pay_rate || undefined
         }));
         setSelectedSkillDetails(skills);
       }
@@ -390,7 +409,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         needed_workers: skill.neededWorkers,
         description: skill.description,
         uniform_name: skill.uniform,
-        certification_name: skill.certification || undefined
+        certification_name: skill.certification || undefined,
+        pay_rate: skill.pay_rate || undefined
       }));
 
       // Build schedule safely, support overnight end times
@@ -478,7 +498,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         needed_workers: skill.neededWorkers,
         description: skill.description,
         uniform_name: skill.uniform,
-        certification_name: skill.certification || undefined
+        certification_name: skill.certification || undefined,
+        pay_rate: skill.pay_rate || undefined
       }));
 
       const schedule: EventSchedule = {
@@ -499,12 +520,19 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         auto_publish: false
       };
 
+      let response;
       if ((isEditMode || isEditing) && currentEvent) {
-        await updateEvent(currentEvent.id!, eventData);
+        response = await updateEvent(currentEvent.id!, eventData);
+        console.log('Draft event updated successfully:', response);
       } else {
-        await createEvent(eventData);
+        response = await createEvent(eventData);
+        console.log('Draft event created successfully:', response);
       }
 
+      // Show success message
+      showSuccess('Event saved as draft successfully!');
+      
+      // Navigate to draft events
       navigate('/events?tab=draft');
     } catch (error: any) {
       console.error('Error saving draft event:', error);
@@ -571,11 +599,14 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     setIsSkillsDropdownOpen(!isSkillsDropdownOpen);
   };
 
-  const handleSkillClick = (skillName: string) => {
+  const handleSkillClick = async (skillName: string) => {
     const skillIcon = availableSkills.find(s => s.name === skillName)?.icon || '';
     const isAlreadySelected = selectedSkillDetails.some(s => s.name === skillName);
     
     if (!isAlreadySelected) {
+      // Fetch suggested pay rate for this skill
+      const suggestedPayRate = await fetchSuggestedPayRate(skillName);
+      
       const newSkill: SkillDetail = {
         name: skillName,
         icon: skillIcon,
@@ -583,8 +614,14 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         uniform: '',
         description: skillDescriptions[skillName] || '',
         certification: '',
+        pay_rate: suggestedPayRate || undefined,
       };
       setSelectedSkillDetails([...selectedSkillDetails, newSkill]);
+      
+      // Cache the pay rate for future use
+      if (suggestedPayRate) {
+        setCachedPayRates(prev => ({ ...prev, [skillName]: suggestedPayRate }));
+      }
     }
     
     // Close dropdown after selection
@@ -652,6 +689,15 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     }));
   };
 
+  const handleUpdatePayRate = (skillName: string, payRate: number | null) => {
+    setSelectedSkillDetails(selectedSkillDetails.map(skill => {
+      if (skill.name === skillName) {
+        return { ...skill, pay_rate: payRate };
+      }
+      return skill;
+    }));
+  };
+
   const handleVenueSelect = (venue: Venue) => {
     setSelectedVenue(venue);
   };
@@ -666,7 +712,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
   };
 
   const canContinue = currentStepIndex === 0 
-    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0)
+    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0) && selectedSkillDetails.every(skill => skill.pay_rate && skill.pay_rate > 0)
     : currentStepIndex === 1
     ? selectedVenue !== null
     : currentStepIndex === 2
@@ -674,7 +720,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     : currentStepIndex === 3
     ? true // Check-in details are optional
     : currentStepIndex === 4
-    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0) && selectedVenue !== null && selectedDate && startTime && endTime
+    ? eventTitle.trim() !== '' && selectedSkillDetails.some(skill => skill.neededWorkers > 0) && selectedSkillDetails.every(skill => skill.pay_rate && skill.pay_rate > 0) && selectedVenue !== null && selectedDate && startTime && endTime
     : true;
 
   return (
@@ -903,6 +949,39 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                       <p className="text-sm font-normal font-manrope leading-[140%] text-font-secondary">
                         {skill.description}
                       </p>
+                    )}
+                  </div>
+
+                  {/* Pay Rate Input */}
+                  <div className="flex flex-col gap-3">
+                    <label className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
+                      Pay Rate ($/hour) *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g., 18.00"
+                        value={skill.pay_rate || ''}
+                        onChange={(e) => handleUpdatePayRate(skill.name, parseFloat(e.target.value) || null)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">/hour</span>
+                    </div>
+                    {/* Show cached suggestion if available */}
+                    {cachedPayRates[skill.name] && !skill.pay_rate && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <span>Last used: ${cachedPayRates[skill.name]}/hr</span>
+                        <button 
+                          onClick={() => handleUpdatePayRate(skill.name, cachedPayRates[skill.name])}
+                          className="text-teal-600 hover:text-teal-700 underline"
+                        >
+                          Use this
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1376,6 +1455,11 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                                       <div className="text-sm text-font-secondary">
                                         {s.neededWorkers} Workers Needed
                                       </div>
+                                      {s.pay_rate && (
+                                        <div className="text-sm text-font-secondary">
+                                          ${s.pay_rate}/hour
+                                        </div>
+                                      )}
                                     </div>
                                     
                                     <p className="text-sm leading-[160%] text-font-secondary">

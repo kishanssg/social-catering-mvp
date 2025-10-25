@@ -39,6 +39,11 @@ class Assignment < ApplicationRecord
     (hours_worked * hourly_rate).round(2)
   end
   
+  # Alias for total_payout (used in reports)
+  def total_payout
+    total_pay
+  end
+  
   # Use shift's pay rate if assignment doesn't have one
   def effective_hourly_rate
     hourly_rate || shift.pay_rate

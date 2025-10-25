@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Users, AlertTriangle, Check, Calendar, Clock, ChevronRight } from 'lucide-react';
+import { X, Users, AlertTriangle, Check, Calendar, Clock, ChevronRight, DollarSign } from 'lucide-react';
 import type { Shift } from '../services/shiftsApi';
 import type { Worker } from '../services/workersApi';
 import { apiService } from '../services/api';
@@ -26,6 +26,7 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
   const [searchWorker, setSearchWorker] = useState('');
   const [searchShift, setSearchShift] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [workerPayRates, setWorkerPayRates] = useState<{ [workerId: number]: number }>({});
   
   useEffect(() => {
     loadData();
@@ -65,6 +66,10 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
     setSelectedWorker(worker);
     setStep('select-shifts');
   };
+
+  const setWorkerPayRate = (workerId: number, payRate: number) => {
+    setWorkerPayRates(prev => ({ ...prev, [workerId]: payRate }));
+  };
   
   const toggleShift = (shift: Shift) => {
     setSelectedShifts(prev => {
@@ -86,9 +91,11 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
     
     for (const shift of selectedShifts) {
       try {
+        const payRate = workerPayRates[selectedWorker.id] || shift.pay_rate;
         await apiService.createAssignment({
           shift_id: shift.id,
-          worker_id: selectedWorker.id
+          worker_id: selectedWorker.id,
+          hourly_rate: payRate
         });
         assignResults.push({ shift, success: true });
       } catch (err: any) {
@@ -271,10 +278,9 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
                   </div>
                 ) : (
                   filteredWorkers.map((worker) => (
-                    <button
+                    <div
                       key={worker.id}
-                      onClick={() => handleWorkerSelect(worker)}
-                      className="w-full p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition-colors"
+                      className="w-full p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -302,9 +308,40 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
                             </div>
                           )}
                         </div>
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                        
+                        {/* Pay Rate Input and Select Button */}
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <DollarSign className="h-4 w-4 text-gray-400" />
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              placeholder="Rate"
+                              value={workerPayRates[worker.id] || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                // Only allow numbers, decimal point, and empty string
+                                if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                  setWorkerPayRate(worker.id, parseFloat(value) || 0);
+                                }
+                              }}
+                              className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onFocus={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-sm text-gray-600">/hr</span>
+                          </div>
+                          
+                          <button
+                            onClick={() => handleWorkerSelect(worker)}
+                            className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                          >
+                            Select
+                          </button>
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   ))
                 )}
               </div>
@@ -369,6 +406,10 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
                               <div className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
                                 {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" />
+                                ${shift.pay_rate || 0}/hr
                               </div>
                               <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">
                                 {assignedCount}/{shift.capacity} assigned

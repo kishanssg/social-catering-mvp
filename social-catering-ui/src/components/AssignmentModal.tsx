@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Users, Clock, MapPin, AlertCircle, Check } from 'lucide-react';
+import { X, Search, Users, Clock, MapPin, AlertCircle, Check, DollarSign } from 'lucide-react';
 import { formatDateTime, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 
@@ -39,9 +39,14 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [workerPayRates, setWorkerPayRates] = useState<{ [workerId: number]: number }>({});
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const setWorkerPayRate = (workerId: number, payRate: number) => {
+    setWorkerPayRates(prev => ({ ...prev, [workerId]: payRate }));
+  };
 
   useEffect(() => {
     loadShiftDetails();
@@ -124,6 +129,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
           worker_id: selectedWorker.id,
           status: 'assigned',
           assigned_at_utc: new Date().toISOString(),
+          hourly_rate: workerPayRates[selectedWorker.id] || Number(shift.pay_rate) || 0,
         }
       });
 
@@ -196,6 +202,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
           </button>
         </div>
 
+
         <div className="flex h-[600px]">
           {/* Left: Shift Details */}
           <div className="w-1/3 border-r border-gray-200 p-6 bg-gray-50">
@@ -235,7 +242,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                     
                     <div className="pt-2 border-t border-gray-200">
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Pay Rate:</span> ${shift.pay_rate}/hour
+                        <span className="font-medium">Pay Rate:</span> ${(Number(shift.pay_rate) || 0).toFixed(2)}/hour
                       </div>
                       {shift.uniform_name && (
                         <div className="text-sm text-gray-600 mt-1">
@@ -279,21 +286,21 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
           {/* Right: Worker Selection */}
           <div className="flex-1 flex flex-col">
             {/* Search */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-4 border-b border-gray-200">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="text"
-                  placeholder="Search workers by name, email, or skills..."
+                  placeholder="Search workers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
             </div>
 
             {/* Workers List */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto">
               {error ? (
                 <div className="text-center py-8">
                   <AlertCircle size={32} className="text-red-400 mx-auto mb-2" />
@@ -323,63 +330,96 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                   )}
                 </div>
               ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <ul>
-                    {filteredWorkers.map((worker) => {
-                      const isSelected = selectedWorker?.id === worker.id;
-                      return (
-                        <li
-                          key={worker.id}
-                          className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'} cursor-pointer`}
-                          onClick={() => setSelectedWorker(worker)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
-                              {worker.first_name[0]}{worker.last_name[0]}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
-                              <div className="text-xs text-gray-600">{worker.skills_json?.slice(0,3).join(', ')}</div>
-                            </div>
+                <ul>
+                  {filteredWorkers.map((worker) => {
+                    const isSelected = selectedWorker?.id === worker.id;
+                    const workerPayRate = workerPayRates[worker.id] || (Number(shift.pay_rate) || 0);
+                    const isCustomRate = workerPayRates[worker.id] && workerPayRates[worker.id] !== (Number(shift.pay_rate) || 0);
+                    
+                    return (
+                      <li key={worker.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
+                            {worker.first_name[0]}{worker.last_name[0]}
                           </div>
-                          {isSelected && (
-                            <div className="w-6 h-6 rounded-full bg-teal-600 flex items-center justify-center text-white">
-                              <Check size={14} />
-                            </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
+                            <div className="text-xs text-gray-600">{(worker.skills_json || []).slice(0,3).join(', ')}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Pay Rate Input */}
+                        <div className="flex items-center gap-2">
+                          {/* Visual indicator if custom rate */}
+                          {isCustomRate && (
+                            <span className="text-xs text-amber-600 font-medium">
+                              Custom
+                            </span>
                           )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            <DollarSign className="h-4 w-4 text-gray-400" />
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              placeholder={(Number(shift.pay_rate) || 0).toString()}
+                              value={workerPayRate || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                // Only allow numbers, decimal point, and empty string
+                                if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                  setWorkerPayRate(worker.id, parseFloat(value) || 0);
+                                }
+                              }}
+                              className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onFocus={(e) => e.stopPropagation()}
+                            />
+                            <span className="text-xs text-gray-600">/hr</span>
+                          </div>
+                          
+                          <button
+                            onClick={() => setSelectedWorker(worker)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
+                              isSelected
+                                ? 'bg-teal-600 text-white border-teal-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {isSelected ? 'Selected' : 'Select'}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
+            <div className="p-4 border-t border-gray-200 bg-white">
               {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="text-sm text-red-600">
-                    {error.split('\n').map((line, index) => (
-                      <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
-                        {line}
-                      </p>
-                    ))}
-                  </div>
+                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                  {error.split('\n').map((line, index) => (
+                    <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
+                      {line}
+                    </p>
+                  ))}
                 </div>
               )}
               
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-400 transition-colors"
+                  className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAssignWorker}
                   disabled={!selectedWorker || assigning}
-                  className="flex-1 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-3 py-2 text-sm bg-teal-600 text-white font-medium rounded hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {assigning ? 'Assigning...' : 'Assign Worker'}
                 </button>

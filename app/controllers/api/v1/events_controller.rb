@@ -19,7 +19,7 @@ class Api::V1::EventsController < Api::V1::BaseController
                    .where('event_schedules.end_time_utc > ?', Time.current)
                    .order('event_schedules.start_time_utc ASC')
     when 'past'
-      events = events.completed
+      events = events.published
                    .joins(:event_schedule)
                    .where('event_schedules.end_time_utc <= ?', Time.current)
                    .order('event_schedules.end_time_utc DESC')
@@ -27,13 +27,16 @@ class Api::V1::EventsController < Api::V1::BaseController
       events = events.where(status: ['draft', 'published'])
     end
     
-    # Additional filters for active tab
-    if params[:filter] == 'needs_workers'
-      events = events.select { |e| e.unfilled_roles_count > 0 }
-    elsif params[:filter] == 'partially_filled'
-      events = events.select { |e| e.staffing_status == 'partially_staffed' }
-    elsif params[:filter] == 'fully_staffed'
-      events = events.select { |e| e.staffing_status == 'fully_staffed' }
+    # Additional filters for active tab (only apply if filter parameter is explicitly provided)
+    if params[:filter].present?
+      case params[:filter]
+      when 'needs_workers'
+        events = events.select { |e| e.unfilled_roles_count > 0 }
+      when 'partially_filled'
+        events = events.select { |e| e.staffing_status == 'partially_staffed' }
+      when 'fully_staffed'
+        events = events.select { |e| e.staffing_status == 'fully_staffed' }
+      end
     end
     
     # Search functionality
@@ -65,10 +68,17 @@ class Api::V1::EventsController < Api::V1::BaseController
           @event.status = params[:event][:status] || 'draft'
           @event.save!
           
-          # Create skill requirements
+          # Create skill requirements and cache pay rates
           if params[:event][:skill_requirements].present?
             params[:event][:skill_requirements].each do |skill_req|
-              @event.event_skill_requirements.create!(skill_requirement_params(skill_req))
+              skill_req_params = skill_requirement_params(skill_req)
+              @event.event_skill_requirements.create!(skill_req_params)
+              
+              # Cache pay rate for this skill
+              if skill_req_params[:pay_rate].present? && skill_req_params[:skill_name].present?
+                skill = Skill.find_by(name: skill_req_params[:skill_name])
+                skill&.cache_pay_rate!(skill_req_params[:pay_rate])
+              end
             end
           end
           
@@ -251,7 +261,7 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
 
   def skill_requirement_params(skill_req)
-    skill_req.permit(:skill_name, :needed_workers, :description, :uniform_name, :certification_name)
+    skill_req.permit(:skill_name, :needed_workers, :description, :uniform_name, :certification_name, :pay_rate)
   end
 
   def schedule_params(schedule)
@@ -396,6 +406,7 @@ class Api::V1::EventsController < Api::V1::BaseController
         status: shift.current_status,
         staffing_progress: shift.staffing_progress,
         fully_staffed: shift.fully_staffed?,
+        pay_rate: shift.pay_rate,
         assignments: shift.assignments.map { |a|
           {
             id: a.id,
@@ -405,6 +416,7 @@ class Api::V1::EventsController < Api::V1::BaseController
               last_name: a.worker.last_name
             },
             hours_worked: a.hours_worked&.to_f,
+            hourly_rate: a.hourly_rate,
             status: a.status
           }
         }

@@ -171,7 +171,7 @@ class Event < ApplicationRecord
             start_time_utc: event_schedule.start_time_utc,
             end_time_utc: event_schedule.end_time_utc,
             capacity: 1,
-            pay_rate: 0,
+            pay_rate: skill_req.pay_rate || 0,
             notes: check_in_instructions,
             event_skill_requirement_id: skill_req.id,
             auto_generated: true,

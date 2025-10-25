@@ -37,15 +37,20 @@ interface WorkerDetail {
 
 interface Assignment {
   id: number;
-  event: {
-    id: number;
-    title: string;
-  };
   shift: {
+    id: number;
+    client_name: string;
     role_needed: string;
     start_time_utc: string;
     end_time_utc: string;
     location: string;
+    event_id: number;
+    event_title: string;
+    event: {
+      id: number;
+      title: string;
+      venue_name?: string;
+    } | null;
   };
   hours_worked?: number;
   status: string;
@@ -165,8 +170,8 @@ export function WorkerDetailPage() {
     );
   }
   
-  const upcomingAssignments = assignments.filter(a => !a.is_completed);
-  const pastAssignments = assignments.filter(a => a.is_completed);
+  const upcomingAssignments = assignments.filter(a => a.status === 'assigned' || a.status === 'confirmed');
+  const pastAssignments = assignments.filter(a => a.status === 'completed' || a.status === 'cancelled');
   
   
   return (
@@ -368,7 +373,7 @@ export function WorkerDetailPage() {
                       className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition"
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">{assignment.event.title}</h3>
+                        <h3 className="font-semibold text-gray-900">{assignment.shift.event?.title || assignment.shift.event_title || 'Unknown Event'}</h3>
                         <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
                           {assignment.shift.role_needed}
                         </span>
@@ -405,7 +410,7 @@ export function WorkerDetailPage() {
                       className="p-4 border border-gray-200 rounded-lg"
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">{assignment.event.title}</h3>
+                        <h3 className="font-semibold text-gray-900">{assignment.shift.event?.title || assignment.shift.event_title || 'Unknown Event'}</h3>
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                             {assignment.shift.role_needed}

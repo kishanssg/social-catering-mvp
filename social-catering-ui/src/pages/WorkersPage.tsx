@@ -15,7 +15,8 @@ import {
   Clock,
   MapPin,
   Briefcase,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -51,6 +52,7 @@ interface AvailableShift {
   end_time_utc: string;
   location: string;
   current_status: string;
+  pay_rate?: number; // Add pay_rate field
   total_positions?: number;
   filled_positions?: number;
   available_positions?: number;
@@ -131,12 +133,12 @@ export function WorkersPage() {
     
     setIsDeleting(true);
     try {
-      const response = await apiClient.delete(`/workers/${deleteModal.worker.id}`);
+      const response = await apiClient.delete(`/workers/${deleteModal.worker?.id}`);
       
       if (response.data.status === 'success') {
         setToast({
           isVisible: true,
-          message: `${deleteModal.worker.first_name} ${deleteModal.worker.last_name} has been deleted successfully`,
+          message: `${deleteModal.worker.first_name || 'Unknown'} ${deleteModal.worker.last_name || 'Worker'} has been deleted successfully`,
           type: 'success'
         });
         loadWorkers();
@@ -187,17 +189,17 @@ export function WorkersPage() {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
-          worker.first_name.toLowerCase().includes(query) ||
-          worker.last_name.toLowerCase().includes(query) ||
-          worker.email.toLowerCase().includes(query) ||
-          worker.phone?.includes(query) ||
+          (worker.first_name || '').toLowerCase().includes(query) ||
+          (worker.last_name || '').toLowerCase().includes(query) ||
+          (worker.email || '').toLowerCase().includes(query) ||
+          (worker.phone || '').includes(query) ||
           // Search by skills
-          worker.skills_json.some(skill => 
-            skill.toLowerCase().includes(query)
+          (worker.skills_json || []).some(skill => 
+            (skill || '').toLowerCase().includes(query)
           ) ||
           // Search by certifications
-          worker.certifications?.some(cert => 
-            cert.name.toLowerCase().includes(query)
+          (worker.certifications || []).some(cert => 
+            (cert?.name || '').toLowerCase().includes(query)
           )
         );
       }
@@ -207,9 +209,9 @@ export function WorkersPage() {
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+          return `${a.first_name || ''} ${a.last_name || ''}`.localeCompare(`${b.first_name || ''} ${b.last_name || ''}`);
         case 'email':
-          return a.email.localeCompare(b.email);
+          return (a.email || '').localeCompare(b.email || '');
         case 'status':
           return (b.active ? 1 : 0) - (a.active ? 1 : 0);
         default:
@@ -374,11 +376,11 @@ export function WorkersPage() {
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
-                          {worker.first_name[0]}{worker.last_name[0]}
+                          {(worker.first_name || 'U')[0]}{(worker.last_name || 'W')[0]}
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">
-                            {worker.first_name} {worker.last_name}
+                            {worker.first_name || 'Unknown'} {worker.last_name || 'Worker'}
                           </p>
                           {worker.skills_json && worker.skills_json.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -487,7 +489,7 @@ export function WorkersPage() {
         cancelText="Cancel"
         isLoading={isDeleting}
         isDestructive={true}
-        workerName={deleteModal.worker ? `${deleteModal.worker.first_name} ${deleteModal.worker.last_name}` : undefined}
+        workerName={deleteModal.worker ? `${deleteModal.worker.first_name || 'Unknown'} ${deleteModal.worker.last_name || 'Worker'}` : undefined}
       />
 
       {/* Toast Notifications */}
@@ -517,12 +519,19 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [conflicts, setConflicts] = useState<any[]>([]);
+  const [shiftPayRates, setShiftPayRates] = useState<{ [shiftId: number]: number }>({});
   
   useEffect(() => {
-    loadAvailableShifts();
-  }, [worker.id]);
+    if (worker && worker.id) {
+      loadAvailableShifts();
+    }
+  }, [worker?.id]);
   
   async function loadAvailableShifts() {
+    if (!worker || !worker.id) {
+      return;
+    }
+    
     setLoading(true);
     try {
       // Get upcoming published events with unfilled shifts
@@ -539,15 +548,23 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         // Group shifts by role per event - show only one entry per role per event
         const shifts: AvailableShift[] = [];
         events.forEach((event: any) => {
-          if (event.shifts_by_role) {
+          if (event && event.shifts_by_role) {
+            // Create event object once per event to ensure consistency
+            const eventData = {
+              id: event.id,
+              title: event.title || 'Untitled Event'
+            };
+            
             event.shifts_by_role.forEach((roleGroup: any) => {
               // Only include roles that match worker's skills and aren't fully staffed
               if (
+                roleGroup &&
+                worker.skills_json && 
                 worker.skills_json.includes(roleGroup.role_name) &&
                 roleGroup.filled_shifts < roleGroup.total_shifts
               ) {
                 // Filter to only include shifts with available capacity
-                const availableShifts = roleGroup.shifts.filter((s: any) => {
+                const availableShifts = (roleGroup.shifts || []).filter((s: any) => {
                   const filled = s.filled_positions || 0;
                   return s.capacity > filled;
                 });
@@ -558,24 +575,25 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 
                 // Use the first available shift as representative
                 const representativeShift = availableShifts[0];
-                const allShiftIds = availableShifts.map((s: any) => s.id);
-                shifts.push({
-                  id: representativeShift.id,
-                  event: {
-                    id: event.id,
-                    title: event.title
-                  },
-                  role_needed: roleGroup.role_name,
-                  start_time_utc: representativeShift.start_time_utc,
-                  end_time_utc: representativeShift.end_time_utc,
-                  location: event.venue?.formatted_address || 'Location TBD',
-                  current_status: representativeShift.status,
-                  // Add metadata about positions
-                  total_positions: roleGroup.total_shifts,
-                  filled_positions: roleGroup.filled_shifts,
-                  available_positions: availableShifts.reduce((sum, s) => sum + (s.capacity - (s.filled_positions || 0)), 0),
-                  all_shift_ids: allShiftIds
-                });
+                if (representativeShift) {
+                  const allShiftIds = availableShifts.map((s: any) => s.id);
+                  const shiftData = {
+                    id: representativeShift.id,
+                    event: eventData,
+                    role_needed: roleGroup.role_name,
+                    start_time_utc: representativeShift.start_time_utc,
+                    end_time_utc: representativeShift.end_time_utc,
+                    location: event.venue?.formatted_address || 'Location TBD',
+                    current_status: representativeShift.status,
+                    pay_rate: representativeShift.pay_rate, // Add pay_rate
+                    // Add metadata about positions
+                    total_positions: roleGroup.total_shifts,
+                    filled_positions: roleGroup.filled_shifts,
+                    available_positions: availableShifts.reduce((sum, s) => sum + (s.capacity - (s.filled_positions || 0)), 0),
+                    all_shift_ids: allShiftIds
+                  };
+                  shifts.push(shiftData);
+                }
               }
             });
           }
@@ -605,12 +623,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       const hasConflict = Array.from(newSelected).some(selectedId => {
         const selectedShift = availableShifts.find(s => s.id === selectedId);
         return selectedShift && 
-               selectedShift.event.id === shiftToToggle.event.id &&
+               selectedShift.event?.id === shiftToToggle.event?.id &&
                selectedShift.role_needed !== shiftToToggle.role_needed;
       });
       
       if (hasConflict) {
-        setError(`Cannot select multiple roles for the same event (${shiftToToggle.event.title}). Please deselect other roles for this event first.`);
+        setError(`Cannot select multiple roles for the same event (${shiftToToggle.event?.title || 'Untitled Event'}). Please deselect other roles for this event first.`);
         return;
       }
       
@@ -619,6 +637,10 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     
     setSelectedShiftIds(newSelected);
     setError(null); // Clear any previous errors
+  };
+
+  const setShiftPayRate = (shiftId: number, payRate: number) => {
+    setShiftPayRates(prev => ({ ...prev, [shiftId]: payRate }));
   };
   
   const toggleAll = () => {
@@ -646,16 +668,26 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       // For each selected role, get all shift IDs for that role at that event
       selectedShifts.forEach(shift => {
         if (shift.all_shift_ids) {
-          allShiftIds.push(...shift.all_shift_ids);
+          allShiftIds.push(...(shift.all_shift_ids || []));
         }
       });
       
       // Remove duplicates
       const uniqueShiftIds = [...new Set(allShiftIds)];
       
+      // Create assignments with pay rates
+      const assignments = uniqueShiftIds.map(shiftId => {
+        const shift = availableShifts.find(s => s.all_shift_ids?.includes(shiftId));
+        const payRate = shiftPayRates[shiftId] || (Number(shift?.pay_rate) || 0);
+        return {
+          shift_id: shiftId,
+          worker_id: worker.id,
+          hourly_rate: payRate
+        };
+      });
+
       const response = await apiClient.post('/staffing/bulk_create', {
-        worker_id: worker.id,
-        shift_ids: uniqueShiftIds
+        assignments: assignments
       });
       
       if (response.data.status === 'success') {
@@ -672,7 +704,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       console.error('Failed to bulk assign:', error);
       
       if (error.response?.data?.conflicts) {
-        setConflicts(error.response.data.conflicts);
+        setConflicts(error.response?.data?.conflicts || []);
         let errorMessage = 'Scheduling conflicts detected. Please review below.';
         if (error.response.data.details && error.response.data.details.length > 0) {
           errorMessage += '\n\nConflicts:\n• ' + error.response.data.details.join('\n• ');
@@ -710,8 +742,8 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
-        shift.event.title.toLowerCase().includes(query) ||
-        shift.location.toLowerCase().includes(query)
+        (shift.event?.title || '').toLowerCase().includes(query) ||
+        (shift.location || '').toLowerCase().includes(query)
       );
     }
     
@@ -723,7 +755,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     const hasOtherRoleSelected = Array.from(selectedShiftIds).some(selectedId => {
       const selectedShift = availableShifts.find(s => s.id === selectedId);
       return selectedShift && 
-             selectedShift.event.id === shift.event.id &&
+             selectedShift.event?.id === shift.event?.id &&
              selectedShift.role_needed !== shift.role_needed;
     });
     
@@ -790,12 +822,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                     {conflicts.map((conflict, index) => (
                       <div key={index} className="text-sm">
                         <p className="text-yellow-800">
-                          <strong>{conflict.new_shift.event}</strong> conflicts with:
+                          <strong>{conflict.new_shift?.event || 'Unknown Event'}</strong> conflicts with:
                         </p>
                         <ul className="ml-4 mt-1 space-y-1">
-                          {conflict.conflicting_with.map((existing: any, idx: number) => (
+                          {(conflict.conflicting_with || []).map((existing: any, idx: number) => (
                             <li key={idx} className="text-yellow-700">
-                              {existing.event} ({format(parseISO(existing.start_time), 'MMM d, h:mm a')} - {format(parseISO(existing.end_time), 'h:mm a')})
+                              {existing.event || 'Unknown Event'} ({format(parseISO(existing.start_time), 'MMM d, h:mm a')} - {format(parseISO(existing.end_time), 'h:mm a')})
                             </li>
                           ))}
                         </ul>
@@ -902,7 +934,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                                 <h4 className={`font-medium ${
                                   isDisabled ? 'text-gray-500' : 'text-gray-900'
                                 }`}>
-                                  {shift.event.title}
+                                  {shift.event?.title || 'Untitled Event'}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-1">
                                   <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
@@ -943,6 +975,38 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                                 <MapPin size={14} className="text-gray-400" />
                                 <span className="truncate">{shift.location}</span>
                               </div>
+                            </div>
+                          </div>
+                          
+                          {/* Pay Rate Section - Right Side */}
+                          <div className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              {shiftPayRates[shift.id] && shiftPayRates[shift.id] !== (Number(shift.pay_rate) || 0) && (
+                                <span className="text-xs text-amber-600 font-medium">
+                                  (custom)
+                                </span>
+                              )}
+                              
+                              <DollarSign size={14} className="text-gray-400" />
+                              <span className="text-gray-500 text-sm">Pay:</span>
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                placeholder={(Number(shift.pay_rate) || 0).toString()}
+                                value={shiftPayRates[shift.id] !== undefined ? shiftPayRates[shift.id] : (Number(shift.pay_rate) || 0)}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  // Only allow numbers, decimal point, and empty string
+                                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                    setShiftPayRate(shift.id, parseFloat(value) || 0);
+                                  }
+                                }}
+                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onFocus={(e) => e.stopPropagation()}
+                              />
+                              <span className="text-gray-500 text-sm">/hr</span>
                             </div>
                           </div>
                         </div>

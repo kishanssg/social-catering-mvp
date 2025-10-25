@@ -42,7 +42,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen bg-neutral-white">
       {/* Sidebar Navigation */}
-      <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color sticky top-0 h-screen overflow-y-auto" style={{ padding: '32px 24px', gap: '70px' }}>
+      <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color sticky top-0 h-screen" style={{ padding: '32px 24px' }}>
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
@@ -52,8 +52,11 @@ export function AppLayout() {
           />
         </div>
 
+        {/* ADD SPACING AFTER LOGO */}
+        <div className="h-16" />
+
         {/* Navigation Pages */}
-        <div className="flex flex-col items-start gap-2 flex-1 self-stretch">
+        <div className="flex flex-col items-start gap-2 self-stretch">
           {/* Dashboard */}
           <NavLink 
             to="/dashboard" 
@@ -231,6 +234,9 @@ export function AppLayout() {
             )}
           </NavLink>
         </div>
+
+        {/* SPACER - This pushes "Others" to bottom */}
+        <div className="flex-1 min-h-[100px]" />
 
         {/* Others section */}
         <div className="flex flex-col justify-center items-center gap-4 self-stretch">

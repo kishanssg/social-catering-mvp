@@ -225,40 +225,29 @@ module Api
       def generate_worker_hours_csv(assignments)
         require 'csv'
         
-        # Group assignments by worker and aggregate hours
-        worker_hours = assignments.group_by(&:worker_id).map do |worker_id, worker_assignments|
-          worker = worker_assignments.first.worker
-          total_hours = worker_assignments.sum(&:hours_worked)
-          total_pay = worker_assignments.sum { |a| (a.hours_worked || 0) * (a.hourly_rate || 15.0) }
-          assignment_count = worker_assignments.count
-          
-          [worker, total_hours, total_pay, assignment_count]
-        end.sort_by { |worker, hours, pay, count| -hours } # Sort by hours descending
-        
         CSV.generate(headers: true) do |csv|
-          # Headers for worker hours report
-          csv << [
-            'Worker Name',
-            'Total Hours',
-            'Total Assignments',
-            'Average Hours per Assignment',
-            'Total Pay',
-            'Skills'
-          ]
+          csv << ['Worker Name', 'Event Name', 'Date', 'Role', 'Hours', 'Pay Rate', 'Payout']
           
-          # Data rows
-          worker_hours.each do |worker, total_hours, total_pay, assignment_count|
-            avg_hours = assignment_count > 0 ? (total_hours / assignment_count).round(2) : 0
+          assignments.each do |assignment|
+            shift = assignment.shift
+            event = shift.event
             
             csv << [
-              "#{worker.first_name} #{worker.last_name}",
-              total_hours.round(2),
-              assignment_count,
-              avg_hours,
-              total_pay.round(2),
-              worker.skills_json&.join(', ') || ''
+              assignment.worker.full_name,
+              event&.title || shift.client_name,
+              shift.start_time_utc.strftime('%Y-%m-%d'),
+              shift.role_needed,
+              assignment.hours_worked&.round(2) || 0,
+              assignment.hourly_rate&.round(2) || 0,
+              assignment.total_payout.round(2)
             ]
           end
+          
+          # Add summary row
+          total_hours = assignments.sum(&:hours_worked)
+          total_pay = assignments.sum(&:total_payout)
+          csv << []
+          csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2)]
         end
       end
       
@@ -277,11 +266,15 @@ module Api
             'Workers Assigned',
             'Assignment Percentage',
             'Shifts Generated',
+            'Total Event Cost',
             'Supervisor'
           ]
           
           # Data rows
           events.each do |event|
+            total_cost = event.shifts.joins(:assignments)
+                              .sum('assignments.hours_worked * assignments.hourly_rate')
+            
             csv << [
               event.id,
               event.title,
@@ -292,6 +285,7 @@ module Api
               event.assigned_workers_count,
               "#{event.staffing_percentage}%",
               event.shifts.count,
+              total_cost.round(2),
               event.supervisor_name || ''
             ]
           end

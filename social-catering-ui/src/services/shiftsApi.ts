@@ -125,10 +125,11 @@ export const deleteShift = async (id: number): Promise<void> => {
 }
 
 // Assign worker to shift
-export const assignWorker = async (shiftId: number, workerId: number) => {
+export const assignWorker = async (shiftId: number, workerId: number, hourlyRate?: number) => {
   const response = await apiClient.post('/assignments', {
     shift_id: shiftId,
     worker_id: workerId,
+    hourly_rate: hourlyRate,
   })
   return response.data
 }

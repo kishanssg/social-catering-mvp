@@ -21,6 +21,7 @@ export interface Shift {
   start_time_utc: string;
   end_time_utc: string;
   status: string;
+  pay_rate?: number;
   staffing_progress: {
     assigned: number;
     required: number;
@@ -38,6 +39,7 @@ export interface Assignment {
     last_name: string;
   };
   hours_worked?: number;
+  hourly_rate?: number;
   status: string;
 }
 

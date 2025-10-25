@@ -167,7 +167,7 @@ export function ConfirmationModal({
         </div>
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes modalSlideIn {
           from {
             opacity: 0;

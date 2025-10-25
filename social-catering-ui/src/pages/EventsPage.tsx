@@ -63,6 +63,7 @@ interface Shift {
   start_time_utc: string;
   end_time_utc: string;
   status: string;
+  pay_rate?: number;
   staffing_progress: {
     assigned: number;
     required: number;
@@ -79,6 +80,7 @@ interface Assignment {
     last_name: string;
   };
   hours_worked?: number;
+  hourly_rate?: number;
   status: string;
 }
 
@@ -144,11 +146,25 @@ export function EventsPage() {
     eventId?: number;
     roleName?: string;
     unfilledShiftIds: number[];
+    payRate?: number;
   }>({ isOpen: false, unfilledShiftIds: [] });
   
   useEffect(() => {
     loadEvents();
   }, [activeTab, filterStatus]);
+
+  // Sync URL parameters with state
+  useEffect(() => {
+    const tabFromUrl = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
+    const filterFromUrl = (searchParams.get('filter') as FilterType) || 'all';
+    
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+    if (filterFromUrl !== filterStatus) {
+      setFilterStatus(filterFromUrl);
+    }
+  }, [searchParams, activeTab, filterStatus]);
 
   // Auto-expand event based on URL parameters
   useEffect(() => {
@@ -178,9 +194,12 @@ export function EventsPage() {
         filterStatus !== 'all' ? `&filter=${filterStatus}` : ''
       }`;
       
+      console.log('Loading events with URL:', url, 'filterStatus:', filterStatus);
+      
       const response = await apiClient.get(url);
       
       if (response.data.status === 'success') {
+        console.log('Received events:', response.data.data.length);
         setEvents(response.data.data);
       }
     } catch (error) {
@@ -367,12 +386,32 @@ export function EventsPage() {
   // Filter and sort
   const filteredEvents = events
     .filter(event => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        event.title.toLowerCase().includes(query) ||
-        event.venue?.name.toLowerCase().includes(query)
-      );
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = (
+          event.title.toLowerCase().includes(query) ||
+          event.venue?.name.toLowerCase().includes(query)
+        );
+        if (!matchesSearch) return false;
+      }
+      
+      // Status filter (only for active tab)
+      if (activeTab === 'active') {
+        switch (filterStatus) {
+          case 'needs_workers':
+            return event.unfilled_roles_count > 0;
+          case 'partially_filled':
+            return event.unfilled_roles_count > 0 && event.assigned_workers_count > 0;
+          case 'fully_staffed':
+            return event.unfilled_roles_count === 0 && event.assigned_workers_count > 0;
+          case 'all':
+          default:
+            return true;
+        }
+      }
+      
+      return true;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -534,7 +573,7 @@ export function EventsPage() {
                 onToggleEvent={toggleEvent}
                 onAssignWorker={openAssignmentModal}
                 onUnassign={handleUnassignOpen}
-                onQuickFill={(eventId, roleName, unfilled) => setQuickFill({ isOpen: true, eventId, roleName, unfilledShiftIds: unfilled })}
+                onQuickFill={(eventId, roleName, unfilled, payRate) => setQuickFill({ isOpen: true, eventId, roleName, unfilledShiftIds: unfilled, payRate })}
                 onPublish={handlePublish}
                 onDelete={handleDelete}
                 searchQuery={searchQuery}
@@ -615,6 +654,7 @@ export function EventsPage() {
         eventId={quickFill.eventId || 0}
         roleName={quickFill.roleName || ''}
         unfilledShiftIds={quickFill.unfilledShiftIds}
+        defaultPayRate={quickFill.payRate}
         onClose={() => setQuickFill({ isOpen: false, unfilledShiftIds: [] })}
         onDone={({ assigned, conflicts }) => {
           setQuickFill({ isOpen: false, unfilledShiftIds: [] });
@@ -759,7 +799,7 @@ interface ActiveEventsTabProps {
   onToggleEvent: (id: number) => void;
   onAssignWorker: (shiftId: number) => void;
   onUnassign: (assignmentId: number, workerName?: string) => void;
-  onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[]) => void;
+  onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[], payRate?: number) => void;
   onPublish: (eventId: number) => void;
   onDelete?: (eventId: number) => void;
   searchQuery: string;
@@ -840,9 +880,9 @@ function ActiveEventsTab({
             className="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >
             {/* Event Header */}
-            <button
+            <div
               onClick={() => onToggleEvent(event.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="flex-1 text-left">
                 <div className="flex items-start gap-3 mb-2">
@@ -902,6 +942,28 @@ function ActiveEventsTab({
                     {event.unfilled_roles_count} role{event.unfilled_roles_count !== 1 ? 's' : ''} still need workers
                   </p>
                 )}
+                
+                {/* Estimated Cost Summary */}
+                {event.shifts_by_role && event.shifts_by_role.length > 0 && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    <span className="font-medium text-gray-700">Est. Cost: </span>
+                    <span className="font-semibold text-green-600">
+                      ${(() => {
+                        let totalCost = 0;
+                        event.shifts_by_role.forEach(roleGroup => {
+                          roleGroup.shifts.forEach(shift => {
+                            const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
+                            shift.assignments.forEach(assignment => {
+                              const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
+                              totalCost += rate * shiftDuration;
+                            });
+                          });
+                        });
+                        return totalCost.toFixed(0);
+                      })()}
+                    </span>
+                  </div>
+                )}
               </div>
               
               <div className="ml-4 flex items-center gap-2">
@@ -936,7 +998,7 @@ function ActiveEventsTab({
                   )}
                 </div>
               </div>
-            </button>
+            </div>
             
             {/* Expanded Content - Shifts by Role */}
             {isExpanded && (
@@ -966,7 +1028,8 @@ function ActiveEventsTab({
                                   .filter((s) => s.staffing_progress.percentage < 100)
                                   .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime())
                                   .map((s) => s.id);
-                                onQuickFill(event.id, roleGroup.role_name, unfilled);
+                                const payRate = roleGroup.shifts[0]?.pay_rate;
+                                onQuickFill(event.id, roleGroup.role_name, unfilled, payRate);
                               }}
                               className="px-2.5 py-1 text-xs font-semibold bg-teal-600 text-white rounded hover:bg-teal-700"
                               title="Quick Fill by Skill"
@@ -999,6 +1062,9 @@ function ActiveEventsTab({
                                         className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded"
                                       >
                                         {assignment.worker.first_name} {assignment.worker.last_name[0]}.
+                                        <span className="ml-1 text-teal-600 font-medium">
+                                          ${Number(assignment.hourly_rate || shift.pay_rate || 0).toFixed(0)}/hr
+                                        </span>
                                       </span>
                                       <button
                                         onClick={(e) => {
@@ -1147,9 +1213,9 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
             className="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >
             {/* Event Header */}
-            <button
+            <div
               onClick={() => onToggleEvent(event.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="flex-1 text-left">
                 <div className="flex items-start gap-3 mb-2">
@@ -1192,14 +1258,14 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                   )}
                 </div>
               </div>
-            </button>
+            </div>
             
             {/* Expanded Content - Workers & Hours */}
             {isExpanded && event.shifts_by_role && (
               <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
                 {/* Summary */}
                 <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
                       <p className="text-sm text-gray-600">Total Workers</p>
                       <p className="text-2xl font-semibold text-gray-900">
@@ -1213,8 +1279,26 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Staffing</p>
+                      <p className="text-sm text-gray-600">Total Event Cost</p>
                       <p className="text-2xl font-semibold text-green-600">
+                        ${(() => {
+                          let totalCost = 0;
+                          event.shifts_by_role.forEach(roleGroup => {
+                            roleGroup.shifts.forEach(shift => {
+                              const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
+                              shift.assignments.forEach(assignment => {
+                                const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
+                                totalCost += rate * shiftDuration;
+                              });
+                            });
+                          });
+                          return totalCost.toFixed(0);
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Staffing</p>
+                      <p className="text-2xl font-semibold text-gray-900">
                         {event.staffing_percentage}%
                       </p>
                     </div>
@@ -1247,6 +1331,14 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                                 {assignment.hours_worked && (
                                   <span className="font-medium">
                                     {parseFloat(assignment.hours_worked.toString()).toFixed(2)} hrs
+                                  </span>
+                                )}
+                                <span className="font-medium text-green-600">
+                                  ${Number(assignment.hourly_rate || shift.pay_rate || 0).toFixed(0)}/hr
+                                </span>
+                                {assignment.hours_worked && (
+                                  <span className="font-semibold text-blue-600">
+                                    ${(parseFloat(assignment.hours_worked.toString()) * Number(assignment.hourly_rate || shift.pay_rate || 0)).toFixed(0)}
                                   </span>
                                 )}
                                 <span className="text-xs text-gray-500">

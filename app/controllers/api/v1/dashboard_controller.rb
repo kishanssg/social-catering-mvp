@@ -3,21 +3,35 @@ module Api
     class DashboardController < BaseController
       def index
         # Calculate basic stats
+        # Calculate active events (published events that haven't ended yet)
+        active_events = Event.published
+          .joins(:event_schedule)
+          .where('event_schedules.end_time_utc > ?', Time.current)
+        
+        # Calculate past events (published events that have ended)
+        past_events = Event.published
+          .joins(:event_schedule)
+          .where('event_schedules.end_time_utc <= ?', Time.current)
+        
         stats = {
           draft_events: Event.draft.count,
-          published_events: Event.published.count,
-          completed_events: Event.completed.count,
+          published_events: active_events.count,  # Show active events, not all published
+          completed_events: past_events.count,    # Show all past events, not just manually completed
           total_workers: Worker.active.count,
           gaps_to_fill: 0
         }
 
-        # Calculate gaps (unfilled shifts)
-        Event.published.each do |event|
-          event.shifts.each do |shift|
-            filled = shift.assignments.where(status: ['confirmed', 'completed']).count
-            stats[:gaps_to_fill] += (shift.capacity - filled) if filled < shift.capacity
-          end
-        end
+        # Calculate gaps (total unfilled roles for current month only)
+        current_month_start = Date.current.beginning_of_month
+        current_month_end = Date.current.end_of_month
+        
+        current_month_events = Event.published
+          .joins(:event_schedule)
+          .where('event_schedules.start_time_utc BETWEEN ? AND ?', 
+                 current_month_start.beginning_of_day, 
+                 current_month_end.end_of_day)
+        
+        stats[:gaps_to_fill] = current_month_events.sum(&:unfilled_roles_count)
 
         # Get urgent events (next 7 days with unfilled shifts)
         urgent_events = Event.published

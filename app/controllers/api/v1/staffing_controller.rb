@@ -57,6 +57,11 @@ module Api
         @assignment.assigned_at_utc ||= Time.current
         @assignment.status ||= 'assigned'
         
+        # Use provided hourly_rate, or fall back to shift's pay_rate
+        if @assignment.hourly_rate.blank? && @assignment.shift
+          @assignment.hourly_rate = @assignment.shift.pay_rate
+        end
+        
         if @assignment.save
           render json: {
             status: 'success',
@@ -163,7 +168,8 @@ module Api
               shift: shift,
               status: 'confirmed',
               assigned_by_id: current_user.id,
-              assigned_at_utc: Time.current
+              assigned_at_utc: Time.current,
+              hourly_rate: shift.pay_rate
             )
             
             if assignment.save

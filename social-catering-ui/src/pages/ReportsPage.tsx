@@ -208,7 +208,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<DollarSign size={24} />}
             title="Payroll Summary"
-            description="Export hours, rates, and total compensation by worker"
+            description="Export hours, rates, and total compensation by worker. ✓ Includes hourly rates and calculated payouts"
             color="indigo"
             lastExport="Last 7 days"
             onExport={() => {
@@ -222,7 +222,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<Users size={24} />}
             title="Worker Hours Report"
-            description="View total hours worked per worker for the period"
+            description="View total hours worked per worker for the period. ✓ Includes pay rates and total payouts"
             color="blue"
             lastExport="This month"
             onExport={() => {
@@ -236,7 +236,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<Calendar size={24} />}
             title="Event Summary"
-            description="Export complete staffing details by event"
+            description="Export complete staffing details by event. ✓ Includes total event costs and pay data"
             color="purple"
             lastExport="Last 30 days"
             onExport={() => {

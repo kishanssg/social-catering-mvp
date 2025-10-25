@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -29,9 +29,68 @@ const PageLoader = () => (
   </div>
 );
 
+// Component to handle zoom logic
+function ZoomHandler() {
+  const location = useLocation();
+  
+  useEffect(() => {
+    const adjustZoomForScreen = () => {
+      // Don't apply zoom on login page
+      if (location.pathname === '/login') {
+        document.body.style.zoom = '1';
+        return;
+      }
+      
+      const screenWidth = window.innerWidth;
+      let zoom = 1.0;
+      
+      // Your external monitor (baseline)
+      if (screenWidth >= 1920) {
+        zoom = 1.0;
+      }
+      // Mid-size monitors (1440p)
+      else if (screenWidth >= 1440) {
+        zoom = 0.9;
+      }
+      // 13-15" laptops (like MacBook Pro 13")
+      else if (screenWidth >= 1280) {
+        zoom = 0.8;
+      }
+      // Smaller screens
+      else if (screenWidth >= 1024) {
+        zoom = 0.7;
+      }
+      // Very small screens (minimum)
+      else {
+        zoom = 0.65;
+      }
+      
+      // Apply the zoom
+      document.body.style.zoom = zoom.toString();
+      
+      // Optional: Log for debugging
+      console.log(`Screen width: ${screenWidth}px, Applied zoom: ${zoom}`);
+    };
+    
+    // Run on mount
+    adjustZoomForScreen();
+    
+    // Re-run when window is resized (e.g., when you disconnect monitor)
+    window.addEventListener('resize', adjustZoomForScreen);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', adjustZoomForScreen);
+    };
+  }, [location.pathname]); // Re-run when route changes
+  
+  return null; // This component doesn't render anything
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <ZoomHandler />
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>
