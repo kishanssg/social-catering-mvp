@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Social Catering Workforce Management MVP",
   "scripts": {
-    "heroku-postbuild": "npm --prefix ./social-catering-ui ci && npm --prefix ./social-catering-ui run build && cp ./social-catering-ui/public/assets/index.html ./public/index.html"
+    "heroku-postbuild": "npm --prefix ./social-catering-ui ci && npm --prefix ./social-catering-ui run build && cp -r ./social-catering-ui/dist/* ./public/assets/ && cp ./social-catering-ui/dist/index.html ./public/index.html"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -10,8 +10,8 @@ export default defineConfig({
     strictPort: false,
   },
   build: {
-    outDir: '../public/assets',            // write bundle into Rails public
-    assetsDir: '',                         // keep JS/CSS at /public/assets root
+    outDir: 'dist',                        // build to local dist first
+    assetsDir: '',                         // keep JS/CSS at root
     manifest: false,                       // we're serving index.html directly
     sourcemap: false,                      // Disable sourcemaps in production
     rollupOptions: {
