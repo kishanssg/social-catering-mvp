@@ -473,7 +473,7 @@ class Api::V1::EventsController < Api::V1::BaseController
       staffing_percentage: shift.staffing_progress[:percentage],
       staffing_summary: shift.staffing_progress[:summary],
       shifts_count: 1,
-      created_at: shift.created_at_utc,
+      created_at: shift.created_at,
       role_needed: shift.role_needed,
       pay_rate: shift.pay_rate,
       notes: shift.notes
