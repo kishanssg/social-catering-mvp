@@ -9,10 +9,3 @@ class HomeController < ApplicationController
     render file: Rails.root.join('public', 'index.html'), layout: false, content_type: 'text/html'
   end
 end
-
-class HomeController < ApplicationController
-  def index
-    # Serve the React app using Rails asset helpers
-    render :index, layout: false
-  end
-end
