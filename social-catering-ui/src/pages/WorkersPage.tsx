@@ -684,16 +684,22 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         return;
       }
       
-      // Adding selection - check for conflicts
+      // Adding selection - check for conflicts (time overlap)
       const hasConflict = Array.from(newSelected).some(selectedId => {
         const selectedShift = availableShifts.find(s => s.id === selectedId);
-        return selectedShift && 
-               selectedShift.event?.id === shiftToToggle.event?.id &&
-               selectedShift.role_needed !== shiftToToggle.role_needed;
+        if (!selectedShift) return false;
+        
+        // Check if shifts overlap: (startA < endB) AND (endA > startB)
+        const startA = new Date(shiftToToggle.start_time_utc).getTime();
+        const endA = new Date(shiftToToggle.end_time_utc).getTime();
+        const startB = new Date(selectedShift.start_time_utc).getTime();
+        const endB = new Date(selectedShift.end_time_utc).getTime();
+        
+        return (startA < endB) && (endA > startB);
       });
       
       if (hasConflict) {
-        setError(`Cannot select multiple roles for the same event (${shiftToToggle.event?.title || 'Untitled Event'}). Please deselect other roles for this event first.`);
+        setError(`Cannot select this shift: It overlaps with another selected shift. Please deselect the conflicting shift first.`);
         return;
       }
       
