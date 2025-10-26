@@ -9,20 +9,11 @@ Rails.application.routes.draw do
   # Custom health check endpoint for monitoring
   get "/healthz", to: "health#check"
 
-  # E2E test-only routes (enabled by E2E_TEST_MODE env var)
-  if ENV["E2E_TEST_MODE"] == "true"
-    namespace :e2e do
-      get "test_login", to: "auth#login"
-      delete "test_logout", to: "auth#logout"
-    end
-  end
-
   # API routes
   namespace :api do
     namespace :v1 do
       # Authentication routes
       post "login", to: "sessions#create"
-      get "session", to: "sessions#current"
       delete "logout", to: "sessions#destroy"
 
       resources :workers, only: [ :index, :show, :create, :update, :destroy ] do
