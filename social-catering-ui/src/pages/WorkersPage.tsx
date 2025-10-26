@@ -16,7 +16,8 @@ import {
   MapPin,
   Briefcase,
   X,
-  DollarSign
+  DollarSign,
+  AlertTriangle
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -520,12 +521,21 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
   const [filterRole, setFilterRole] = useState<string>('all');
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [shiftPayRates, setShiftPayRates] = useState<{ [shiftId: number]: number }>({});
+  const [invalidShifts, setInvalidShifts] = useState<Set<number>>(new Set());
+  const [shiftValidationReasons, setShiftValidationReasons] = useState<{ [shiftId: number]: string[] }>({});
   
   useEffect(() => {
     if (worker && worker.id) {
       loadAvailableShifts();
     }
   }, [worker?.id]);
+  
+  // CRITICAL FIX (Issue #1): Pre-validate shifts when they load
+  useEffect(() => {
+    if (worker && worker.id && availableShifts.length > 0) {
+      validateShifts();
+    }
+  }, [worker?.id, availableShifts]);
   
   async function loadAvailableShifts() {
     if (!worker || !worker.id) {
@@ -609,6 +619,54 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     }
   }
   
+  // CRITICAL FIX (Issue #1): Pre-validate shifts to show conflicts before submission
+  async function validateShifts() {
+    if (!worker || !worker.id) return;
+    
+    try {
+      // Get all shift IDs from available shifts
+      const allShiftIds: number[] = [];
+      availableShifts.forEach(shift => {
+        if (shift.all_shift_ids) {
+          allShiftIds.push(...shift.all_shift_ids);
+        }
+      });
+      
+      if (allShiftIds.length === 0) return;
+      
+      const response = await apiClient.post('/staffing/validate_bulk', {
+        worker_id: worker.id,
+        shift_ids: allShiftIds
+      });
+      
+      if (response.data.status === 'success') {
+        const { invalid_shifts } = response.data.data;
+        
+        // Build invalid shifts set and reasons
+        const invalidSet = new Set<number>();
+        const reasonsMap: { [shiftId: number]: string[] } = {};
+        
+        invalid_shifts.forEach((invalid: any) => {
+          // Map the invalid shift_id to the representative shift ID
+          const representativeShift = availableShifts.find(s => 
+            s.all_shift_ids?.includes(invalid.shift_id)
+          );
+          
+          if (representativeShift) {
+            invalidSet.add(representativeShift.id);
+            reasonsMap[representativeShift.id] = invalid.errors.map((e: any) => e.message);
+          }
+        });
+        
+        setInvalidShifts(invalidSet);
+        setShiftValidationReasons(reasonsMap);
+      }
+    } catch (error) {
+      console.error('Failed to validate shifts:', error);
+      // Don't block UI if validation fails
+    }
+  }
+  
   const toggleShift = (shiftId: number) => {
     const newSelected = new Set(selectedShiftIds);
     const shiftToToggle = availableShifts.find(s => s.id === shiftId);
@@ -619,6 +677,13 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       // Removing selection - always allowed
       newSelected.delete(shiftId);
     } else {
+      // CRITICAL FIX (Issue #1): Prevent selecting invalid shifts
+      if (invalidShifts.has(shiftId)) {
+        const reasons = shiftValidationReasons[shiftId] || ['Not available'];
+        setError(`Cannot select this shift: ${reasons.join(', ')}`);
+        return;
+      }
+      
       // Adding selection - check for conflicts
       const hasConflict = Array.from(newSelected).some(selectedId => {
         const selectedShift = availableShifts.find(s => s.id === selectedId);
@@ -930,7 +995,9 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                   {filteredShifts.map((shift) => {
                     const isSelected = selectedShiftIds.has(shift.id);
                     const hasConflict = getShiftConflictStatus(shift);
-                    const isDisabled = hasConflict && !isSelected;
+                    const isInvalid = invalidShifts.has(shift.id);
+                    const isDisabled = (hasConflict || isInvalid) && !isSelected;
+                    const validationReasons = shiftValidationReasons[shift.id] || [];
                     
                     return (
                       <button
@@ -982,6 +1049,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                                   {hasConflict && !isSelected && (
                                     <span className="text-xs text-red-600 font-medium">
                                       (Conflicts with selected role)
+                                    </span>
+                                  )}
+                                  {isInvalid && !isSelected && (
+                                    <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                                      <AlertTriangle size={12} />
+                                      (Not available)
                                     </span>
                                   )}
                                 </div>
@@ -1038,6 +1111,23 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Validation Reasons Display */}
+                        {isInvalid && validationReasons.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-red-200">
+                            <div className="flex items-start gap-2 text-xs">
+                              <AlertTriangle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
+                              <div className="text-red-700">
+                                <p className="font-medium mb-1">Cannot assign to this shift:</p>
+                                <ul className="list-disc list-inside space-y-0.5">
+                                  {validationReasons.map((reason, idx) => (
+                                    <li key={idx}>{reason}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </button>
                     );
                   })}
