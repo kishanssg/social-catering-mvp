@@ -845,23 +845,29 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       console.log('Error response data:', error.response?.data);
       console.log('Error response status:', error.response?.data?.status);
       
-      if (error.response?.data?.status === 'partial_success') {
-        console.log('Found partial_success in catch block - calling onSuccess()');
-        const { successful, failed, total_requested } = error.response.data.data;
+      // Check for success or partial_success status first - these should NOT be errors!
+      const responseStatus = error.response?.data?.status;
+      if (responseStatus === 'success' || responseStatus === 'partial_success') {
+        console.log('Found success/partial_success in catch block - calling onSuccess()');
+        const responseData = error.response?.data?.data || {};
+        const successful = responseData.successful || [];
+        const failed = responseData.failed || [];
+        const total_requested = responseData.total_requested || (successful.length + failed.length);
+        
         const successCount = successful.length;
         const failCount = failed.length;
-        const total = total_requested || (successCount + failCount);
+        const total = total_requested;
         
         // Build detailed message for toast
-        let message = `Successfully scheduled ${successCount} of ${total} shifts`;
-        if (failCount > 0) {
-          message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+        let message = responseData.message || `Successfully scheduled ${successCount} of ${total} shifts`;
+        if (failCount > 0 && successCount > 0) {
+          message = `Successfully scheduled ${successCount} of ${total} shifts. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
         }
         
         // Close modal and show success toast
         console.log('Calling onSuccess with message:', message);
         onSuccess(message);
-        return; // Exit early, don't show error
+        return; // CRITICAL: Exit early, don't execute error handling below!
       }
       
       // Handle batch overlap errors (new in Issue #2 fix)
