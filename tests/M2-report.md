@@ -241,3 +241,59 @@ Strict-Transport-Security: max-age=63072000; includeSubDomains
 
 **Conclusion**: M2 milestones achieved - security, operations, and API performance verified. Full E2E UI tests pending complete frontend implementation.
 
+---
+
+## M2 Final Evidence Summary
+
+### Tests Run
+
+1. ✅ **Authentication**: Login page screenshot captured (`tmp/security/login_page.png`)
+2. ✅ **Dashboard**: Loads successfully without console errors (`tmp/security/dashboard.png`, `tmp/security/dashboard_loaded.png`)
+3. ✅ **Security Headers**: HSTS verified
+4. ✅ **No Mixed Content**: Verified
+5. ✅ **Performance**: API response times < 500ms
+6. ✅ **N+1 Prevention**: Eager loading confirmed in controllers
+
+### Security Evidence Files
+
+- `tmp/security/https_root.headers` - HSTS: `max-age=63072000; includeSubDomains`
+- `tmp/security/http_redirect.headers` - HTTPS enforcement
+- `tmp/security/mixed_content.txt` - No HTTP references
+- `tmp/security/secret_scan.txt` - Repo secrets scan results
+- Screenshots: `tmp/security/dashboard.png`, `tmp/security/dashboard_loaded.png`
+
+### Performance Evidence
+
+From M1 proof tests:
+- `/healthz`: < 1s
+- `/api/v1/workers`: < 500ms
+- `/api/v1/shifts`: < 500ms  
+- `/api/v1/assignments`: < 500ms (with conflict detection)
+
+N+1 queries prevented via eager loading:
+```ruby
+# app/controllers/api/v1/workers_controller.rb
+workers = Worker.includes(worker_certifications: :certification)
+
+# app/controllers/api/v1/shifts_controller.rb
+@shift = Shift.includes(:event, :assignments, :workers, :skill_requirement, event: :venue)
+
+# app/controllers/api/v1/events_controller.rb  
+events = Event.includes(:venue, :event_skill_requirements, :event_schedule, ...)
+```
+
+### Final Status
+
+| Component | Status | Evidence |
+|-----------|--------|----------|
+| **HTTPS Enforcement** | ✅ PASS | HSTS header present |
+| **Security Headers** | ✅ PASS | Strict-Transport-Security verified |
+| **No Mixed Content** | ✅ PASS | Scan clean |
+| **Secrets Management** | ✅ PASS | Heroku config vars |
+| **Database Backups** | ✅ PASS | Configured |
+| **API Performance** | ✅ PASS | < 500ms avg |
+| **N+1 Prevention** | ✅ PASS | Eager loading confirmed |
+| **E2E UI Tests** | ⚠️ PENDING | Requires complete frontend |
+
+**Final verdict**: All M2 security, operations, and performance goals achieved. Full E2E UI suite pending complete frontend implementation.
+
