@@ -178,14 +178,68 @@ module Api
         errors = []
         
         ActiveRecord::Base.transaction do
+          # First, get all existing assignments for the worker to check conflicts
+          existing_assignments = worker.assignments
+                                       .where(status: ['assigned', 'confirmed', 'completed'])
+                                       .includes(:shift)
+                                       .to_a
+          
           shifts.each do |shift|
-            # Check for conflicts using the shift's conflict_reason method
-            conflict_reason = shift.conflict_reason(worker)
-            if conflict_reason.present?
+            # Check for conflicts with EXISTING assignments (not with other shifts in current batch)
+            conflict_with_existing = existing_assignments.any? do |existing_assignment|
+              existing_shift = existing_assignment.shift
+              # Two shifts overlap if: (startA < endB) AND (endA > startB)
+              (shift.start_time_utc < existing_shift.end_time_utc) &&
+              (shift.end_time_utc > existing_shift.start_time_utc)
+            end
+            
+            if conflict_with_existing
+              conflicting_assignment = existing_assignments.find do |existing_assignment|
+                existing_shift = existing_assignment.shift
+                (shift.start_time_utc < existing_shift.end_time_utc) &&
+                (shift.end_time_utc > existing_shift.start_time_utc)
+              end
+              
+              conflicting_shift = conflicting_assignment.shift
+              start_time = conflicting_shift.start_time_utc.strftime('%I:%M %p')
+              end_time = conflicting_shift.end_time_utc.strftime('%I:%M %p')
+              
               errors << {
                 shift_id: shift.id,
                 event: shift.event&.title,
-                errors: [conflict_reason]
+                errors: ["Worker has conflicting shift '#{conflicting_shift.client_name}' (#{start_time} - #{end_time})"]
+              }
+              next
+            end
+            
+            # Check skill requirements
+            if shift.role_needed.present?
+              worker_skills = case worker.skills_json
+                             when String then JSON.parse(worker.skills_json) rescue []
+                             when Array then worker.skills_json
+                             else []
+                             end
+              
+              unless worker_skills.include?(shift.role_needed)
+                errors << {
+                  shift_id: shift.id,
+                  event: shift.event&.title,
+                  errors: ["Worker does not have required skill: #{shift.role_needed}"]
+                }
+                next
+              end
+            end
+            
+            # Check capacity
+            active_assignments_count = shift.assignments
+                                           .where.not(status: ['cancelled', 'no_show'])
+                                           .count
+            
+            if active_assignments_count >= shift.capacity
+              errors << {
+                shift_id: shift.id,
+                event: shift.event&.title,
+                errors: ["Shift is already at full capacity (#{active_assignments_count}/#{shift.capacity} workers assigned)"]
               }
               next
             end
@@ -201,6 +255,9 @@ module Api
             
             if assignment.save
               assignments << assignment
+              
+              # Add to existing_assignments to check against in next iteration
+              existing_assignments << assignment
               
               # Log activity
               ActivityLog.create(
