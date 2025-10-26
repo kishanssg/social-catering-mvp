@@ -43,6 +43,26 @@ module Api
         end
       end
 
+      def current
+        if current_user
+          render json: {
+            status: "success",
+            data: {
+              user: {
+                id: current_user.id,
+                email: current_user.email,
+                role: current_user.role
+              }
+            }
+          }
+        else
+          render json: {
+            status: "error",
+            error: "Not authenticated"
+          }, status: :unauthorized
+        end
+      end
+
       def destroy
         sign_out(current_user) if current_user
         render json: {

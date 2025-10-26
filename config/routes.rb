@@ -14,6 +14,7 @@ Rails.application.routes.draw do
     namespace :v1 do
       # Authentication routes
       post "login", to: "sessions#create"
+      get "session", to: "sessions#current"
       delete "logout", to: "sessions#destroy"
 
       resources :workers, only: [ :index, :show, :create, :update, :destroy ] do
