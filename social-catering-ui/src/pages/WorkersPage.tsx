@@ -810,17 +810,19 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         onSuccess(response.data.message);
       } else if (response.data.status === 'partial_success') {
         // Partial success - still close modal and show success toast with details
-        const { successful, failed } = response.data.data;
+        const { successful, failed, total_requested } = response.data.data;
         const successCount = successful.length;
         const failCount = failed.length;
+        const total = total_requested || (successCount + failCount);
         
         // Build detailed message for toast
-        let message = `Successfully scheduled ${successCount} of ${uniqueShiftIds.length} shifts`;
+        let message = `Successfully scheduled ${successCount} of ${total} shifts`;
         if (failCount > 0) {
           message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
         }
         
         // Close modal and show success toast with partial success message
+        console.log('Partial success - calling onSuccess with message:', message);
         onSuccess(message);
       } else if (response.data.status === 'error') {
         // All failed - stay in modal and show error
