@@ -133,47 +133,7 @@ module Api
           }, status: :not_found
         end
         
-        # Check for conflicts (worker already assigned to overlapping shifts)
-        conflicts = check_scheduling_conflicts(worker, shifts)
-        
-        if conflicts.any?
-          conflict_details = conflicts.map do |c|
-            new_shift = c[:new_shift]
-            conflicting_shifts = c[:conflicting_shifts]
-            
-            conflict_messages = conflicting_shifts.map do |s|
-              "#{s.event&.title} (#{s.start_time_utc.strftime('%m/%d at %I:%M %p')} - #{s.end_time_utc.strftime('%I:%M %p')})"
-            end
-            
-            "#{new_shift.event&.title} (#{new_shift.start_time_utc.strftime('%m/%d at %I:%M %p')} - #{new_shift.end_time_utc.strftime('%I:%M %p')}) conflicts with: #{conflict_messages.join(', ')}"
-          end
-          
-          return render json: {
-            status: 'error',
-            message: 'Scheduling conflicts detected',
-            details: conflict_details,
-            conflicts: conflicts.map { |c|
-              {
-                new_shift: {
-                  id: c[:new_shift].id,
-                  event: c[:new_shift].event&.title,
-                  start_time: c[:new_shift].start_time_utc,
-                  end_time: c[:new_shift].end_time_utc
-                },
-                conflicting_with: c[:conflicting_shifts].map { |s|
-                  {
-                    id: s.id,
-                    event: s.event&.title,
-                    start_time: s.start_time_utc,
-                    end_time: s.end_time_utc
-                  }
-                }
-              }
-            }
-          }, status: :unprocessable_entity
-        end
-        
-        # Create assignments in a transaction
+        # Create assignments in a transaction (conflict checks happen per-shift inside)
         assignments = []
         errors = []
         
