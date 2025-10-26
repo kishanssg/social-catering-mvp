@@ -5,6 +5,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -22,6 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
+  subtitle,
   children,
   footer,
   size = 'md',
@@ -71,21 +73,24 @@ export const Modal: React.FC<ModalProps> = ({
       <div className={`modal-container ${sizeClasses[size]}`}>
         {/* Header - Fixed at top */}
         <div className="modal-header">
-          <div className="flex items-center justify-between">
+          <div className="flex-1">
             <h2 
               id="modal-title" 
               className="text-xl font-semibold text-gray-900 font-manrope"
             >
               {title}
             </h2>
-            <button
-              onClick={onClose}
-              className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Close modal"
-            >
-              <X size={20} className="text-gray-500" />
-            </button>
+            {subtitle && (
+              <p className="text-sm text-gray-600 mt-1">{subtitle}</p>
+            )}
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+            aria-label="Close modal"
+          >
+            <X size={20} className="text-gray-600" />
+          </button>
         </div>
 
         {/* Body - Scrollable */}

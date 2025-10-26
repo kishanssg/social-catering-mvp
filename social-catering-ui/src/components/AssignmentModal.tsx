@@ -201,16 +201,17 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       <div className="flex gap-2">
         <button
           onClick={onClose}
-          className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition-colors"
+          disabled={assigning}
+          className="btn-secondary"
         >
           Cancel
         </button>
         <button
           onClick={handleAssignWorker}
           disabled={!selectedWorker || assigning}
-          className="flex-1 px-3 py-2 text-sm bg-teal-600 text-white font-medium rounded hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary"
         >
-          {assigning ? 'Assigning...' : 'Assign Worker'}
+          {assigning ? 'Assigning Worker...' : 'Assign Worker'}
         </button>
       </div>
     </>

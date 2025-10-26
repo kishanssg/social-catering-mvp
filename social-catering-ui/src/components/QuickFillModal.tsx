@@ -140,7 +140,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
             <h3 className="text-xl font-bold text-gray-900">Quick Fill — {roleName}</h3>
             <p className="text-sm text-gray-500">Unfilled shifts: {neededCount}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -263,13 +263,13 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-5 bg-gray-50">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Cancel</button>
+          <button onClick={onClose} disabled={submitting} className="btn-secondary">Cancel</button>
           <button
             onClick={assignRoundRobin}
             disabled={submitting || selected.length === 0 || neededCount === 0}
-            className="px-5 py-2 rounded-lg bg-teal-600 text-white font-semibold hover:bg-teal-700 disabled:opacity-50"
+            className="btn-primary"
           >
-            {submitting ? 'Assigning…' : `Assign to ${neededCount} shifts`}
+            {submitting ? 'Filling Shifts...' : `Assign to ${neededCount} shifts`}
           </button>
         </div>
       </div>
