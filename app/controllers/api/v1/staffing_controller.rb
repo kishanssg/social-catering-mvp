@@ -457,6 +457,7 @@ module Api
           }
         }
       end
+    end
       
       # PATCH /api/v1/staffing/:id
       def update
