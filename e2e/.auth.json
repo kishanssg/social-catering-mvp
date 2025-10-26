@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "_social_catering_session",
+      "value": "Xw1VnpgwPbG1w7HrMqOqVdmjYgR8pyIz%2BY5IhcDQOdNQrdc5w7QdW2QRNoG45l%2Fp4RhcgyIIQmetiDKfAUf6ww%2FKNFY%2FBwMkGkHVRApnpnNo1RX7CTDzZO6GbN86d%2FUGPQAgJC0dc6b%2Fiusu2x5%2BZLBCYiZ%2FPxn7Y89aMk40cMc1kWQMWqGsdSpTWfseFWWqLuixciPsjYQSP71v2oHgjX6DTdctOdUWOJhQbWQO3TysaW0nz5Me0871YQ1DXPioGN1JHGyCtvLGrZ2xE0CLzq8AfaOQgjIIoMc3Qlp1B5E%3D--g5F6QPPpfl1AIwU%2B--uYGuJWpixNP%2FxSpT3gNTmQ%3D%3D",
+      "domain": "sc-mvp-staging-c6ef090c6c41.herokuapp.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
