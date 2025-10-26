@@ -264,6 +264,20 @@ module Api
             Rails.logger.info("  Shift A: #{shift_a.event&.title} - #{shift_a.start_time_utc} to #{shift_a.end_time_utc}")
             Rails.logger.info("  Shift B: #{shift_b.event&.title} - #{shift_b.start_time_utc} to #{shift_b.end_time_utc}")
             
+            # NEW FIX: Skip if same shift ID (duplicate selection) or exact same event and times
+            if shift_a.id == shift_b.id
+              Rails.logger.info("  Skipping: Same shift ID")
+              next
+            end
+            
+            # Skip if same event and exact same times (different roles, same event/time)
+            if shift_a.event_id == shift_b.event_id && 
+               shift_a.start_time_utc == shift_b.start_time_utc && 
+               shift_a.end_time_utc == shift_b.end_time_utc
+              Rails.logger.info("  Skipping: Same event and times (different roles allowed)")
+              next
+            end
+            
             # Check if they overlap: (startA < endB) AND (endA > startB)
             check1 = shift_a.start_time_utc < shift_b.end_time_utc
             check2 = shift_a.end_time_utc > shift_b.start_time_utc
