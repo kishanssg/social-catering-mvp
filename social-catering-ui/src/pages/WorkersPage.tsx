@@ -690,10 +690,28 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         assignments: assignments
       });
       
+      // CRITICAL FIX: Handle partial success mode
       if (response.data.status === 'success') {
         onSuccess(response.data.message);
-      } else {
-        // Show detailed error messages if available
+      } else if (response.data.status === 'partial_success') {
+        // Partial success - show what succeeded and what failed
+        const { successful, failed } = response.data.data;
+        const successCount = successful.length;
+        const failCount = failed.length;
+        
+        // Build detailed error message
+        let message = `Successfully scheduled ${successCount} of ${uniqueShiftIds.length} shifts`;
+        if (failCount > 0) {
+          message += '\n\nFailed to schedule:\n';
+          failed.forEach((f: any) => {
+            message += `• ${f.event}: ${f.reasons.join(', ')}\n`;
+          });
+        }
+        
+        // Show both success and error
+        onSuccess(message);
+      } else if (response.data.status === 'error') {
+        // All failed
         let errorMessage = response.data.message || 'Failed to schedule worker for shifts';
         if (response.data.details && response.data.details.length > 0) {
           errorMessage += '\n\nDetails:\n• ' + response.data.details.join('\n• ');
@@ -702,6 +720,16 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       }
     } catch (error: any) {
       console.error('Failed to bulk assign:', error);
+      
+      // Handle batch overlap errors (new in Issue #2 fix)
+      if (error.response?.data?.status === 'error' && error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        if (errors.some((e: any) => e.type === 'batch_overlap')) {
+          const overlapError = errors.find((e: any) => e.type === 'batch_overlap');
+          setError(overlapError.message);
+          return;
+        }
+      }
       
       if (error.response?.data?.conflicts) {
         setConflicts(error.response?.data?.conflicts || []);

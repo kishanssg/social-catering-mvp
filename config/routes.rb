@@ -71,6 +71,7 @@ Rails.application.routes.draw do
       resources :staffing, only: [:create, :update, :destroy] do
         collection do
           post :bulk_create
+          post :validate_bulk
         end
       end
       

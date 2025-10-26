@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_25_192654) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -79,6 +79,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_25_192654) do
     t.index ["shift_id"], name: "index_assignments_on_shift"
     t.index ["shift_id"], name: "index_assignments_on_shift_id"
     t.index ["worker_id", "created_at"], name: "index_assignments_on_worker_id_and_created_at"
+    t.index ["worker_id", "shift_id"], name: "index_active_assignments_on_worker_and_shift", unique: true, where: "((status)::text <> ALL ((ARRAY['cancelled'::character varying, 'no_show'::character varying])::text[]))"
     t.index ["worker_id", "shift_id"], name: "index_assignments_unique_worker_shift", unique: true
     t.index ["worker_id", "status", "created_at"], name: "index_assignments_on_worker_status_time"
     t.index ["worker_id", "status"], name: "index_assignments_on_worker_id_and_status"

@@ -13,7 +13,13 @@ class Assignment < ApplicationRecord
   validates :break_duration_minutes, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :overtime_hours, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :performance_rating, inclusion: { in: 1..5 }, allow_nil: true
-  validates :worker_id, uniqueness: { scope: :shift_id, message: "is already assigned to this shift" }
+  # CRITICAL FIX: Prevent duplicate active assignments
+  # This validation ensures worker+shift combo is unique, but allows duplicates if one is cancelled
+  validates :worker_id, uniqueness: { 
+    scope: :shift_id, 
+    conditions: -> { where.not(status: ['cancelled', 'no_show']) },
+    message: "is already assigned to this shift" 
+  }
   validate :worker_available_for_shift
   validate :shift_not_at_capacity
   validate :worker_has_required_skills

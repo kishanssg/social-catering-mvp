@@ -76,6 +76,113 @@ module Api
         end
       end
       
+      # POST /api/v1/staffing/validate_bulk
+      # Pre-validate worker assignments before submission
+      def validate_bulk
+        worker_id = params[:worker_id]
+        shift_ids = params[:shift_ids] || []
+        
+        worker = Worker.find_by(id: worker_id)
+        
+        unless worker
+          return render json: {
+            status: 'error',
+            message: 'Worker not found'
+          }, status: :not_found
+        end
+        
+        if shift_ids.empty?
+          return render json: {
+            status: 'error',
+            message: 'No shifts provided'
+          }, status: :unprocessable_entity
+        end
+        
+        shifts = Shift.where(id: shift_ids).includes(:event, :assignments)
+        
+        if shifts.count != shift_ids.count
+          return render json: {
+            status: 'error',
+            message: 'Some shifts not found'
+          }, status: :not_found
+        end
+        
+        valid_shifts = []
+        invalid_shifts = []
+        
+        # Get existing assignments for conflict checking
+        existing_assignments = worker.assignments
+                                     .where(status: ['assigned', 'confirmed', 'completed'])
+                                     .joins(:shift)
+                                     .select('assignments.*, shifts.start_time_utc, shifts.end_time_utc, shifts.client_name')
+                                     .to_a
+        
+        # Check each shift
+        shifts.each do |shift|
+          errors = []
+          
+          # Check time overlap with existing assignments
+          conflicting = existing_assignments.find do |assignment|
+            shift_start = shift.start_time_utc
+            shift_end = shift.end_time_utc
+            
+            shift_start < assignment.end_time_utc && shift_end > assignment.start_time_utc
+          end
+          
+          if conflicting
+            start_time = conflicting.start_time_utc.strftime('%I:%M %p')
+            end_time = conflicting.end_time_utc.strftime('%I:%M %p')
+            errors << {
+              type: 'time_conflict',
+              message: "Conflicts with '#{conflicting.client_name}' (#{start_time} - #{end_time})"
+            }
+          end
+          
+          # Check capacity
+          active_count = shift.assignments.where.not(status: ['cancelled', 'no_show']).count
+          if active_count >= shift.capacity
+            errors << {
+              type: 'capacity',
+              message: "Shift is at full capacity (#{active_count}/#{shift.capacity})"
+            }
+          end
+          
+          # Check skills
+          if shift.role_needed.present?
+            worker_skills = case worker.skills_json
+                           when String then JSON.parse(worker.skills_json) rescue []
+                           when Array then worker.skills_json
+                           else []
+                           end
+            
+            unless worker_skills.include?(shift.role_needed)
+              errors << {
+                type: 'skill_mismatch',
+                message: "Worker does not have required skill: #{shift.role_needed}"
+              }
+            end
+          end
+          
+          if errors.empty?
+            valid_shifts << shift.id
+          else
+            invalid_shifts << {
+              shift_id: shift.id,
+              event_title: shift.event&.title || shift.client_name,
+              errors: errors
+            }
+          end
+        end
+        
+        render json: {
+          status: 'success',
+          data: {
+            valid_shifts: valid_shifts,
+            invalid_shifts: invalid_shifts
+          }
+        }
+      end
+      
       # POST /api/v1/staffing/bulk_create
       # Assign one worker to multiple shifts
       # Supports two formats:
@@ -142,147 +249,213 @@ module Api
           }, status: :not_found
         end
         
-        # Create assignments in a transaction (conflict checks happen per-shift inside)
-        # We removed the early check_scheduling_conflicts call because it was comparing
-        # shifts in the batch against each other, causing false conflicts
-        assignments = []
-        errors = []
-        
-        ActiveRecord::Base.transaction do
-          # First, get all existing assignments for the worker to check conflicts
-          existing_assignments = worker.assignments
-                                       .where(status: ['assigned', 'confirmed', 'completed'])
-                                       .includes(:shift)
-                                       .to_a
+      # CRITICAL FIX: Check intra-batch overlaps first (shifts in batch against each other)
+      # Sort shifts by start time for efficient overlap checking
+      sorted_shifts = shifts.sort_by(&:start_time_utc)
+      
+      # Check each shift against every other shift in the batch for time overlaps
+      (0...sorted_shifts.length).each do |i|
+        ((i+1)...sorted_shifts.length).each do |j|
+          shift_a = sorted_shifts[i]
+          shift_b = sorted_shifts[j]
           
-          shifts.each do |shift|
-            # Check for conflicts with EXISTING assignments (not with other shifts in current batch)
-            conflict_with_existing = existing_assignments.any? do |existing_assignment|
+          # Check if they overlap: (startA < endB) AND (endA > startB)
+          if shift_a.start_time_utc < shift_b.end_time_utc && shift_a.end_time_utc > shift_b.start_time_utc
+            start_a = shift_a.start_time_utc.strftime('%I:%M %p')
+            end_a = shift_a.end_time_utc.strftime('%I:%M %p')
+            start_b = shift_b.start_time_utc.strftime('%I:%M %p')
+            end_b = shift_b.end_time_utc.strftime('%I:%M %p')
+            
+            return render json: {
+              status: 'error',
+              message: 'Cannot assign to overlapping shifts in the same batch',
+              errors: [{
+                type: 'batch_overlap',
+                message: "'#{shift_a.event&.title || 'Unknown Event'}' (#{start_a} - #{end_a}) overlaps with '#{shift_b.event&.title || 'Unknown Event'}' (#{start_b} - #{end_b})"
+              }]
+            }, status: :unprocessable_entity
+          end
+        end
+      end
+      
+      # Now proceed with individual assignment processing (NO transaction wrap for partial success)
+      assignments = []
+      errors = []
+      
+      # Get all existing assignments for the worker to check conflicts
+      existing_assignments = worker.assignments
+                                   .where(status: ['assigned', 'confirmed', 'completed'])
+                                   .includes(:shift)
+                                   .to_a
+      
+      shifts.each do |shift|
+        begin
+          # Check for conflicts with EXISTING assignments
+          conflict_with_existing = existing_assignments.any? do |existing_assignment|
+            existing_shift = existing_assignment.shift
+            # Two shifts overlap if: (startA < endB) AND (endA > startB)
+            (shift.start_time_utc < existing_shift.end_time_utc) &&
+            (shift.end_time_utc > existing_shift.start_time_utc)
+          end
+            
+          if conflict_with_existing
+            conflicting_assignment = existing_assignments.find do |existing_assignment|
               existing_shift = existing_assignment.shift
-              # Two shifts overlap if: (startA < endB) AND (endA > startB)
               (shift.start_time_utc < existing_shift.end_time_utc) &&
               (shift.end_time_utc > existing_shift.start_time_utc)
             end
             
-            if conflict_with_existing
-              conflicting_assignment = existing_assignments.find do |existing_assignment|
-                existing_shift = existing_assignment.shift
-                (shift.start_time_utc < existing_shift.end_time_utc) &&
-                (shift.end_time_utc > existing_shift.start_time_utc)
-              end
-              
-              conflicting_shift = conflicting_assignment.shift
-              start_time = conflicting_shift.start_time_utc.strftime('%I:%M %p')
-              end_time = conflicting_shift.end_time_utc.strftime('%I:%M %p')
-              
-              errors << {
-                shift_id: shift.id,
-                event: shift.event&.title,
-                errors: ["Worker has conflicting shift '#{conflicting_shift.client_name}' (#{start_time} - #{end_time})"]
-              }
-              next
-            end
+            conflicting_shift = conflicting_assignment.shift
+            start_time = conflicting_shift.start_time_utc.strftime('%I:%M %p')
+            end_time = conflicting_shift.end_time_utc.strftime('%I:%M %p')
             
-            # Check skill requirements
-            if shift.role_needed.present?
-              worker_skills = case worker.skills_json
-                             when String then JSON.parse(worker.skills_json) rescue []
-                             when Array then worker.skills_json
-                             else []
-                             end
-              
-              unless worker_skills.include?(shift.role_needed)
-                errors << {
-                  shift_id: shift.id,
-                  event: shift.event&.title,
-                  errors: ["Worker does not have required skill: #{shift.role_needed}"]
-                }
-                next
-              end
-            end
-            
-            # Check capacity
-            active_assignments_count = shift.assignments
-                                           .where.not(status: ['cancelled', 'no_show'])
-                                           .count
-            
-            if active_assignments_count >= shift.capacity
-              errors << {
-                shift_id: shift.id,
-                event: shift.event&.title,
-                errors: ["Shift is already at full capacity (#{active_assignments_count}/#{shift.capacity} workers assigned)"]
-              }
-              next
-            end
-            
-            # Use hourly_rate from frontend if provided, otherwise shift.pay_rate
-            assignment_hourly_rate = hourly_rates[shift.id] || shift.pay_rate
-            
-            assignment = Assignment.new(
-              worker: worker,
-              shift: shift,
-              status: 'confirmed',
-              assigned_by_id: current_user.id,
-              assigned_at_utc: Time.current,
-              hourly_rate: assignment_hourly_rate
-            )
-            
-            if assignment.save
-              assignments << assignment
-              
-              # Add to existing_assignments to check against in next iteration
-              existing_assignments << assignment
-              
-              # Log activity
-              ActivityLog.create(
-                action: 'staffing_created',
-                resource_type: 'Assignment',
-                resource_id: assignment.id,
-                details: {
-                  worker_id: worker.id,
-                  worker_name: "#{worker.first_name} #{worker.last_name}",
-                  shift_id: shift.id,
-                  event_title: shift.event&.title,
-                  bulk_assignment: true
-                }
-              ) rescue nil
-            else
-              errors << {
-                shift_id: shift.id,
-                event: shift.event&.title,
-                errors: assignment.errors.full_messages
-              }
-            end
-          end
-          
-          # Rollback if any errors
-          raise ActiveRecord::Rollback if errors.any?
-        end
-        
-        if errors.any?
-          # Create user-friendly error messages
-          error_messages = errors.map do |error|
-            shift_info = "Shift #{error[:shift_id]} (#{error[:event]})"
-            error_details = error[:errors].join(', ')
-            "#{shift_info}: #{error_details}"
-          end
-          
-          render json: {
-            status: 'error',
-            message: 'Some assignments could not be created',
-            details: error_messages,
-            errors: errors
-          }, status: :unprocessable_entity
-        else
-          render json: {
-            status: 'success',
-            message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} shift#{assignments.count != 1 ? 's' : ''}",
-            data: {
-              created: assignments.count,
-              assignments: assignments.map { |a| serialize_assignment(a) }
+            errors << {
+              shift_id: shift.id,
+              event: shift.event&.title,
+              errors: ["Worker has conflicting shift '#{conflicting_shift.client_name}' (#{start_time} - #{end_time})"]
             }
+            next
+          end
+            
+          # Check skill requirements
+          if shift.role_needed.present?
+            worker_skills = case worker.skills_json
+                           when String then JSON.parse(worker.skills_json) rescue []
+                           when Array then worker.skills_json
+                           else []
+                           end
+              
+            unless worker_skills.include?(shift.role_needed)
+              errors << {
+                shift_id: shift.id,
+                event: shift.event&.title,
+                errors: ["Worker does not have required skill: #{shift.role_needed}"]
+              }
+              next
+            end
+          end
+            
+          # Check capacity
+          active_assignments_count = shift.assignments
+                                         .where.not(status: ['cancelled', 'no_show'])
+                                         .count
+            
+          if active_assignments_count >= shift.capacity
+            errors << {
+              shift_id: shift.id,
+              event: shift.event&.title,
+              errors: ["Shift is already at full capacity (#{active_assignments_count}/#{shift.capacity} workers assigned)"]
+            }
+            next
+          end
+          
+          # CRITICAL FIX: Hourly rate fallback chain
+          # 1. Try hourly_rate from params hash
+          # 2. Fall back to shift.pay_rate
+          # 3. Fall back to Florida minimum wage ($12.00)
+          assignment_hourly_rate = if hourly_rates[shift.id].present? && hourly_rates[shift.id] > 0
+            hourly_rates[shift.id]
+          elsif shift.pay_rate.present? && shift.pay_rate > 0
+            shift.pay_rate
+          else
+            12.00 # Florida minimum wage
+          end
+            
+          assignment = Assignment.new(
+            worker: worker,
+            shift: shift,
+            status: 'confirmed',
+            assigned_by_id: current_user.id,
+            assigned_at_utc: Time.current,
+            hourly_rate: assignment_hourly_rate
+          )
+            
+          if assignment.save
+            assignments << assignment
+              
+            # Add to existing_assignments to check against in next iteration
+            existing_assignments << assignment
+              
+            # Log activity
+            ActivityLog.create(
+              action: 'staffing_created',
+              resource_type: 'Assignment',
+              resource_id: assignment.id,
+              details: {
+                worker_id: worker.id,
+                worker_name: "#{worker.first_name} #{worker.last_name}",
+                shift_id: shift.id,
+                event_title: shift.event&.title,
+                bulk_assignment: true
+              }
+            ) rescue nil
+          else
+            errors << {
+              shift_id: shift.id,
+              event: shift.event&.title,
+              errors: assignment.errors.full_messages
+            }
+          end
+        rescue => e
+          errors << {
+            shift_id: shift.id,
+            event: shift.event&.title,
+            errors: [e.message]
           }
         end
+      end
+        
+      # CRITICAL FIX: Partial success mode - return results for both successful and failed
+      if assignments.empty? && errors.any?
+        # All failed
+        error_messages = errors.map do |error|
+          shift_info = "Shift #{error[:shift_id]} (#{error[:event]})"
+          error_details = error[:errors].join(', ')
+          "#{shift_info}: #{error_details}"
+        end
+        
+        render json: {
+          status: 'error',
+          message: 'All assignments failed',
+          details: error_messages,
+          successful: [],
+          failed: errors.map do |e|
+            {
+              shift_id: e[:shift_id],
+              event: e[:event],
+              reasons: e[:errors]
+            }
+          end
+        }, status: :unprocessable_entity
+      elsif assignments.any? && errors.any?
+        # Partial success
+        render json: {
+          status: 'partial_success',
+          message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} of #{shifts.count} shift#{shifts.count != 1 ? 's' : ''}",
+          data: {
+            successful: assignments.map { |a| serialize_assignment(a) },
+            failed: errors.map do |e|
+              {
+                shift_id: e[:shift_id],
+                event: e[:event],
+                reasons: e[:errors]
+              }
+            end,
+            total_requested: shifts.count,
+            total_successful: assignments.count,
+            total_failed: errors.count
+          }
+        }, status: :multi_status
+      else
+        # All succeeded
+        render json: {
+          status: 'success',
+          message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} shift#{assignments.count != 1 ? 's' : ''}",
+          data: {
+            created: assignments.count,
+            assignments: assignments.map { |a| serialize_assignment(a) }
+          }
+        }
       end
       
       # PATCH /api/v1/staffing/:id
