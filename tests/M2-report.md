@@ -295,5 +295,36 @@ events = Event.includes(:venue, :event_skill_requirements, :event_schedule, ...)
 | **N+1 Prevention** | ✅ PASS | Eager loading confirmed |
 | **E2E UI Tests** | ⚠️ PENDING | Requires complete frontend |
 
-**Final verdict**: All M2 security, operations, and performance goals achieved. Full E2E UI suite pending complete frontend implementation.
+**Final verdict**: All M2 security, operations, and performance goals achieved. 
+
+## E2E Test Issue Diagnosis
+
+### Root Cause
+E2E tests were failing because the frontend expects `GET /api/v1/session` to verify authentication, but this endpoint was missing from the backend.
+
+**Issue**: After Devise login, the SPA checks session validity via `GET /api/v1/session`. This returned 404, causing the frontend to treat the session as invalid and redirect back to `/login`.
+
+### Solution Implemented
+
+1. ✅ Added route: `get "session", to: "sessions#current"` in `config/routes.rb`
+2. ✅ Added method in `SessionsController`:
+   ```ruby
+   def current
+     if current_user
+       render json: { status: "success", data: { user: {...} } }
+     else
+       render json: { status: "error", error: "Not authenticated" }, status: :unauthorized
+     end
+   end
+   ```
+3. ✅ Deployed to staging (v105)
+
+### Next Steps
+With this fix in place, E2E tests should now pass authentication. The frontend can now:
+- Submit login form to `/users/sign_in`
+- Get Devise session cookie
+- Verify session via `GET /api/v1/session`
+- Navigate to dashboard without redirect loop
+
+Full E2E UI suite ready to run once this fix is verified on staging.
 
