@@ -87,6 +87,7 @@ module Api
           # Format 1: worker_id + shift_ids array
           worker = Worker.find_by(id: params[:worker_id])
           shift_ids = params[:shift_ids] || []
+          hourly_rates = {} # Not provided in format 1
         elsif params[:assignments].present?
           # Format 2: assignments array with shift_id and worker_id
           first_assignment = params[:assignments].first
@@ -101,6 +102,14 @@ module Api
           end
           
           shift_ids = params[:assignments].map { |a| a[:shift_id] || a['shift_id'] }.compact
+          
+          # Extract hourly_rates by shift_id for later use
+          hourly_rates = {}
+          params[:assignments].each do |a|
+            shift_id = a[:shift_id] || a['shift_id']
+            hourly_rate = a[:hourly_rate] || a['hourly_rate']
+            hourly_rates[shift_id] = hourly_rate if shift_id && hourly_rate
+          end
         else
           return render json: {
             status: 'error',
@@ -204,13 +213,16 @@ module Api
               next
             end
             
+            # Use hourly_rate from frontend if provided, otherwise shift.pay_rate
+            assignment_hourly_rate = hourly_rates[shift.id] || shift.pay_rate
+            
             assignment = Assignment.new(
               worker: worker,
               shift: shift,
               status: 'confirmed',
               assigned_by_id: current_user.id,
               assigned_at_utc: Time.current,
-              hourly_rate: shift.pay_rate
+              hourly_rate: assignment_hourly_rate
             )
             
             if assignment.save
