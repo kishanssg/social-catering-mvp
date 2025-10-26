@@ -143,6 +143,8 @@ module Api
         end
         
         # Create assignments in a transaction (conflict checks happen per-shift inside)
+        # We removed the early check_scheduling_conflicts call because it was comparing
+        # shifts in the batch against each other, causing false conflicts
         assignments = []
         errors = []
         
