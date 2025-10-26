@@ -798,8 +798,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       console.log('Response status:', response.data.status);
       
       // CRITICAL FIX: Handle partial success mode
+      console.log('Response status in try block:', response.data.status);
+      console.log('Response data:', JSON.stringify(response.data, null, 2));
+      
       if (response.data.status === 'success') {
         // Full success - close modal and show success toast
+        console.log('Full success - calling onSuccess()');
         onSuccess(response.data.message);
       } else if (response.data.status === 'partial_success') {
         // Partial success - still close modal and show success toast with details
@@ -832,7 +836,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       console.error('Error response data:', error.response?.data);
       
       // CRITICAL FIX: Handle partial_success even in catch block (for 207 status)
+      console.log('In catch block - checking for partial_success');
+      console.log('Error response data:', error.response?.data);
+      console.log('Error response status:', error.response?.data?.status);
+      
       if (error.response?.data?.status === 'partial_success') {
+        console.log('Found partial_success in catch block - calling onSuccess()');
         const { successful, failed, total_requested } = error.response.data.data;
         const successCount = successful.length;
         const failCount = failed.length;
@@ -845,6 +854,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         }
         
         // Close modal and show success toast
+        console.log('Calling onSuccess with message:', message);
         onSuccess(message);
         return; // Exit early, don't show error
       }
