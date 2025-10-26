@@ -328,3 +328,82 @@ With this fix in place, E2E tests should now pass authentication. The frontend c
 
 Full E2E UI suite ready to run once this fix is verified on staging.
 
+---
+
+## M2 E2E Test Status Update
+
+### Session Endpoint Fix ✅ Deployed
+- **Issue**: Frontend was calling `GET /api/v1/sessions/current` after login to verify session
+- **Root Cause**: Endpoint was missing, causing 404 and login redirect loop
+- **Solution**: Added route and controller method for session verification
+- **Deployment**: Committed, deployed to staging (v105)
+
+### Playwright Setup ✅ Complete
+- Framework: Playwright installed and configured
+- Global Setup: `e2e/global-setup.ts` created with Devise authentication
+- Config: `playwright.config.ts` with desktop/tablet/mobile projects
+- Storage State: Auth cookies saved to `e2e/.auth.json`
+- Utilities: `e2e/utils.ts` helpers for session validation
+
+### Current Blockers
+- E2E tests cannot proceed because the frontend UI is not fully implemented
+- The SPA architecture expects React app but is serving HTML forms
+- Dashboard route `/` loads but not all React components render correctly
+- Need frontend development completion before full E2E validation
+
+### What's Working
+- ✅ API backend: All endpoints functional (M1 proof)
+- ✅ Security headers: HSTS, CSP, X-Frame-Options verified
+- ✅ Database: Stats sync with Events page (Draft/Active/Completed counts)
+- ✅ Unfilled roles: Correctly calculated from Event.unfilled_roles_count
+- ✅ Session endpoint: GET /api/v1/sessions/current returns 200 after login
+
+### Next Steps
+1. Complete frontend React implementation
+2. Ensure SPA routing works correctly
+3. Re-run E2E tests once UI is fully wired
+4. Capture screenshots and video evidence
+5. Document final M2 acceptance checklist
+
+**Current Status**: Backend MVP complete ✅ | Frontend pending ⏳ | E2E tests deferred until UI completion
+
+---
+
+## E2E Test Login Endpoint (Option A) - Implemented
+
+### Implementation Complete ✅
+1. **Staging-only test login endpoint** (`/e2e/test_login`)
+   - Guarded by `E2E_TEST_MODE=true` and `E2E_SECRET` env vars
+   - Created `E2E::AuthController` for programmatic authentication
+   - Fixed Zeitwerk namespace loading with `app/controllers/e2e.rb` module
+   - Routes condition updated to work in production environment (Heroku)
+
+2. **Playwright Configuration**
+   - `playwright.config.ts`: Desktop/tablet/mobile projects
+   - `e2e/global-setup.ts`: Test login via `/e2e/test_login?email=...&secret=...`
+   - `e2e/utils.ts`: Helper functions for assertion
+   - Storage state: Auth cookies saved to `e2e/.auth.json`
+
+3. **Heroku Config**
+   ```bash
+   E2E_TEST_MODE=true
+   E2E_SECRET=test-e2e-secret-2025
+   ```
+
+### Deployment Status
+- ✅ Committed to `origin/dev`
+- ✅ Deployed to Heroku staging (v111)
+- ✅ Config vars set on Heroku
+
+### Current Blocker
+- E2E tests cannot proceed because **the frontend UI is not fully implemented**
+- Dashboard loads but React components don't render correctly
+- Need frontend React implementation to complete before E2E validation
+
+### Next Steps
+1. Complete frontend React implementation
+2. Verify all UI components render correctly
+3. Re-run E2E tests with full UI flows
+4. Capture screenshots and video evidence
+5. Document final M2 acceptance
+
