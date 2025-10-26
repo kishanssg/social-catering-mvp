@@ -249,34 +249,34 @@ module Api
           }, status: :not_found
         end
         
-      # CRITICAL FIX: Check intra-batch overlaps first (shifts in batch against each other)
-      # Sort shifts by start time for efficient overlap checking
-      sorted_shifts = shifts.sort_by(&:start_time_utc)
-      
-      # Check each shift against every other shift in the batch for time overlaps
-      (0...sorted_shifts.length).each do |i|
-        ((i+1)...sorted_shifts.length).each do |j|
-          shift_a = sorted_shifts[i]
-          shift_b = sorted_shifts[j]
-          
-          # Check if they overlap: (startA < endB) AND (endA > startB)
-          if shift_a.start_time_utc < shift_b.end_time_utc && shift_a.end_time_utc > shift_b.start_time_utc
-            start_a = shift_a.start_time_utc.strftime('%I:%M %p')
-            end_a = shift_a.end_time_utc.strftime('%I:%M %p')
-            start_b = shift_b.start_time_utc.strftime('%I:%M %p')
-            end_b = shift_b.end_time_utc.strftime('%I:%M %p')
+        # CRITICAL FIX: Check intra-batch overlaps first (shifts in batch against each other)
+        # Sort shifts by start time for efficient overlap checking
+        sorted_shifts = shifts.sort_by(&:start_time_utc)
+        
+        # Check each shift against every other shift in the batch for time overlaps
+        (0...sorted_shifts.length).each do |i|
+          ((i+1)...sorted_shifts.length).each do |j|
+            shift_a = sorted_shifts[i]
+            shift_b = sorted_shifts[j]
             
-            return render json: {
-              status: 'error',
-              message: 'Cannot assign to overlapping shifts in the same batch',
-              errors: [{
-                type: 'batch_overlap',
-                message: "'#{shift_a.event&.title || 'Unknown Event'}' (#{start_a} - #{end_a}) overlaps with '#{shift_b.event&.title || 'Unknown Event'}' (#{start_b} - #{end_b})"
-              }]
-            }, status: :unprocessable_entity
+            # Check if they overlap: (startA < endB) AND (endA > startB)
+            if shift_a.start_time_utc < shift_b.end_time_utc && shift_a.end_time_utc > shift_b.start_time_utc
+              start_a = shift_a.start_time_utc.strftime('%I:%M %p')
+              end_a = shift_a.end_time_utc.strftime('%I:%M %p')
+              start_b = shift_b.start_time_utc.strftime('%I:%M %p')
+              end_b = shift_b.end_time_utc.strftime('%I:%M %p')
+              
+              return render json: {
+                status: 'error',
+                message: 'Cannot assign to overlapping shifts in the same batch',
+                errors: [{
+                  type: 'batch_overlap',
+                  message: "'#{shift_a.event&.title || 'Unknown Event'}' (#{start_a} - #{end_a}) overlaps with '#{shift_b.event&.title || 'Unknown Event'}' (#{start_b} - #{end_b})"
+                }]
+              }, status: :unprocessable_entity
+            end
           end
         end
-      end
       
       # Now proceed with individual assignment processing (NO transaction wrap for partial success)
       assignments = []
