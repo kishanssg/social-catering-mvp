@@ -807,18 +807,29 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       if (response.data.status === 'success') {
         // Full success - close modal and show success toast
         console.log('Full success - calling onSuccess()');
+        
+        // Clear any error state immediately
+        setError(null);
+        setConflicts([]);
+        
         onSuccess(response.data.message);
       } else if (response.data.status === 'partial_success') {
         // Partial success - still close modal and show success toast with details
+        console.log('Partial success - clearing error state and closing modal');
+        
+        // Clear any error state immediately
+        setError(null);
+        setConflicts([]);
+        
         const { successful, failed, total_requested } = response.data.data;
         const successCount = successful.length;
         const failCount = failed.length;
         const total = total_requested || (successCount + failCount);
         
-        // Build detailed message for toast
-        let message = `Successfully scheduled ${successCount} of ${total} shifts`;
-        if (failCount > 0) {
-          message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+        // Get message from response or build detailed message
+        let message = response.data.message || `Successfully scheduled ${successCount} of ${total} shifts`;
+        if (failCount > 0 && successCount > 0 && !response.data.message) {
+          message = `Successfully scheduled ${successCount} of ${total} shifts. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
         }
         
         // Close modal and show success toast with partial success message
@@ -849,6 +860,11 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       const responseStatus = error.response?.data?.status;
       if (responseStatus === 'success' || responseStatus === 'partial_success') {
         console.log('Found success/partial_success in catch block - calling onSuccess()');
+        
+        // Clear any error state immediately
+        setError(null);
+        setConflicts([]);
+        
         const responseData = error.response?.data?.data || {};
         const successful = responseData.successful || [];
         const failed = responseData.failed || [];
@@ -858,8 +874,8 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         const failCount = failed.length;
         const total = total_requested;
         
-        // Build detailed message for toast
-        let message = responseData.message || `Successfully scheduled ${successCount} of ${total} shifts`;
+        // Get the message from the root level response, not from responseData
+        let message = error.response?.data?.message || `Successfully scheduled ${successCount} of ${total} shifts`;
         if (failCount > 0 && successCount > 0) {
           message = `Successfully scheduled ${successCount} of ${total} shifts. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
         }
@@ -868,13 +884,6 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         console.log('Calling onSuccess with message:', message);
         onSuccess(message);
         return; // CRITICAL: Exit early, don't execute error handling below!
-      }
-      
-      // CRITICAL: Only do error handling if we haven't already handled success above!
-      const responseStatus = error.response?.data?.status;
-      if (responseStatus === 'success' || responseStatus === 'partial_success') {
-        console.log('Already handled success above, skipping error handling');
-        return; // Don't execute any error handling below
       }
       
       // Handle batch overlap errors (new in Issue #2 fix)
@@ -887,7 +896,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         }
       }
       
-      // Handle message field directly
+      // Handle message field directly (only for actual errors, not success messages)
       if (error.response?.data?.message) {
         setError(error.response.data.message);
         return;
