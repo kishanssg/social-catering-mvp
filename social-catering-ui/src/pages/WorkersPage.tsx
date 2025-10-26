@@ -695,7 +695,16 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         const startB = new Date(selectedShift.start_time_utc).getTime();
         const endB = new Date(selectedShift.end_time_utc).getTime();
         
-        return (startA < endB) && (endA > startB);
+        const overlaps = (startA < endB) && (endA > startB);
+        
+        // Debug logging
+        console.log('Checking overlap:', {
+          shiftA: `${new Date(startA).toISOString()} - ${new Date(endA).toISOString()}`,
+          shiftB: `${new Date(startB).toISOString()} - ${new Date(endB).toISOString()}`,
+          overlaps
+        });
+        
+        return overlaps;
       });
       
       if (hasConflict) {
