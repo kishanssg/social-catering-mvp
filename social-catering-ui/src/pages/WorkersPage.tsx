@@ -795,26 +795,24 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       
       // CRITICAL FIX: Handle partial success mode
       if (response.data.status === 'success') {
+        // Full success - close modal and show success toast
         onSuccess(response.data.message);
       } else if (response.data.status === 'partial_success') {
-        // Partial success - show what succeeded and what failed
+        // Partial success - still close modal and show success toast with details
         const { successful, failed } = response.data.data;
         const successCount = successful.length;
         const failCount = failed.length;
         
-        // Build detailed error message
+        // Build detailed message for toast
         let message = `Successfully scheduled ${successCount} of ${uniqueShiftIds.length} shifts`;
         if (failCount > 0) {
-          message += '\n\nFailed to schedule:\n';
-          failed.forEach((f: any) => {
-            message += `• ${f.event}: ${f.reasons.join(', ')}\n`;
-          });
+          message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
         }
         
-        // Show both success and error
+        // Close modal and show success toast with partial success message
         onSuccess(message);
       } else if (response.data.status === 'error') {
-        // All failed
+        // All failed - stay in modal and show error
         let errorMessage = response.data.message || 'Failed to schedule worker for shifts';
         if (response.data.details && response.data.details.length > 0) {
           errorMessage += '\n\nDetails:\n• ' + response.data.details.join('\n• ');
