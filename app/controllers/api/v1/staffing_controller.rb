@@ -78,8 +78,35 @@ module Api
       
       # POST /api/v1/staffing/bulk_create
       # Assign one worker to multiple shifts
+      # Supports two formats:
+      # 1. worker_id + shift_ids (newer)
+      # 2. assignments array with shift_id and worker_id (legacy)
       def bulk_create
-        worker = Worker.find_by(id: params[:worker_id])
+        # Support both formats
+        if params[:worker_id].present? && params[:shift_ids].present?
+          # Format 1: worker_id + shift_ids array
+          worker = Worker.find_by(id: params[:worker_id])
+          shift_ids = params[:shift_ids] || []
+        elsif params[:assignments].present?
+          # Format 2: assignments array with shift_id and worker_id
+          first_assignment = params[:assignments].first
+          worker_id = first_assignment[:worker_id] || first_assignment['worker_id']
+          worker = Worker.find_by(id: worker_id)
+          
+          if worker_id.blank? || !worker
+            return render json: {
+              status: 'error',
+              message: 'Worker not found in assignments'
+            }, status: :not_found
+          end
+          
+          shift_ids = params[:assignments].map { |a| a[:shift_id] || a['shift_id'] }.compact
+        else
+          return render json: {
+            status: 'error',
+            message: 'Worker ID and shifts required'
+          }, status: :unprocessable_entity
+        end
         
         unless worker
           return render json: {
@@ -88,7 +115,7 @@ module Api
           }, status: :not_found
         end
         
-        shift_ids = params[:shift_ids] || []
+        shift_ids = shift_ids.compact.reject(&:blank?)
         
         if shift_ids.empty?
           return render json: {
