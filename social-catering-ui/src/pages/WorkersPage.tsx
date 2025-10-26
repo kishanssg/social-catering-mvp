@@ -785,15 +785,22 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       }
     } catch (error: any) {
       console.error('Failed to bulk assign:', error);
+      console.error('Error response data:', error.response?.data);
       
       // Handle batch overlap errors (new in Issue #2 fix)
-      if (error.response?.data?.status === 'error' && error.response?.data?.errors) {
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         const errors = error.response.data.errors;
-        if (errors.some((e: any) => e.type === 'batch_overlap')) {
-          const overlapError = errors.find((e: any) => e.type === 'batch_overlap');
-          setError(overlapError.message);
+        const batchOverlap = errors.find((e: any) => e.type === 'batch_overlap');
+        if (batchOverlap) {
+          setError(error.response.data.message || batchOverlap.message);
           return;
         }
+      }
+      
+      // Handle message field directly
+      if (error.response?.data?.message) {
+        setError(error.response.data.message);
+        return;
       }
       
       if (error.response?.data?.conflicts) {
@@ -803,12 +810,11 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
           errorMessage += '\n\nConflicts:\n• ' + error.response.data.details.join('\n• ');
         }
         setError(errorMessage);
+      } else if (error.response?.data?.details) {
+        const errorMessage = error.response.data.details.join('\n• ');
+        setError(`Failed to schedule shifts:\n• ${errorMessage}`);
       } else {
-        let errorMessage = error.response?.data?.message || 'Failed to schedule worker for shifts';
-        if (error.response?.data?.details && error.response.data.details.length > 0) {
-          errorMessage += '\n\nDetails:\n• ' + error.response.data.details.join('\n• ');
-        }
-        setError(errorMessage);
+        setError(error.response?.data?.message || 'Failed to schedule worker for shifts');
       }
     } finally {
       setSubmitting(false);
