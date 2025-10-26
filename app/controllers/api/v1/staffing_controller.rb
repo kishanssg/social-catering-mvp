@@ -259,8 +259,19 @@ module Api
             shift_a = sorted_shifts[i]
             shift_b = sorted_shifts[j]
             
+            # DEBUG: Log the shift details
+            Rails.logger.info("DEBUG: Comparing shifts:")
+            Rails.logger.info("  Shift A: #{shift_a.event&.title} - #{shift_a.start_time_utc} to #{shift_a.end_time_utc}")
+            Rails.logger.info("  Shift B: #{shift_b.event&.title} - #{shift_b.start_time_utc} to #{shift_b.end_time_utc}")
+            
             # Check if they overlap: (startA < endB) AND (endA > startB)
-            if shift_a.start_time_utc < shift_b.end_time_utc && shift_a.end_time_utc > shift_b.start_time_utc
+            check1 = shift_a.start_time_utc < shift_b.end_time_utc
+            check2 = shift_a.end_time_utc > shift_b.start_time_utc
+            Rails.logger.info("  Check1 (A.start < B.end): #{check1}")
+            Rails.logger.info("  Check2 (A.end > B.start): #{check2}")
+            Rails.logger.info("  Overlaps: #{check1 && check2}")
+            
+            if check1 && check2
               start_a = shift_a.start_time_utc.strftime('%I:%M %p')
               end_a = shift_a.end_time_utc.strftime('%I:%M %p')
               start_b = shift_b.start_time_utc.strftime('%I:%M %p')
