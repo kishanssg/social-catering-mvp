@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Users, Clock, MapPin, AlertCircle, Check, DollarSign } from 'lucide-react';
+import { Search, Users, Clock, MapPin, AlertCircle, DollarSign } from 'lucide-react';
 import { formatDateTime, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
+import { Modal } from './common/Modal';
 
 interface Worker {
   id: number;
@@ -12,6 +13,7 @@ interface Worker {
   skills: string[];
   certifications: string[];
   availability_status: string;
+  skills_json?: string[];
 }
 
 interface Shift {
@@ -25,6 +27,11 @@ interface Shift {
   required_skill?: string;
   uniform_name?: string;
   notes?: string;
+  event?: {
+    venue?: {
+      formatted_address?: string;
+    };
+  };
 }
 
 interface AssignmentModalProps {
@@ -171,39 +178,53 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-          </div>
+      <Modal isOpen={true} onClose={onClose} title="Assign Worker" size="lg">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
         </div>
-      </div>
+      </Modal>
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Assign Worker</h3>
-            {shift && (
-              <p className="text-sm text-gray-600 mt-1">
-                {shift.client_name} • {shift.role_needed}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-          >
-            <X size={20} />
-          </button>
+  const footerContent = (
+    <>
+      {error && (
+        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+          {error.split('\n').map((line, index) => (
+            <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
+              {line}
+            </p>
+          ))}
         </div>
+      )}
+      
+      <div className="flex gap-2">
+        <button
+          onClick={onClose}
+          className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleAssignWorker}
+          disabled={!selectedWorker || assigning}
+          className="flex-1 px-3 py-2 text-sm bg-teal-600 text-white font-medium rounded hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {assigning ? 'Assigning...' : 'Assign Worker'}
+        </button>
+      </div>
+    </>
+  );
 
-
-        <div className="flex h-[600px]">
+  return (
+    <Modal 
+      isOpen={true} 
+      onClose={onClose} 
+      title={shift ? `${shift.client_name} • ${shift.role_needed}` : 'Assign Worker'}
+      size="xl"
+      footer={footerContent}
+    >
+      <div className="flex h-[600px]">
           {/* Left: Shift Details */}
           <div className="w-1/3 border-r border-gray-200 p-6 bg-gray-50">
             {shift ? (
@@ -397,37 +418,8 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
               )}
             </div>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              {error && (
-                <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
-                  {error.split('\n').map((line, index) => (
-                    <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAssignWorker}
-                  disabled={!selectedWorker || assigning}
-                  className="flex-1 px-3 py-2 text-sm bg-teal-600 text-white font-medium rounded hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {assigning ? 'Assigning...' : 'Assign Worker'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
+      </div>
+    </Modal>
   );
 }

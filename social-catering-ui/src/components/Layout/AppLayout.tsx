@@ -42,7 +42,7 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen bg-neutral-white">
       {/* Sidebar Navigation */}
-      <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color sticky top-0 h-screen" style={{ padding: '32px 24px' }}>
+      <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color fixed left-0 top-0 h-screen flex-shrink-0" style={{ padding: '32px 24px' }}>
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
@@ -319,8 +319,8 @@ export function AppLayout() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Content Area - Offset for fixed sidebar */}
+      <div className="flex-1 flex flex-col ml-[261px]">
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <Outlet />
