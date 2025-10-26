@@ -1,47 +1,30 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-APP_API=${APP_API:-social-catering-api}
-APP_UI=${APP_UI:-social-catering-ui}
+echo "🔨 Building frontend..."
+cd social-catering-ui
+rm -rf node_modules dist
+npm ci
+npm run build
 
-usage() {
-  echo "Usage: ./deploy.sh [api|ui|both]";
-}
+echo "📦 Copying assets to public/"
+cd ..
+rm -rf public/assets public/index.html
+mkdir -p public/assets
 
-if [[ $# -lt 1 ]]; then usage; exit 1; fi
+# Copy ALL files from dist root
+cp -v social-catering-ui/dist/*.js public/assets/
+cp -v social-catering-ui/dist/*.css public/assets/
+cp -v social-catering-ui/dist/*.svg public/assets/ 2>/dev/null || true
+cp -v social-catering-ui/dist/*.png public/assets/ 2>/dev/null || true
+cp -v social-catering-ui/dist/index.html public/index.html
 
-PART=$1
+echo "✅ Assets copied. Files in public/assets/:" 
+ls public/assets/ | wc -l
 
-push_api() {
-  echo "==> Deploying API to $APP_API"
-  git push heroku-api main || git push https://git.heroku.com/${APP_API}.git main
-  heroku run rails db:migrate -a "$APP_API"
-}
+echo "📝 Committing and deploying..."
+git add public/ social-catering-ui/src/
+git commit -m "feat: Update QuickFillModal to use shared Modal component"
+git push staging dev:main
 
-build_ui() {
-  echo "==> Building UI"
-  (cd social-catering-ui && npm ci && npm run build)
-}
-
-push_ui() {
-  echo "==> Deploying UI to $APP_UI"
-  git push heroku-ui main || git push https://git.heroku.com/${APP_UI}.git main
-}
-
-case "$PART" in
-  api)
-    push_api
-    ;;
-  ui)
-    push_ui
-    ;;
-  both)
-    push_api
-    push_ui
-    ;;
-  *)
-    usage; exit 1;
-    ;;
- esac
-
- echo "Done."
+echo "🎉 Deployment complete!"
