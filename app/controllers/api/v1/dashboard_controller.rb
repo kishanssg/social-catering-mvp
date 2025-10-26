@@ -34,13 +34,8 @@ module Api
                  current_month_start.beginning_of_day, 
                  current_month_end.end_of_day)
         
-        # Calculate unfilled roles from all shifts for these events
-        stats[:gaps_to_fill] = current_month_events.sum do |event|
-          event.shifts.sum do |shift|
-            assigned_count = Assignment.where(shift_id: shift.id, status: 'assigned').count
-            [shift.capacity - assigned_count, 0].max
-          end
-        end
+        # Calculate unfilled roles using Event model method (sums across all skill requirements)
+        stats[:gaps_to_fill] = current_month_events.sum(&:unfilled_roles_count)
 
         # Get urgent events (next 7 days with unfilled capacity)
         urgent_shifts = Shift.joins(:event)
