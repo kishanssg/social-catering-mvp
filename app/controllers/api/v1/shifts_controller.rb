@@ -92,7 +92,7 @@ module Api
       end
 
       def shift_params
-        params.require(:shift).permit(:client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, :location, :pay_rate, :notes)
+        params.require(:shift).permit(:client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, :location_id, :pay_rate, :notes)
       end
 
       def serialize_shift(shift)
