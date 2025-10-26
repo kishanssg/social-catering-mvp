@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, Search, Users, CheckCircle, AlertTriangle, DollarSign } from 'lucide-react';
+import { Search, Users, CheckCircle, AlertTriangle, DollarSign } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { Modal } from './common/Modal';
 
 interface WorkerLite {
   id: number;
@@ -131,22 +132,30 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[10000] flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Quick Fill — {roleName}</h3>
-            <p className="text-sm text-gray-500">Unfilled shifts: {neededCount}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
+  const footerContent = (
+    <div className="flex gap-2">
+      <button onClick={onClose} disabled={submitting} className="btn-secondary">
+        Cancel
+      </button>
+      <button
+        onClick={assignRoundRobin}
+        disabled={submitting || selected.length === 0 || neededCount === 0}
+        className="btn-primary"
+      >
+        {submitting ? 'Filling Shifts...' : `Assign to ${neededCount} shifts`}
+      </button>
+    </div>
+  );
 
-        {/* Body */}
-        <div className="px-6 py-5 space-y-4">
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Quick Fill — ${roleName}`}
+      subtitle={`Unfilled shifts: ${neededCount}`}
+      size="lg"
+      footer={footerContent}
+    >
           {/* Search */}
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -259,21 +268,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
             <AlertTriangle size={14} className="text-yellow-600" />
             Conflicts and already-filled shifts will be skipped automatically.
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-5 bg-gray-50">
-          <button onClick={onClose} disabled={submitting} className="btn-secondary">Cancel</button>
-          <button
-            onClick={assignRoundRobin}
-            disabled={submitting || selected.length === 0 || neededCount === 0}
-            className="btn-primary"
-          >
-            {submitting ? 'Filling Shifts...' : `Assign to ${neededCount} shifts`}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
