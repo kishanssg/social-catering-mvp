@@ -11,6 +11,11 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  validateStatus: (status) => {
+    // Treat 200-299 AND 207 Multi-Status as success
+    // This allows partial_success responses to go through to the try block
+    return (status >= 200 && status < 300) || status === 207;
+  }
 })
 
 apiClient.interceptors.request.use(

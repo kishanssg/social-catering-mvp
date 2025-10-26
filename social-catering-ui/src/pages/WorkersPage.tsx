@@ -796,44 +796,31 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         assignments: assignments
       });
       
-      // Debug: Log the response to understand what we're getting
+      // With validateStatus, 207 responses now come through here (not catch block)
       console.log('Bulk create response:', response.data);
-      console.log('Response status:', response.data.status);
       
-      // CRITICAL FIX: Handle partial success mode
-      console.log('Response status in try block:', response.data.status);
-      console.log('Response data:', JSON.stringify(response.data, null, 2));
+      // Clear any error state first
+      setError(null);
+      setConflicts([]);
       
-      if (response.data.status === 'success') {
-        // Full success - close modal and show success toast
-        console.log('Full success - calling onSuccess()');
+      if (response.data.status === 'success' || response.data.status === 'partial_success') {
+        // Success or partial success - close modal and show success toast
+        let message = response.data.message;
         
-        // Clear any error state immediately
-        setError(null);
-        setConflicts([]);
-        
-        onSuccess(response.data.message);
-      } else if (response.data.status === 'partial_success') {
-        // Partial success - still close modal and show success toast with details
-        console.log('Partial success - clearing error state and closing modal');
-        
-        // Clear any error state immediately
-        setError(null);
-        setConflicts([]);
-        
-        const { successful, failed, total_requested } = response.data.data;
-        const successCount = successful.length;
-        const failCount = failed.length;
-        const total = total_requested || (successCount + failCount);
-        
-        // Get message from response or build detailed message
-        let message = response.data.message || `Successfully scheduled ${successCount} of ${total} shifts`;
-        if (failCount > 0 && successCount > 0 && !response.data.message) {
-          message = `Successfully scheduled ${successCount} of ${total} shifts. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+        // Build detailed message for partial success
+        if (response.data.status === 'partial_success' && response.data.data) {
+          const { successful, failed, total_requested } = response.data.data;
+          const successCount = successful.length;
+          const failCount = failed.length;
+          const total = total_requested || (successCount + failCount);
+          
+          message = `Successfully scheduled ${successCount} of ${total} shift${total !== 1 ? 's' : ''}`;
+          if (failCount > 0 && successCount > 0) {
+            message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+          }
         }
         
-        // Close modal and show success toast with partial success message
-        console.log('Partial success - calling onSuccess with message:', message);
+        console.log('Success - calling onSuccess with message:', message);
         onSuccess(message);
       } else if (response.data.status === 'error') {
         // All failed - stay in modal and show error
@@ -843,87 +830,26 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         }
         setError(errorMessage);
       } else {
-        // Unknown status - log for debugging
+        // Unknown status
         console.error('Unknown response status:', response.data.status);
         setError('Unexpected response from server');
       }
     } catch (error: any) {
       console.error('Failed to bulk assign:', error);
-      console.error('Error response data:', error.response?.data);
       
-      // CRITICAL FIX: Handle partial_success even in catch block (for 207 status)
-      console.log('In catch block - checking for partial_success');
-      console.log('Error response data:', error.response?.data);
-      console.log('Error response status:', error.response?.data?.status);
+      // Handle real errors only (network failures, actual 4xx/5xx)
+      let errorMessage = 'Failed to schedule worker for shifts';
       
-      // Check for success or partial_success status first - these should NOT be errors!
-      const responseStatus = error.response?.data?.status;
-      console.log('Response status:', responseStatus);
-      
-      if (responseStatus === 'success' || responseStatus === 'partial_success') {
-        console.log('Found success/partial_success - clearing ALL error state and calling onSuccess()');
-        
-        // CRITICAL: Clear ALL error state BEFORE calling onSuccess
-        setError(null);
-        setConflicts([]);
-        
-        const responseData = error.response?.data?.data || {};
-        const successful = responseData.successful || [];
-        const failed = responseData.failed || [];
-        const total_requested = responseData.total_requested || (successful.length + failed.length);
-        
-        const successCount = successful.length;
-        const failCount = failed.length;
-        const total = total_requested;
-        
-        // Build success message
-        let message = `Successfully scheduled ${successCount} of ${total} shift${total !== 1 ? 's' : ''}`;
-        if (failCount > 0 && successCount > 0) {
-          message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+      if (error.response?.data) {
+        if (error.response.data.message) {
+          errorMessage = error.response.data.message;
         }
-        
-        console.log('Calling onSuccess with message:', message);
-        
-        // CRITICAL: Call onSuccess() immediately and return - DO NOT execute ANY code after this
-        onSuccess(message);
-        
-        // Exit immediately - no further error handling should execute
-        return;
-      }
-      
-      // Handle batch overlap errors (new in Issue #2 fix)
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        const errors = error.response.data.errors;
-        const batchOverlap = errors.find((e: any) => e.type === 'batch_overlap');
-        if (batchOverlap) {
-          setError(error.response.data.message || batchOverlap.message);
-          return;
-        }
-      }
-      
-      // Handle message field directly - but skip if we're in success/partial_success block above
-      if (error.response?.data?.message) {
-        // Check if this is actually an error (not a success message)
-        const status = error.response?.data?.status;
-        if (status !== 'success' && status !== 'partial_success') {
-          setError(error.response.data.message);
-          return;
-        }
-      }
-      
-      if (error.response?.data?.conflicts) {
-        setConflicts(error.response?.data?.conflicts || []);
-        let errorMessage = 'Scheduling conflicts detected. Please review below.';
         if (error.response.data.details && error.response.data.details.length > 0) {
-          errorMessage += '\n\nConflicts:\n• ' + error.response.data.details.join('\n• ');
+          errorMessage += '\n\nDetails:\n• ' + error.response.data.details.join('\n• ');
         }
-        setError(errorMessage);
-      } else if (error.response?.data?.details) {
-        const errorMessage = error.response.data.details.join('\n• ');
-        setError(`Failed to schedule shifts:\n• ${errorMessage}`);
-      } else {
-        setError(error.response?.data?.message || 'Failed to schedule worker for shifts');
       }
+      
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
