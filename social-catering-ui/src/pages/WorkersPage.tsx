@@ -684,10 +684,33 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         return;
       }
       
-      // Adding selection - check for conflicts (time overlap)
+      // NEW FIX: Auto-deselect previous roles for same event/time
+      // If selecting a different role for same event/time, unselect the previous one
+      Array.from(newSelected).forEach(selectedId => {
+        const selectedShift = availableShifts.find(s => s.id === selectedId);
+        if (!selectedShift) return;
+        
+        // Check if same event and same times but different roles
+        if (selectedShift.event?.id === shiftToToggle.event?.id &&
+            selectedShift.start_time_utc === shiftToToggle.start_time_utc &&
+            selectedShift.end_time_utc === shiftToToggle.end_time_utc &&
+            selectedShift.role_needed !== shiftToToggle.role_needed) {
+          // Unselect the previous role
+          newSelected.delete(selectedId);
+          setError(`Selected ${shiftToToggle.role_needed} for ${shiftToToggle.event?.title}. Previous role (${selectedShift.role_needed}) was unselected.`);
+          return; // Don't check other conflicts, this is a replacement
+        }
+      });
+      
+      // Adding selection - check for conflicts (time overlap) with OTHER events
       const hasConflict = Array.from(newSelected).some(selectedId => {
         const selectedShift = availableShifts.find(s => s.id === selectedId);
         if (!selectedShift) return false;
+        
+        // Skip if same event (already handled above)
+        if (selectedShift.event?.id === shiftToToggle.event?.id) {
+          return false;
+        }
         
         // Check if shifts overlap: (startA < endB) AND (endA > startB)
         const startA = new Date(shiftToToggle.start_time_utc).getTime();
@@ -866,10 +889,15 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
 
   // Check for conflicts for each shift
   const getShiftConflictStatus = (shift: AvailableShift) => {
+    // Check if another role for the SAME event and same time slot is already selected
     const hasOtherRoleSelected = Array.from(selectedShiftIds).some(selectedId => {
       const selectedShift = availableShifts.find(s => s.id === selectedId);
-      return selectedShift && 
-             selectedShift.event?.id === shift.event?.id &&
+      if (!selectedShift) return false;
+      
+      // Must be same event, same times, but different role
+      return selectedShift.event?.id === shift.event?.id &&
+             selectedShift.start_time_utc === shift.start_time_utc &&
+             selectedShift.end_time_utc === shift.end_time_utc &&
              selectedShift.role_needed !== shift.role_needed;
     });
     
