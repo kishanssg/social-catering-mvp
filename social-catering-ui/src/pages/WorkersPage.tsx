@@ -793,6 +793,10 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         assignments: assignments
       });
       
+      // Debug: Log the response to understand what we're getting
+      console.log('Bulk create response:', response.data);
+      console.log('Response status:', response.data.status);
+      
       // CRITICAL FIX: Handle partial success mode
       if (response.data.status === 'success') {
         // Full success - close modal and show success toast
@@ -818,10 +822,32 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
           errorMessage += '\n\nDetails:\n• ' + response.data.details.join('\n• ');
         }
         setError(errorMessage);
+      } else {
+        // Unknown status - log for debugging
+        console.error('Unknown response status:', response.data.status);
+        setError('Unexpected response from server');
       }
     } catch (error: any) {
       console.error('Failed to bulk assign:', error);
       console.error('Error response data:', error.response?.data);
+      
+      // CRITICAL FIX: Handle partial_success even in catch block (for 207 status)
+      if (error.response?.data?.status === 'partial_success') {
+        const { successful, failed, total_requested } = error.response.data.data;
+        const successCount = successful.length;
+        const failCount = failed.length;
+        const total = total_requested || (successCount + failCount);
+        
+        // Build detailed message for toast
+        let message = `Successfully scheduled ${successCount} of ${total} shifts`;
+        if (failCount > 0) {
+          message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+        }
+        
+        // Close modal and show success toast
+        onSuccess(message);
+        return; // Exit early, don't show error
+      }
       
       // Handle batch overlap errors (new in Issue #2 fix)
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
