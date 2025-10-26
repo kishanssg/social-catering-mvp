@@ -870,6 +870,13 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         return; // CRITICAL: Exit early, don't execute error handling below!
       }
       
+      // CRITICAL: Only do error handling if we haven't already handled success above!
+      const responseStatus = error.response?.data?.status;
+      if (responseStatus === 'success' || responseStatus === 'partial_success') {
+        console.log('Already handled success above, skipping error handling');
+        return; // Don't execute any error handling below
+      }
+      
       // Handle batch overlap errors (new in Issue #2 fix)
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         const errors = error.response.data.errors;
