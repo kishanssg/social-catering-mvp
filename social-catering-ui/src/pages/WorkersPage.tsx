@@ -172,6 +172,8 @@ export function WorkersPage() {
   };
   
   const handleBulkAssignSuccess = (message?: string) => {
+    console.log('handleBulkAssignSuccess called with message:', message);
+    console.log('Closing modal and showing toast...');
     closeBulkAssignModal();
     setToast({
       isVisible: true,
@@ -179,6 +181,7 @@ export function WorkersPage() {
       type: 'success'
     });
     loadWorkers();
+    console.log('Modal should now be closed');
   };
   
   // Filter and sort workers
