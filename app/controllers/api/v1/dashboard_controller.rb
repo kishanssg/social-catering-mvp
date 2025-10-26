@@ -3,12 +3,23 @@ module Api
     class DashboardController < BaseController
       def index
         # Calculate basic stats using Events
+        # IMPORTANT: Match the Events page tabs exactly
+        # Draft tab = Events with status: 'draft'
+        # Active tab = Events with status: 'published' AND end_time_utc > Time.current
+        # Past tab = Events with status: 'published' AND end_time_utc <= Time.current
+        
         stats = {
           draft_events: Event.draft.count,
-          published_events: Event.published.includes(:event_schedule)
-            .select { |e| e.event_schedule&.end_time_utc && e.event_schedule.end_time_utc > Time.current }
+          # Active = published events that haven't ended yet
+          published_events: Event.published
+            .joins(:event_schedule)
+            .where('event_schedules.end_time_utc > ?', Time.current)
             .count,
-          completed_events: Event.completed.count,
+          # Past = published events that have ended (these are shown in "past" tab)
+          completed_events: Event.published
+            .joins(:event_schedule)
+            .where('event_schedules.end_time_utc <= ?', Time.current)
+            .count,
           total_workers: Worker.where(active: true).count,
           gaps_to_fill: 0
         }
