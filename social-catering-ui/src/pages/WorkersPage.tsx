@@ -896,10 +896,14 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         }
       }
       
-      // Handle message field directly (only for actual errors, not success messages)
+      // Handle message field directly - but skip if we're in success/partial_success block above
       if (error.response?.data?.message) {
-        setError(error.response.data.message);
-        return;
+        // Check if this is actually an error (not a success message)
+        const status = error.response?.data?.status;
+        if (status !== 'success' && status !== 'partial_success') {
+          setError(error.response.data.message);
+          return;
+        }
       }
       
       if (error.response?.data?.conflicts) {
