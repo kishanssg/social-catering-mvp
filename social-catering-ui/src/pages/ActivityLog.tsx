@@ -131,18 +131,35 @@ export const ActivityLog: React.FC = () => {
 
     // Try to extract a name from the JSON data
     const getName = () => {
+      // Debug: Log what's available
+      if (entityType === 'Assignment' && (log.after_json || log.before_json)) {
+        console.log('Assignment log data:', {
+          after: log.after_json,
+          before: log.before_json,
+        });
+      }
+      
       if (log.after_json?.first_name && log.after_json?.last_name) {
         return `${log.after_json.first_name} ${log.after_json.last_name}`;
       }
       if (log.after_json?.title) return log.after_json.title;
       if (log.after_json?.name) return log.after_json.name;
       if (log.after_json?.client_name) return log.after_json.client_name;
+      // Check for nested worker object in assignments
+      if (log.after_json?.worker?.first_name && log.after_json?.worker?.last_name) {
+        return `${log.after_json.worker.first_name} ${log.after_json.worker.last_name}`;
+      }
+      if (log.after_json?.shift?.client_name) return log.after_json.shift.client_name;
       if (log.before_json?.first_name && log.before_json?.last_name) {
         return `${log.before_json.first_name} ${log.before_json.last_name}`;
       }
       if (log.before_json?.title) return log.before_json.title;
       if (log.before_json?.name) return log.before_json.name;
       if (log.before_json?.client_name) return log.before_json.client_name;
+      if (log.before_json?.worker?.first_name && log.before_json?.worker?.last_name) {
+        return `${log.before_json.worker.first_name} ${log.before_json.worker.last_name}`;
+      }
+      if (log.before_json?.shift?.client_name) return log.before_json.shift.client_name;
       return null;
     };
 
@@ -336,6 +353,10 @@ export const ActivityLog: React.FC = () => {
                                     entityName = log.after_json.name;
                                   } else if (log.after_json?.client_name) {
                                     entityName = log.after_json.client_name;
+                                  } else if (log.after_json?.worker?.first_name && log.after_json?.worker?.last_name) {
+                                    entityName = `${log.after_json.worker.first_name} ${log.after_json.worker.last_name}`;
+                                  } else if (log.after_json?.shift?.client_name) {
+                                    entityName = log.after_json.shift.client_name;
                                   } else if (log.before_json?.first_name && log.before_json?.last_name) {
                                     entityName = `${log.before_json.first_name} ${log.before_json.last_name}`;
                                   } else if (log.before_json?.title) {
@@ -344,6 +365,10 @@ export const ActivityLog: React.FC = () => {
                                     entityName = log.before_json.name;
                                   } else if (log.before_json?.client_name) {
                                     entityName = log.before_json.client_name;
+                                  } else if (log.before_json?.worker?.first_name && log.before_json?.worker?.last_name) {
+                                    entityName = `${log.before_json.worker.first_name} ${log.before_json.worker.last_name}`;
+                                  } else if (log.before_json?.shift?.client_name) {
+                                    entityName = log.before_json.shift.client_name;
                                   }
                                   return entityName ? `${log.entity_type} "${entityName}"` : `${log.entity_type} #${log.entity_id}`;
                                 })()}
