@@ -218,37 +218,50 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       >
         <div className="space-y-6">
           {/* Event Details (Read-only for now) */}
-          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-base font-semibold text-gray-900">Event Details</h4>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="text-lg font-semibold text-gray-900">Event Details</h4>
               <button
                 onClick={handleEditEventDetails}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
               >
                 <Edit size={14} />
                 Edit
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Venue:</span>
-                <span className="ml-2 font-medium text-gray-900">{event.venue.name}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Venue</p>
+                <p className="text-sm font-semibold text-gray-900">{event.venue.name}</p>
               </div>
-              <div>
-                <span className="text-gray-600">Location:</span>
-                <span className="ml-2 font-medium text-gray-900">{event.venue.formatted_address}</span>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Date</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {new Date(event.schedule.start_time_utc).toLocaleDateString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                  })}
+                </p>
               </div>
-              <div>
-                <span className="text-gray-600">Date:</span>
-                <span className="ml-2 font-medium text-gray-900">
-                  {new Date(event.schedule.start_time_utc).toLocaleDateString()}
-                </span>
+              <div className="space-y-1 md:col-span-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Location</p>
+                <p className="text-sm font-semibold text-gray-900 leading-relaxed">{event.venue.formatted_address}</p>
               </div>
-              <div>
-                <span className="text-gray-600">Time:</span>
-                <span className="ml-2 font-medium text-gray-900">
-                  {new Date(event.schedule.start_time_utc).toLocaleTimeString()} - {new Date(event.schedule.end_time_utc).toLocaleTimeString()}
-                </span>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Time</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  {new Date(event.schedule.start_time_utc).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  })} - {new Date(event.schedule.end_time_utc).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  })}
+                </p>
               </div>
             </div>
           </div>
