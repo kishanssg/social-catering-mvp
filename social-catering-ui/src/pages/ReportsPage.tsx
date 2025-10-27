@@ -394,14 +394,14 @@ export function ReportsPage() {
                         });
                       }
                     }}
-                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      datePreset === preset.value
-                        ? 'bg-teal-100 text-teal-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          datePreset === preset.value
+                            ? 'bg-teal-100 text-teal-700'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
                     ))}
                   </div>
                   

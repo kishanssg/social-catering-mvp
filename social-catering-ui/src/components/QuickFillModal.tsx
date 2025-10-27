@@ -291,7 +291,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
           </div>
 
           {/* Eligible list */}
-          <div className="max-h-[340px] overflow-y-auto border border-gray-200 rounded-lg">
+          <div className="max-h-[500px] overflow-y-auto border border-gray-200 rounded-lg">
             {loading ? (
               <div className="p-6 text-center text-gray-500">Loading…</div>
             ) : eligibleWorkers.length === 0 ? (
