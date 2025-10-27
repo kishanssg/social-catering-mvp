@@ -246,7 +246,21 @@ export const ActivityLog: React.FC = () => {
 
     return items.map(([key, value]) => {
       const displayKey = key.replace(/_/g, ' ');
-      const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      let displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      
+      // Special handling for changes_summary - show as a note/badge
+      if (key === 'changes_summary') {
+        return (
+          <div
+            key={key}
+            className="px-3 py-2 text-xs bg-blue-50 text-blue-700 rounded-lg border border-blue-200 flex items-start gap-2 w-full"
+          >
+            <span className="font-semibold">Changed:</span>
+            <span>{displayValue}</span>
+          </div>
+        );
+      }
+      
       return (
         <span
           key={key}

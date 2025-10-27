@@ -65,10 +65,14 @@ class ActivityLogPresenter
         skills: parse_skills(dj(:skills_json))
       }.compact
     when ["Worker", "updated"]
-      {
-        name: dj(:first_name) && dj(:last_name) ? "#{dj(:first_name)} #{dj(:last_name)}" : nil,
-        changes: detect_changes
-      }.compact
+      worker_name = dj(:first_name) && dj(:last_name) ? "#{dj(:first_name)} #{dj(:last_name)}" : nil
+      details = { name: worker_name }.compact
+      
+      # Show friendly changes instead of raw JSON
+      changes = format_changes_nicely
+      details[:changes_summary] = changes if changes.present?
+      
+      details
     when ["Event", "created"], ["Event", "updated"]
       {
         title: dj(:title),
@@ -189,6 +193,25 @@ class ActivityLogPresenter
     end
     
     changes
+  end
+  
+  def format_changes_nicely
+    return nil unless log.before_json && log.after_json
+    
+    changes = []
+    (log.before_json.keys & log.after_json.keys).each do |key|
+      next if %w[updated_at lock_version updated_at_utc created_at created_at_utc].include?(key)
+      
+      before_val = log.before_json[key]
+      after_val = log.after_json[key]
+      
+      if before_val != after_val
+        field_display = key.humanize.downcase
+        changes << "#{field_display}: #{before_val} → #{after_val}"
+      end
+    end
+    
+    changes.join(", ")
   end
 
   def format_date(utc_string)
