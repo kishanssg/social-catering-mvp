@@ -4,19 +4,14 @@ import { Filter, Calendar, User, FileText, Clock } from 'lucide-react';
 
 interface ActivityLogEntry {
   id: number;
-  action: string;
+  when: string;
+  actor: string;
   entity_type: string;
   entity_id: number;
-  actor_user_id: number | null;
-  actor_user: {
-    id: number;
-    email: string;
-    name?: string;
-  } | null;
-  action_description: string;
-  before_json: any;
-  after_json: any;
-  created_at: string;
+  entity_name?: string;
+  action: string;
+  summary: string;
+  details: Record<string, any>;
 }
 
 interface PaginationInfo {
@@ -192,52 +187,47 @@ export const ActivityLog: React.FC = () => {
     return details;
   };
 
-  const getActionDescription = (log: ActivityLogEntry) => {
-    const actor = log.actor_user?.email || 'System';
-    const entityType = log.entity_type;
-    const entityId = log.entity_id;
+  const formatWhen = (timestamp: string) => {
+    if (!timestamp) return '—';
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
-    // Try to extract a name from the JSON data
-    const getName = () => {
-      if (log.after_json?.first_name && log.after_json?.last_name) {
-        return `${log.after_json.first_name} ${log.after_json.last_name}`;
-      }
-      if (log.after_json?.title) return log.after_json.title;
-      if (log.after_json?.name) return log.after_json.name;
-      if (log.after_json?.client_name) return log.after_json.client_name;
-      if (log.before_json?.first_name && log.before_json?.last_name) {
-        return `${log.before_json.first_name} ${log.before_json.last_name}`;
-      }
-      if (log.before_json?.title) return log.before_json.title;
-      if (log.before_json?.name) return log.before_json.name;
-      if (log.before_json?.client_name) return log.before_json.client_name;
-      return null;
-    };
+  const getDetailChips = (details: Record<string, any>) => {
+    if (!details || Object.keys(details).length === 0) return null;
+    
+    const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'email', 'phone', 'changed'];
+    const items = Object.entries(details)
+      .filter(([k, v]) => v != null && v !== '')
+      .sort((a, b) => {
+        const aIdx = order.indexOf(a[0]);
+        const bIdx = order.indexOf(b[0]);
+        if (aIdx === -1 && bIdx === -1) return 0;
+        if (aIdx === -1) return 1;
+        if (bIdx === -1) return -1;
+        return aIdx - bIdx;
+      });
 
-    const entityName = getName();
-
-    switch (log.action) {
-      case 'created':
-        return entityName 
-          ? `${actor} created ${entityType} "${entityName}"`
-          : `${actor} created ${entityType} #${entityId}`;
-      case 'updated':
-        return entityName
-          ? `${actor} updated ${entityType} "${entityName}"`
-          : `${actor} updated ${entityType} #${entityId}`;
-      case 'deleted':
-        return entityName
-          ? `${actor} deleted ${entityType} "${entityName}"`
-          : `${actor} deleted ${entityType} #${entityId}`;
-      case 'assigned_worker':
-        return `${actor} assigned ${log.after_json?.worker_name || 'worker'} to ${log.after_json?.shift_name || 'shift'}`;
-      case 'unassigned_worker':
-        return `${actor} unassigned ${log.before_json?.worker_name || 'worker'} from ${log.before_json?.shift_name || 'shift'}`;
-      default:
-        return entityName
-          ? `${actor} performed ${log.action} on ${entityType} "${entityName}"`
-          : `${actor} performed ${log.action} on ${entityType} #${entityId}`;
-    }
+    return items.map(([key, value]) => {
+      const displayKey = key.replace(/_/g, ' ');
+      const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      return (
+        <span
+          key={key}
+          className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full"
+        >
+          <span className="font-medium capitalize">{displayKey}:</span> {displayValue}
+        </span>
+      );
+    });
   };
 
   const clearFilters = () => {
@@ -379,45 +369,28 @@ export const ActivityLog: React.FC = () => {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">
-                            {log.action_description || getActionDescription(log)}
+                            {log.summary || '—'}
                           </p>
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
                               <User className="w-3 h-3" />
-                              <span>{log.actor_user?.name || log.actor_user?.email || 'System'}</span>
+                              <span>{log.actor || 'System'}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              <span>{formatDate(log.created_at)}</span>
+                              <span>{formatWhen(log.when)}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <FileText className="w-3 h-3" />
-                              <span>
-                                {(() => {
-                                  // Try to extract a name from the JSON data
-                                  let entityName = null;
-                                  if (log.after_json?.first_name && log.after_json?.last_name) {
-                                    entityName = `${log.after_json.first_name} ${log.after_json.last_name}`;
-                                  } else if (log.after_json?.title) {
-                                    entityName = log.after_json.title;
-                                  } else if (log.after_json?.name) {
-                                    entityName = log.after_json.name;
-                                  } else if (log.after_json?.client_name) {
-                                    entityName = log.after_json.client_name;
-                                  } else if (log.before_json?.first_name && log.before_json?.last_name) {
-                                    entityName = `${log.before_json.first_name} ${log.before_json.last_name}`;
-                                  } else if (log.before_json?.title) {
-                                    entityName = log.before_json.title;
-                                  } else if (log.before_json?.name) {
-                                    entityName = log.before_json.name;
-                                  } else if (log.before_json?.client_name) {
-                                    entityName = log.before_json.client_name;
-                                  }
-                                  return entityName ? `${log.entity_type} "${entityName}"` : `${log.entity_type} #${log.entity_id}`;
-                                })()}
-                              </span>
+                              <span>{log.entity_type}</span>
                             </div>
                           </div>
+                          {/* Detail Chips */}
+                          {Object.keys(log.details || {}).length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {getDetailChips(log.details)}
+                            </div>
+                          )}
                         </div>
 
                         {/* Action Badge */}
