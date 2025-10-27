@@ -23,6 +23,7 @@ class Assignment < ApplicationRecord
   validate :worker_available_for_shift
   validate :shift_not_at_capacity
   validate :worker_has_required_skills
+  validate :worker_has_valid_certification
 
   scope :active, -> { where(status: "assigned") }
   scope :completed, -> { where(status: "completed") }
@@ -163,6 +164,39 @@ class Assignment < ApplicationRecord
     # Check if worker has the required skill
     unless worker_skills.include?(required_skill)
       errors.add(:base, "Worker does not have required skill: #{required_skill}. Worker's skills: #{worker_skills.join(', ')}")
+    end
+  end
+
+  def worker_has_valid_certification
+    return if shift.nil? || worker.nil?
+    
+    # Check if shift requires a certification
+    required_cert_name = nil
+    
+    if shift.required_cert&.name.present?
+      # Shift has direct certification requirement
+      required_cert_name = shift.required_cert.name
+    elsif shift.skill_requirement&.certification_name.present?
+      # Event skill requirement specifies certification
+      required_cert_name = shift.skill_requirement.certification_name
+    end
+    
+    return if required_cert_name.blank?
+    
+    # Find worker's certification with this name
+    worker_cert = worker.worker_certifications
+                        .joins(:certification)
+                        .where(certifications: { name: required_cert_name })
+                        .first
+    
+    if worker_cert.nil?
+      errors.add(:base, "Worker does not have required certification: #{required_cert_name}")
+      return
+    end
+    
+    # Check if certification is expired
+    if worker_cert.expires_at_utc && worker_cert.expires_at_utc < shift.end_time_utc
+      errors.add(:base, "Worker's certification '#{required_cert_name}' expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends on #{shift.end_time_utc.strftime('%m/%d/%Y')}")
     end
   end
 

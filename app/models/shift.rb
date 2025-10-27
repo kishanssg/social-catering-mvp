@@ -116,6 +116,24 @@ class Shift < ApplicationRecord
       return false unless worker_skills.include?(required_skill)
     end
 
+    # Check certification requirements
+    required_cert_name = nil
+    if required_cert&.name.present?
+      required_cert_name = required_cert.name
+    elsif skill_requirement&.certification_name.present?
+      required_cert_name = skill_requirement.certification_name
+    end
+
+    if required_cert_name.present?
+      worker_cert = worker.worker_certifications
+                          .joins(:certification)
+                          .where(certifications: { name: required_cert_name })
+                          .first
+      
+      return false if worker_cert.nil?
+      return false if worker_cert.expires_at_utc && worker_cert.expires_at_utc < end_time_utc
+    end
+
     true
   end
 
@@ -152,6 +170,29 @@ class Shift < ApplicationRecord
                       end
       unless worker_skills.include?(required_skill)
         return "Worker does not have required skill: #{required_skill}"
+      end
+    end
+
+    # Check certification requirements
+    required_cert_name = nil
+    if required_cert&.name.present?
+      required_cert_name = required_cert.name
+    elsif skill_requirement&.certification_name.present?
+      required_cert_name = skill_requirement.certification_name
+    end
+
+    if required_cert_name.present?
+      worker_cert = worker.worker_certifications
+                          .joins(:certification)
+                          .where(certifications: { name: required_cert_name })
+                          .first
+      
+      if worker_cert.nil?
+        return "Worker does not have required certification: #{required_cert_name}"
+      end
+      
+      if worker_cert.expires_at_utc && worker_cert.expires_at_utc < end_time_utc
+        return "Worker's certification '#{required_cert_name}' expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends on #{end_time_utc.strftime('%m/%d/%Y')}"
       end
     end
 
