@@ -147,6 +147,7 @@ export function WorkersPage() {
       }
     } catch (error: any) {
       console.error('Failed to delete worker:', error);
+      console.error('Error response data:', error.response?.data);
       
       // Extract error message from the response
       let errorMessage = 'Failed to delete worker. Please try again.';
@@ -159,6 +160,8 @@ export function WorkersPage() {
       } else if (error.message) {
         errorMessage = error.message;
       }
+      
+      console.error('Final error message shown to user:', errorMessage);
       
       setToast({
         isVisible: true,
