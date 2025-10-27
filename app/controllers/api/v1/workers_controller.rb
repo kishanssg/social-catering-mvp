@@ -83,13 +83,22 @@ module Api
 
       def destroy
         begin
+          # Check if worker has assignments
+          if @worker.assignments.any?
+            assignment_count = @worker.assignments.count
+            return render_error(
+              "Cannot delete worker. This worker has #{assignment_count} #{'assignment'.pluralize(assignment_count)} and cannot be deleted to preserve historical data. You can deactivate the worker instead.",
+              status: :unprocessable_entity
+            )
+          end
+          
           @worker.destroy!
           render_success
         rescue ActiveRecord::RecordNotDestroyed => e
           render_error(e.record.errors.full_messages.join(', '), status: :unprocessable_entity)
         rescue => e
           Rails.logger.error "Failed to delete worker #{params[:id]}: #{e.message}"
-          render_error(e.message, status: :unprocessable_entity)
+          render_error("Cannot delete worker: #{e.message}", status: :unprocessable_entity)
         end
       end
 
