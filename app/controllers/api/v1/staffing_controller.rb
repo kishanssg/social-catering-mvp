@@ -264,30 +264,14 @@ module Api
             Rails.logger.info("  Shift A: #{shift_a.event&.title} - #{shift_a.start_time_utc} to #{shift_a.end_time_utc}")
             Rails.logger.info("  Shift B: #{shift_b.event&.title} - #{shift_b.start_time_utc} to #{shift_b.end_time_utc}")
             
-            # NEW FIX: Skip if same shift ID (duplicate selection) or exact same event and times
+            # Skip if same shift ID (duplicate selection in batch)
             if shift_a.id == shift_b.id
               Rails.logger.info("  Skipping: Same shift ID")
               next
             end
             
-            # Skip if same event and exact same times BUT only if DIFFERENT roles
-            # This allows same person to work different roles at same time (e.g., set-up + serve)
-            if shift_a.event_id == shift_b.event_id && 
-               shift_a.start_time_utc == shift_b.start_time_utc && 
-               shift_a.end_time_utc == shift_b.end_time_utc &&
-               shift_a.role_needed != shift_b.role_needed
-              Rails.logger.info("  Skipping: Same event and times but different roles (#{shift_a.role_needed} != #{shift_b.role_needed})")
-              next
-            end
-            
-            # If same role AND same times, these ARE overlapping (same person can't do 2 identical jobs)
-            if shift_a.event_id == shift_b.event_id && 
-               shift_a.start_time_utc == shift_b.start_time_utc && 
-               shift_a.end_time_utc == shift_b.end_time_utc &&
-               shift_a.role_needed == shift_b.role_needed
-              Rails.logger.info("  ERROR: Same role and time - treating as overlap!")
-              # Continue to overlap check below
-            end
+            # STRICT RULE: No worker can be assigned to multiple roles at overlapping times
+            # This prevents same person working different roles simultaneously (physically impossible)
             
             # Check if they overlap: (startA < endB) AND (endA > startB)
             check1 = shift_a.start_time_utc < shift_b.end_time_utc
