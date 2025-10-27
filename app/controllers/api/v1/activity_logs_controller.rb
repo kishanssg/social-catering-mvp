@@ -148,9 +148,12 @@ module Api
       def extract_entity_name(log)
         data = log.after_json || log.before_json || {}
         
+        # First, check for entity_name (added by Auditable concern)
+        return data['entity_name'] if data['entity_name'].present?
+        
         # Try multiple fields in order of preference
-        return data['name'] if data['name'].present?
         return data['title'] if data['title'].present?
+        return data['name'] if data['name'].present?
         return data['client_name'] if data['client_name'].present?
         
         # For workers, combine first and last name
