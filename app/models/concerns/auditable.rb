@@ -111,12 +111,16 @@ module Auditable
   def log_destroy
     return unless should_log?
 
+    # Enhance attributes with entity name for better logging
+    enhanced_attributes = attributes.merge(get_related_data)
+    enhanced_attributes['entity_name'] = get_entity_name
+
     ActivityLog.create!(
       actor_user_id: current_user_id,
       entity_type: self.class.name,
       entity_id: id,
       action: "deleted",
-      before_json: attributes,
+      before_json: enhanced_attributes,
       created_at_utc: Time.current
     )
   end
