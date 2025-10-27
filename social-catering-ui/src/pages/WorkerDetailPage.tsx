@@ -389,7 +389,7 @@ export function WorkerDetailPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} />
-                          {assignment.shift.location}
+                          {assignment.shift.event?.venue_name || assignment.shift.location || 'No venue'}
                         </div>
                       </div>
                     </div>
@@ -429,7 +429,7 @@ export function WorkerDetailPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} />
-                          {assignment.shift.location}
+                          {assignment.shift.event?.venue_name || assignment.shift.location || 'No venue'}
                         </div>
                       </div>
                     </div>
