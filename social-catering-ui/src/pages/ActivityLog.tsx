@@ -153,12 +153,8 @@ export const ActivityLog: React.FC = () => {
     <div className="min-h-screen bg-white">
         {/* Header */}
         <div className="px-8 py-6 border-b border-gray-200">
-          <h1 className="text-2xl font-semibold text-gray-900 font-manrope">
-            Activity Log
-          </h1>
-          <p className="text-sm text-gray-600 mt-1 font-manrope">
-            Track all actions and changes in the system
-          </p>
+          <h1 className="text-2xl font-semibold text-gray-900">Activity Log</h1>
+          <p className="text-gray-600 mt-1">Track all actions and changes in the system</p>
         </div>
 
         {/* Filters */}
@@ -260,7 +256,7 @@ export const ActivityLog: React.FC = () => {
           ) : logs.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 font-manrope">No activity logs found</p>
+              <p className="text-gray-600">No activity logs found</p>
               <p className="text-sm text-gray-500 mt-1">Try adjusting your filters</p>
             </div>
           ) : (
@@ -284,7 +280,7 @@ export const ActivityLog: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900 font-manrope">
+                          <p className="text-sm font-medium text-gray-900">
                             {getActionDescription(log)}
                           </p>
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
