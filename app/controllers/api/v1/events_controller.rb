@@ -41,6 +41,17 @@ class Api::V1::EventsController < Api::V1::BaseController
       events = events.where(status: ['draft', 'published'])
     end
     
+    # Date filter (for calendar navigation)
+    if params[:date].present?
+      begin
+        target_date = Date.parse(params[:date])
+        events = events.joins(:event_schedule)
+                       .where('DATE(event_schedules.start_time_utc) = ?', target_date)
+      rescue ArgumentError
+        # Invalid date format, ignore the filter
+      end
+    end
+    
     # Additional filters for active tab (only apply if filter parameter is explicitly provided)
     if params[:filter].present?
       case params[:filter]
