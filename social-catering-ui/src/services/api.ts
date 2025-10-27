@@ -1,6 +1,7 @@
-import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse, LoginCredentials, AuthUser, Skill, Location, Shift, Assignment } from '../types';
 import { config } from '../config/environment';
+import { routes, findClosestRoute } from '../api/routes';
 
 // API Configuration
 const API_BASE_URL = config.API_BASE_URL;
@@ -10,7 +11,17 @@ export { API_BASE_URL };
 
 // Base fetch function with credentials
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+  // Validate endpoint starts with /
+  if (!endpoint.startsWith('/')) {
+    console.error('❌ API Guard: Endpoint must start with /', endpoint);
+    throw new Error(`API endpoint must start with '/': ${endpoint}`);
+  }
+  
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+  }
   
   const response = await fetch(url, {
     ...options,
@@ -42,10 +53,21 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor
+// Request interceptor with guardrails
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add any auth headers here if needed
+  (config: InternalAxiosRequestConfig) => {
+    // CRITICAL: Ensure all URLs start with /
+    if (config.url && !config.url.startsWith('/')) {
+      console.error('❌ API Guard: URL must start with /', config.url);
+      throw new Error(`API URL must start with '/': ${config.url}`);
+    }
+    
+    // Log final computed URL in dev
+    if (process.env.NODE_ENV === 'development' && config.url) {
+      const fullUrl = `${API_BASE_URL}${config.url}`;
+      console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
+    }
+    
     return config;
   },
   (error) => {
@@ -53,16 +75,49 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor with 404 suggestions
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response;
   },
-  (error) => {
+  (error: AxiosError) => {
     // Handle common errors
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
       window.location.href = '/login';
+    }
+    
+    // 404 suggestions
+    if (error.response?.status === 404 && error.config) {
+      const requestedPath = error.config.url || '';
+      const suggestions = findClosestRoute(requestedPath.replace(API_BASE_URL, ''), 3);
+      
+      if (suggestions.length > 0) {
+        console.error(
+          `❌ 404 ${error.config.method?.toUpperCase()} ${requestedPath}`,
+          '\n🤔 Did you mean one of these?',
+          suggestions.map(s => `\n  • ${s}`).join('')
+        );
+      }
+    }
+    
+    // Log error details
+    if (process.env.NODE_ENV === 'development') {
+      const response = error.response;
+      if (response) {
+        const status = response.status;
+        const url = error.config?.url || 'unknown';
+        const dataSnippet = typeof response.data === 'string' 
+          ? response.data.substring(0, 200)
+          : JSON.stringify(response.data).substring(0, 200);
+        
+        console.error(
+          `❌ API Error:\n` +
+          `  Status: ${status}\n` +
+          `  URL: ${url}\n` +
+          `  Response: ${dataSnippet}`
+        );
+      }
     }
     
     return Promise.reject(error);
