@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * Chunk Integrity Check
  * 
@@ -7,8 +6,12 @@
  * This prevents 404 errors for dynamically imported modules after deployment.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // Note: This script needs to be run from the social-catering-ui directory
 // Usage: node scripts/check-chunks.js
 
