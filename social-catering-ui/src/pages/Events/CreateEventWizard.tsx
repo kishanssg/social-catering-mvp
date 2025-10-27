@@ -459,7 +459,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
       // Create event data
       const eventData = {
         title: eventTitle || 'New Event',
-        status: (isEditMode || isEditing) ? (editEvent?.status || 'draft') : 'published' as const, // Auto-publish new events
+        status: (isEditMode || isEditing) ? (currentEvent?.status || 'draft') : 'published' as const, // Preserve existing status when editing
           venue_id: selectedVenue?.id,
           check_in_instructions: checkInText,
           supervisor_name: selectedSupervisor,
