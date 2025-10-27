@@ -459,6 +459,13 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
   
   def group_shifts_by_role(shifts)
+    # Get event from first shift to access event_skill_requirements
+    event = shifts.first&.event
+    return [] unless event
+    
+    # Get needed workers per role from event_skill_requirements
+    requirements = event.event_skill_requirements.index_by(&:skill_name)
+    
     Rails.logger.info "=== GROUP_SHIFTS_BY_ROLE DEBUG ==="
     Rails.logger.info "Shifts count: #{shifts.count}"
     shifts.each_with_index do |shift, index|
@@ -467,8 +474,16 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     grouped = {}
     
+    # Track how many shifts we've processed per role
+    role_counters = Hash.new(0)
+    
     shifts.each do |shift|
       role = shift.role_needed
+      needed = requirements[role]&.needed_workers || 0
+      
+      # Skip shifts beyond the needed amount
+      next if needed > 0 && role_counters[role] >= needed
+      
       grouped[role] ||= {
         role_name: role,
         total_shifts: 0,
@@ -504,6 +519,8 @@ class Api::V1::EventsController < Api::V1::BaseController
           }
         }
       }
+      
+      role_counters[role] += 1
     end
     
     Rails.logger.info "Grouped result: #{grouped.keys}"
