@@ -23,6 +23,7 @@ import { createEvent, updateEvent, getEvent, type Event } from '../../services/e
 import { venuesApi } from '../../services/venuesApi';
 import type { Venue } from '../../types/venues';
 import { Toast } from '../../components/common/Toast';
+import { apiClient } from '../../lib/api';
 
 // Define types locally to avoid import issues
 interface EventSkillRequirement {
@@ -1649,8 +1650,32 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                       canContinue && !isCreating ? 'bg-button-action hover:bg-button-action/90' : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (editEvent?.status === 'draft' ? 'Publish Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
+                    {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (editEvent?.status === 'draft' ? 'Update Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
                   </button>
+                  
+                  {/* Show Publish button for draft events */}
+                  {isEditMode && editEvent?.status === 'draft' && currentStepIndex === steps.length - 1 && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await handleCreateEvent();
+                          // Update status to published
+                          await apiClient.patch(`/events/${currentEvent.id}/update_status`, { status: 'published' });
+                          showSuccess('Event published successfully!');
+                          navigate(`/events?tab=active`);
+                        } catch (error) {
+                          console.error('Failed to publish event:', error);
+                          showError('Failed to publish event');
+                        }
+                      }}
+                      disabled={!canContinue || isCreating}
+                      className={`flex justify-center items-center gap-2.5 px-6 py-2.5 min-w-[120px] rounded-lg text-sm font-bold font-manrope leading-[140%] text-teal-600 border-2 border-teal-600 bg-white ${
+                        canContinue && !isCreating ? 'hover:bg-teal-50' : 'opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      {isCreating ? 'Publishing…' : 'Publish Event'}
+                    </button>
+                  )}
                 </div>
             </div>
           </div>
