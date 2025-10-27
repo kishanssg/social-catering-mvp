@@ -300,7 +300,7 @@ export function DashboardPage() {
             <StatCard
               label="Unfilled Roles"
               value={stats.gaps_to_fill}
-              onClick={() => navigate('/events?tab=active')}
+              onClick={() => navigate('/events?tab=active&filter=needs_workers')}
               color="red"
               isHero
             />

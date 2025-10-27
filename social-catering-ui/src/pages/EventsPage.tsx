@@ -225,6 +225,14 @@ export function EventsPage() {
   
   const handleFilterChange = (filter: FilterType) => {
     setFilterStatus(filter);
+    // Update URL with filter parameter
+    const newParams = new URLSearchParams();
+    newParams.set('tab', activeTab);
+    if (filter !== 'all') {
+      newParams.set('filter', filter);
+    }
+    setSearchParams(newParams);
+    // Note: loadEvents will be called by useEffect when filterStatus changes
   };
   
   const toggleEvent = (eventId: number) => {
