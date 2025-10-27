@@ -120,14 +120,47 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
             assigned += 1;
           } else {
             conflicts += 1;
-            const errorMsg = res.data?.message || 'Unknown error';
-            failedDetails.push(`${worker.first_name} ${worker.last_name} (${errorMsg})`);
+            const workerName = `${worker.first_name} ${worker.last_name}`;
+            const backendMsg = res.data?.message || 'Unknown error';
+            
+            // Simplify error message
+            let errorMsg = 'Unable to assign';
+            if (backendMsg.includes('overlapping') || backendMsg.includes('conflict')) {
+              errorMsg = 'Has overlapping shift';
+            } else if (backendMsg.includes('capacity')) {
+              errorMsg = 'Shift is full';
+            } else if (backendMsg.includes('skill') || backendMsg.includes('certification')) {
+              errorMsg = 'Missing required skill';
+            } else {
+              errorMsg = backendMsg;
+            }
+            
+            failedDetails.push(`${workerName}: ${errorMsg}`);
           }
         } catch (e: any) {
           conflicts += 1;
           const workerName = `${worker.first_name} ${worker.last_name}`;
-          const errorMsg = e.response?.data?.message || e.message || 'Unknown error';
-          failedDetails.push(`${workerName} (${errorMsg})`);
+          
+          // Extract user-friendly error message
+          let errorMsg = 'Unable to assign';
+          
+          if (e.response?.data?.message) {
+            const backendMsg = e.response.data.message;
+            // Simplify common error messages
+            if (backendMsg.includes('overlapping') || backendMsg.includes('conflict')) {
+              errorMsg = 'Has overlapping shift';
+            } else if (backendMsg.includes('capacity')) {
+              errorMsg = 'Shift is full';
+            } else if (backendMsg.includes('skill') || backendMsg.includes('certification')) {
+              errorMsg = 'Missing required skill';
+            } else {
+              errorMsg = backendMsg;
+            }
+          } else if (e.message) {
+            errorMsg = e.message;
+          }
+          
+          failedDetails.push(`${workerName}: ${errorMsg}`);
         }
         wi += 1;
       }
