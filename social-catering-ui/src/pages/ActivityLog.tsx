@@ -129,19 +129,46 @@ export const ActivityLog: React.FC = () => {
     const entityType = log.entity_type;
     const entityId = log.entity_id;
 
+    // Try to extract a name from the JSON data
+    const getName = () => {
+      if (log.after_json?.first_name && log.after_json?.last_name) {
+        return `${log.after_json.first_name} ${log.after_json.last_name}`;
+      }
+      if (log.after_json?.title) return log.after_json.title;
+      if (log.after_json?.name) return log.after_json.name;
+      if (log.after_json?.client_name) return log.after_json.client_name;
+      if (log.before_json?.first_name && log.before_json?.last_name) {
+        return `${log.before_json.first_name} ${log.before_json.last_name}`;
+      }
+      if (log.before_json?.title) return log.before_json.title;
+      if (log.before_json?.name) return log.before_json.name;
+      if (log.before_json?.client_name) return log.before_json.client_name;
+      return null;
+    };
+
+    const entityName = getName();
+
     switch (log.action) {
       case 'created':
-        return `${actor} created ${entityType} #${entityId}`;
+        return entityName 
+          ? `${actor} created ${entityType} "${entityName}"`
+          : `${actor} created ${entityType} #${entityId}`;
       case 'updated':
-        return `${actor} updated ${entityType} #${entityId}`;
+        return entityName
+          ? `${actor} updated ${entityType} "${entityName}"`
+          : `${actor} updated ${entityType} #${entityId}`;
       case 'deleted':
-        return `${actor} deleted ${entityType} #${entityId}`;
+        return entityName
+          ? `${actor} deleted ${entityType} "${entityName}"`
+          : `${actor} deleted ${entityType} #${entityId}`;
       case 'assigned_worker':
         return `${actor} assigned ${log.after_json?.worker_name || 'worker'} to ${log.after_json?.shift_name || 'shift'}`;
       case 'unassigned_worker':
         return `${actor} unassigned ${log.before_json?.worker_name || 'worker'} from ${log.before_json?.shift_name || 'shift'}`;
       default:
-        return `${actor} performed ${log.action} on ${entityType} #${entityId}`;
+        return entityName
+          ? `${actor} performed ${log.action} on ${entityType} "${entityName}"`
+          : `${actor} performed ${log.action} on ${entityType} #${entityId}`;
     }
   };
 
@@ -298,7 +325,28 @@ export const ActivityLog: React.FC = () => {
                             <div className="flex items-center gap-1">
                               <FileText className="w-3 h-3" />
                               <span>
-                                {log.entity_type} #{log.entity_id}
+                                {(() => {
+                                  // Try to extract a name from the JSON data
+                                  let entityName = null;
+                                  if (log.after_json?.first_name && log.after_json?.last_name) {
+                                    entityName = `${log.after_json.first_name} ${log.after_json.last_name}`;
+                                  } else if (log.after_json?.title) {
+                                    entityName = log.after_json.title;
+                                  } else if (log.after_json?.name) {
+                                    entityName = log.after_json.name;
+                                  } else if (log.after_json?.client_name) {
+                                    entityName = log.after_json.client_name;
+                                  } else if (log.before_json?.first_name && log.before_json?.last_name) {
+                                    entityName = `${log.before_json.first_name} ${log.before_json.last_name}`;
+                                  } else if (log.before_json?.title) {
+                                    entityName = log.before_json.title;
+                                  } else if (log.before_json?.name) {
+                                    entityName = log.before_json.name;
+                                  } else if (log.before_json?.client_name) {
+                                    entityName = log.before_json.client_name;
+                                  }
+                                  return entityName ? `${log.entity_type} "${entityName}"` : `${log.entity_type} #${log.entity_id}`;
+                                })()}
                               </span>
                             </div>
                           </div>
