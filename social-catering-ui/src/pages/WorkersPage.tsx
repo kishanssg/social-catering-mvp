@@ -818,7 +818,13 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
           
           message = `Successfully scheduled ${successCount} of ${total} shift${total !== 1 ? 's' : ''}`;
           if (failCount > 0 && successCount > 0) {
-            message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled.`;
+            // Add details about which shifts failed
+            const failedShifts = failed.map((f: any) => {
+              const eventName = f.event || 'Unknown Event';
+              const reason = f.reasons?.[0] || f.reason || 'Unknown reason';
+              return `${eventName} (${reason})`;
+            }).join(', ');
+            message += `. ${failCount} ${failCount === 1 ? 'shift' : 'shifts'} could not be scheduled: ${failedShifts}`;
           }
         }
         
@@ -829,6 +835,15 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
         let errorMessage = response.data.message || 'Failed to schedule worker for shifts';
         if (response.data.details && response.data.details.length > 0) {
           errorMessage += '\n\nDetails:\n• ' + response.data.details.join('\n• ');
+        }
+        // Add shift-specific error details if available
+        if (response.data.data?.failed) {
+          const failedShifts = response.data.data.failed.map((f: any) => {
+            const eventName = f.event || f.shift?.event?.title || 'Unknown Event';
+            const reason = f.reasons?.[0] || f.reason || 'Unknown reason';
+            return `${eventName} (${reason})`;
+          }).join(', ');
+          errorMessage += `\n\nFailed shifts: ${failedShifts}`;
         }
         setError(errorMessage);
       } else {
