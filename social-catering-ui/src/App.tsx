@@ -18,6 +18,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ d
 
 // Additional pages
 const TimesheetPage = lazy(() => import('./pages/Reports/TimesheetPage'));
+const ActivityLogPage = lazy(() => import('./pages/ActivityLog').then(module => ({ default: module.ActivityLog })));
 
 // Loading component
 const PageLoader = () => (
@@ -59,6 +60,9 @@ function App() {
               {/* Reports */}
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/reports/timesheet" element={<TimesheetPage />} />
+              
+              {/* Activity Log */}
+              <Route path="/activity-log" element={<ActivityLogPage />} />
               
               {/* Backward compatibility - old routes redirect to new */}
               <Route path="/jobs" element={<Navigate to="/events" replace />} />

@@ -233,6 +233,38 @@ export function AppLayout() {
               </>
             )}
           </NavLink>
+
+          {/* Activity Log */}
+          <NavLink 
+            to="/activity-log" 
+            className={({ isActive }) => 
+              `flex items-center gap-3 px-0 py-2 self-stretch relative ${
+                isActive ? 'bg-gray-50 -ml-6 pl-6 ' : ''
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {/* Active indicator bar */}
+                {isActive && (
+                  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-primary-color rounded-sm" />
+                )}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path 
+                    d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 6.10457 9.89543 7 11 7H13C14.1046 7 15 6.10457 15 5M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5M12 12H15M12 16H15M9 12H9.01M9 16H9.01" 
+                    stroke="#292826" 
+                    strokeOpacity={isActive ? "1" : "0.5"} 
+                    strokeWidth="1.5" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className={`text-sm font-manrope leading-[140%] ${isActive ? 'font-bold text-font-primary' : 'font-normal text-font-primary'}`}>
+                  Activity Log
+                </span>
+              </>
+            )}
+          </NavLink>
         </div>
 
         {/* SPACER - This pushes "Others" to bottom */}
@@ -241,7 +273,11 @@ export function AppLayout() {
         {/* Others section */}
         <div className="flex flex-col justify-center items-center gap-4 self-stretch">
           {/* Support */}
-          <div className="flex items-center gap-3 px-0 py-4 pr-4 self-stretch">
+          <a 
+            href="mailto:support@gravywork.com?subject=Social%20Catering%20—%20Support&body=Hi%20GravyWork%20Support%2C%0A%0AIssue%3A%0ASteps%20to%20reproduce%3A%0A%0AThanks%21"
+            className="flex items-center gap-3 px-0 py-4 pr-4 self-stretch hover:bg-gray-50 rounded-lg transition-colors no-underline text-font-primary"
+            aria-label="Email support@gravywork.com"
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path 
                 d="M9.87891 7.51884C11.0505 6.49372 12.95 6.49372 14.1215 7.51884C15.2931 8.54397 15.2931 10.206 14.1215 11.2312C13.9176 11.4096 13.6917 11.5569 13.4513 11.6733C12.7056 12.0341 12.0002 12.6716 12.0002 13.5V14.25M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12ZM12 17.25H12.0075V17.2575H12V17.25Z" 
@@ -251,8 +287,8 @@ export function AppLayout() {
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="text-sm font-normal font-manrope leading-[140%] text-font-primary">Support</span>
-          </div>
+            <span className="text-sm font-normal font-manrope leading-[140%]">Support</span>
+          </a>
 
           {/* Divider */}
           <svg width="260" height="2" viewBox="0 0 261 2" fill="none" xmlns="http://www.w3.org/2000/svg">
