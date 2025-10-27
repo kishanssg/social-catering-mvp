@@ -54,16 +54,15 @@ echo "Step 3: Syncing assets to public/assets/..."
 rm -rf public/assets
 mkdir -p public/assets
 
-# Check if dist/assets exists
-if [ ! -d "social-catering-ui/dist/assets" ]; then
-  echo "❌ dist/assets directory not found"
-  echo "   Vite may have put files in dist/ instead of dist/assets/"
-  ls -la social-catering-ui/dist/ || true
-  exit 1
+# Check if dist/assets exists or files are in dist/
+if [ ! -d "social-catering-ui/dist/assets" ] && [ -d "social-catering-ui/dist" ]; then
+  echo "📦 Files in dist/, copying all to public/assets/"
+  # Copy all files except index.html
+  find social-catering-ui/dist -maxdepth 1 -type f ! -name "index.html" -exec cp {} public/assets/ \;
+else
+  # Copy assets
+  cp -a social-catering-ui/dist/assets/. public/assets/
 fi
-
-# Copy assets
-cp -a social-catering-ui/dist/assets/. public/assets/
 
 # Copy index.html
 cp social-catering-ui/dist/index.html public/index.html

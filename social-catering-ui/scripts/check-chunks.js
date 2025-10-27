@@ -30,7 +30,11 @@ function listFiles(dir) {
 
 // Path to the built index.html (produced by Vite)
 const indexHtmlPath = path.join(__dirname, '../dist/index.html');
-const assetsDir = path.join(__dirname, '../dist/assets');
+// Check if assets are in dist/assets/ or directly in dist/
+const distDir = path.join(__dirname, '../dist');
+const assetsDir = fs.existsSync(path.join(distDir, 'assets')) 
+  ? path.join(distDir, 'assets') 
+  : distDir;
 
 function extractAssetReferences(htmlContent) {
   const assetRegex = /(?:src|href)="\/assets\/([^"]+)"/g;
@@ -60,16 +64,25 @@ function checkChunkIntegrity() {
   
   console.log(`📋 Found ${referencedAssets.length} asset references in index.html\n`);
   
-  // Check if dist/assets exists
+  // Check if assets directory exists
   if (!fs.existsSync(assetsDir)) {
     console.error(`❌ Assets directory not found: ${assetsDir}`);
     process.exit(1);
   }
   
-  // Get all actual files in dist/assets
-  const actualFiles = listFiles(assetsDir);
+  // Get all actual files in the assets directory
+  let actualFiles;
+  try {
+    actualFiles = listFiles(assetsDir);
+  } catch (e) {
+    // If listFiles fails (deep directory), try reading current directory
+    actualFiles = fs.readdirSync(assetsDir).filter(f => {
+      const fullPath = path.join(assetsDir, f);
+      return fs.statSync(fullPath).isFile();
+    });
+  }
   
-  console.log(`📦 Found ${actualFiles.length} actual files in dist/assets/\n`);
+  console.log(`📦 Found ${actualFiles.length} actual files in the assets directory\n`);
   
   // Check each referenced asset
   const missing = [];
