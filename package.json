@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "Social Catering Workforce Management MVP",
   "scripts": {
-    "heroku-postbuild": "echo 'Using pre-built assets from git'"
+    "heroku-postbuild": "echo 'Using pre-built assets from git'",
+    "routes:gen": "bundle exec rake export:routes_json && tsx scripts/generate-routes.ts",
+    "audit:api": "tsx scripts/audit-api-paths.ts",
+    "test:smoke": "tsx scripts/smoke-endpoints.ts",
+    "deploy": "./scripts/deploy-heroku.sh"
   },
   "engines": {
     "node": ">=18.0.0"

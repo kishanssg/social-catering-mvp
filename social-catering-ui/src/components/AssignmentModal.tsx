@@ -279,9 +279,9 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       size="xl"
       footer={footerContent}
     >
-        <div className="flex h-[700px]">
+        <div className="flex h-[600px]">
           {/* Left: Shift Details */}
-          <div className="w-2/5 border-r border-gray-200 p-6 bg-gray-50">
+          <div className="w-1/3 border-r border-gray-200 p-6 bg-gray-50">
             {shift ? (
               <div className="space-y-4">
                 <div>
@@ -376,7 +376,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
             </div>
 
             {/* Workers List */}
-            <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="flex-1 overflow-y-auto">
               {error ? (
                 <div className="p-6 flex items-center justify-center h-full">
                   <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-5 shadow-sm w-full max-w-lg">
