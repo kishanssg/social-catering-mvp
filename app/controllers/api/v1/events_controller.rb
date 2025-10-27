@@ -41,12 +41,19 @@ class Api::V1::EventsController < Api::V1::BaseController
       events = events.where(status: ['draft', 'published'])
     end
     
-    # Date filter (for calendar navigation)
+    # Date filter (for calendar navigation) - apply after tab filtering
     if params[:date].present?
       begin
         target_date = Date.parse(params[:date])
-        events = events.joins(:event_schedule)
+        # Only apply date filter if we haven't already joined event_schedule
+        # For 'active' and 'past' tabs, event_schedule is already joined
+        if tab_param == 'active' || tab_param == 'past'
+          events = events.where('DATE(event_schedules.start_time_utc) = ?', target_date)
+        else
+          # For 'draft' or other tabs, need to join event_schedule
+          events = events.joins(:event_schedule)
                        .where('DATE(event_schedules.start_time_utc) = ?', target_date)
+        end
       rescue ArgumentError
         # Invalid date format, ignore the filter
       end
