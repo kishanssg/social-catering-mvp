@@ -9,14 +9,12 @@ class ActivityLogPresenter
 
   def summary
     case [log.entity_type, log.action]
-    when ["Assignment", "assigned_worker"]
-      build_assignment_summary("assigned", dj(:worker_name), dj(:shift_name), dj(:role))
-    when ["Assignment", "unassigned_worker"]
-      build_assignment_summary("unassigned", dj(:worker_name), dj(:shift_name), dj(:role))
-    when ["Assignment", "created"]
-      build_assignment_summary("assigned", dj(:worker_name), dj(:event_name), dj(:role))
-    when ["Assignment", "deleted"]
-      build_assignment_summary("removed", dj(:worker_name), dj(:event_name), dj(:role))
+    when ["Assignment", "assigned_worker"], ["Assignment", "created"]
+      worker_name, shift_name, role = fetch_assignment_details
+      build_assignment_summary("assigned", worker_name, shift_name, role)
+    when ["Assignment", "unassigned_worker"], ["Assignment", "deleted"]
+      worker_name, shift_name, role = fetch_assignment_details_unassign
+      build_assignment_summary("removed", worker_name, shift_name, role)
     when ["Event", "created"]
       "#{actor_name} created event \"#{entity_name}\""
     when ["Event", "updated"]
@@ -45,17 +43,19 @@ class ActivityLogPresenter
   def curated_details
     case [log.entity_type, log.action]
     when ["Assignment", "assigned_worker"], ["Assignment", "created"]
+      worker_name, shift_name, role = fetch_assignment_details
       {
-        worker_name: dj(:worker_name),
-        event_name: dj(:event_name) || dj(:shift_name),
-        role: dj(:role),
+        worker_name: worker_name,
+        event_name: shift_name,
+        role: role,
         pay_rate: dj(:hourly_rate) ? "$#{dj(:hourly_rate)}/hr" : nil
       }.compact
     when ["Assignment", "unassigned_worker"], ["Assignment", "deleted"]
+      worker_name, shift_name, role = fetch_assignment_details_unassign
       {
-        worker_name: dj(:worker_name),
-        event_name: dj(:event_name) || dj(:shift_name),
-        role: dj(:role)
+        worker_name: worker_name,
+        event_name: shift_name,
+        role: role
       }.compact
     when ["Worker", "created"]
       {
@@ -234,6 +234,51 @@ class ActivityLogPresenter
     rescue
       nil
     end
+  end
+  
+  def fetch_assignment_details
+    # Try to get from after_json first
+    worker_name = dj(:worker_name)
+    shift_name = dj(:shift_name) || dj(:event_name)
+    role = dj(:role)
+    
+    # If not available, fetch from database
+    if !worker_name || !shift_name
+      begin
+        assignment = Assignment.find_by(id: log.entity_id)
+        if assignment
+          worker_name ||= "#{assignment.worker.first_name} #{assignment.worker.last_name}" if assignment.worker
+          shift_name ||= assignment.shift.client_name if assignment.shift
+          role ||= assignment.shift.role_needed if assignment.shift
+        end
+      rescue
+        # If assignment was deleted, try to get info from the log's entity
+      end
+    end
+    
+    [worker_name, shift_name, role]
+  end
+  
+  def fetch_assignment_details_unassign
+    # For unassign, try before_json first
+    worker_name = dj(:worker_name)
+    shift_name = dj(:shift_name) || dj(:event_name)
+    role = dj(:role)
+    
+    # If not available, fetch from database
+    if !worker_name || !shift_name
+      begin
+        assignment = Assignment.with_deleted.find_by(id: log.entity_id) rescue Assignment.find_by(id: log.entity_id)
+        if assignment
+          worker_name ||= "#{assignment.worker.first_name} #{assignment.worker.last_name}" if assignment.worker
+          shift_name ||= assignment.shift.client_name if assignment.shift
+          role ||= assignment.shift.role_needed if assignment.shift
+        end
+      rescue
+      end
+    end
+    
+    [worker_name, shift_name, role]
   end
 end
 
