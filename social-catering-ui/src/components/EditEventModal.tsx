@@ -263,6 +263,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                   })}
                 </p>
               </div>
+              <div></div>
             </div>
           </div>
 
