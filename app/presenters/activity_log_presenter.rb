@@ -20,7 +20,9 @@ class ActivityLogPresenter
     when ["Event", "created"]
       "#{actor_name} created event \"#{entity_name}\""
     when ["Event", "updated"]
-      "#{actor_name} updated #{entity_name}"
+      # For updates, we need to fetch the actual event to get its title
+      event_title = fetch_event_title || entity_name
+      "#{actor_name} updated #{event_title}"
     when ["Event", "deleted"]
       "#{actor_name} removed #{entity_name}"
     when ["Worker", "created"]
@@ -118,6 +120,17 @@ class ActivityLogPresenter
     key = key.to_s
     data = log.after_json || log.before_json || {}
     data[key]
+  end
+  
+  def fetch_event_title
+    return nil unless log.entity_type == 'Event' && log.entity_id
+    
+    begin
+      event = Event.find_by(id: log.entity_id)
+      event&.title
+    rescue
+      nil
+    end
   end
 
   def build_assignment_summary(verb, worker, event, role)
