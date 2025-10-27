@@ -4,9 +4,11 @@
   "description": "Social Catering Workforce Management MVP",
   "scripts": {
     "heroku-postbuild": "echo 'Using pre-built assets from git'",
+    "chunks:check": "node social-catering-ui/scripts/check-chunks.js",
     "routes:gen": "bundle exec rake export:routes_json && tsx scripts/generate-routes.ts",
     "audit:api": "tsx scripts/audit-api-paths.ts",
-    "test:smoke": "tsx scripts/smoke-endpoints.ts",
+    "test:smoke": "API_BASE=\"https://sc-mvp-staging.herokuapp.com\" tsx scripts/smoke-endpoints.ts",
+    "probe:session": "API_BASE=\"https://sc-mvp-staging.herokuapp.com\" ADMIN_EMAIL=\"natalie@socialcatering.com\" ADMIN_PASSWORD=\"TempPassword123!\" tsx scripts/probe-session.ts",
     "deploy": "./scripts/deploy-heroku.sh"
   },
   "engines": {
