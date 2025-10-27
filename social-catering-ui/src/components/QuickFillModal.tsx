@@ -121,18 +121,27 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
           } else {
             conflicts += 1;
             const workerName = `${worker.first_name} ${worker.last_name}`;
-            const backendMsg = res.data?.message || 'Unknown error';
+            
+            // Check for error message in various formats
+            const backendMsg = res.data?.message || 
+                              res.data?.error?.message ||
+                              res.data?.errors?.join(', ') ||
+                              'Unknown error';
             
             // Simplify error message
             let errorMsg = 'Unable to assign';
-            if (backendMsg.includes('overlapping') || backendMsg.includes('conflict')) {
+            const msg = String(backendMsg).toLowerCase();
+            
+            if (msg.includes('overlapping') || msg.includes('conflict')) {
               errorMsg = 'Has overlapping shift';
-            } else if (backendMsg.includes('capacity')) {
+            } else if (msg.includes('capacity') || msg.includes('full')) {
               errorMsg = 'Shift is full';
-            } else if (backendMsg.includes('skill') || backendMsg.includes('certification')) {
+            } else if (msg.includes('skill') || msg.includes('certification') || msg.includes('requirement')) {
               errorMsg = 'Missing required skill';
+            } else if (msg.includes('status')) {
+              errorMsg = 'Cannot be assigned';
             } else {
-              errorMsg = backendMsg;
+              errorMsg = 'Unable to assign';
             }
             
             failedDetails.push(`${workerName}: ${errorMsg}`);
@@ -141,22 +150,33 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
           conflicts += 1;
           const workerName = `${worker.first_name} ${worker.last_name}`;
           
-          // Extract user-friendly error message
+          // Extract user-friendly error message from various response formats
           let errorMsg = 'Unable to assign';
           
-          if (e.response?.data?.message) {
-            const backendMsg = e.response.data.message;
+          // Check for error message in various formats
+          const backendMsg = e.response?.data?.message || 
+                            e.response?.data?.error?.message ||
+                            e.response?.data?.errors?.join(', ') ||
+                            null;
+          
+          if (backendMsg) {
+            const msg = String(backendMsg).toLowerCase();
             // Simplify common error messages
-            if (backendMsg.includes('overlapping') || backendMsg.includes('conflict')) {
+            if (msg.includes('overlapping') || msg.includes('conflict')) {
               errorMsg = 'Has overlapping shift';
-            } else if (backendMsg.includes('capacity')) {
+            } else if (msg.includes('capacity') || msg.includes('full')) {
               errorMsg = 'Shift is full';
-            } else if (backendMsg.includes('skill') || backendMsg.includes('certification')) {
+            } else if (msg.includes('skill') || msg.includes('certification') || msg.includes('requirement')) {
               errorMsg = 'Missing required skill';
+            } else if (msg.includes('status')) {
+              errorMsg = 'Cannot be assigned';
             } else {
-              errorMsg = backendMsg;
+              // If backend message is too technical, use generic message
+              errorMsg = 'Unable to assign';
             }
-          } else if (e.message) {
+          } else if (e.response?.status === 422) {
+            errorMsg = 'Unable to assign';
+          } else if (e.message && !e.message.includes('status code')) {
             errorMsg = e.message;
           }
           
