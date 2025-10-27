@@ -76,14 +76,15 @@ class Events::ApplyRoleDiff
       # New role - create shifts
       create_role_and_shifts(role_params, new_needed)
       @added += new_needed
-    elsif new_needed == existing_req.needed_workers
-      # No change needed
-      @unchanged += new_needed
     else
-      # Calculate diff
-      diff = new_needed - existing_req.needed_workers
+      # Calculate diff based on actual current shift count
+      current_shifts_count = event.shifts.where(role_needed: skill_name).count
+      diff = new_needed - current_shifts_count
       
-      if diff > 0
+      if diff == 0
+        # No change needed
+        @unchanged += new_needed
+      elsif diff > 0
         # Add shifts
         add_shifts_for_role(existing_req, diff)
         @added += diff
@@ -221,7 +222,12 @@ class Events::ApplyRoleDiff
   end
 
   def update_requirement(existing_req, role_params)
+    # Calculate new needed_workers based on current shift count
+    # We need to find the total shifts for this role
+    total_shifts = event.shifts.where(role_needed: existing_req.skill_name).count
+    
     existing_req.update!(
+      needed_workers: total_shifts, # Update to match actual shifts
       pay_rate: role_params[:pay_rate],
       uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
