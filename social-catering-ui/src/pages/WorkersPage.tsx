@@ -354,13 +354,13 @@ export function WorkersPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
-                    Worker Name
+                    Name
                   </th>
                   <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
-                    Phone Number
+                    Phone
                   </th>
                   <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
-                    Email Address
+                    Email
                   </th>
                   <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">
                     Status
