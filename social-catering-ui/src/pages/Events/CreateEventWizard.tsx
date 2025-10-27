@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import plusIcon from '../../assets/icons/plus.svg';
 import crossIcon from '../../assets/icons/cross.svg';
 import checkIcon from '../../assets/icons/check.svg';
@@ -413,19 +418,40 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         pay_rate: skill.pay_rate || undefined
       }));
 
-      // Build schedule safely, support overnight end times
+      // Build schedule - convert local time to UTC properly
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const eventDateISO = selectedDate.toISOString().split('T')[0];
-      const start = new Date(`${eventDateISO}T${startTime}:00.000Z`);
-      let end = new Date(`${eventDateISO}T${endTime}:00.000Z`);
-      if (end <= start) {
-        // Treat as overnight event (ends next day)
-        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+      
+      // Convert local time strings to UTC ISO strings
+      const toUtcIso = (dateISO: string, timeHHmm: string): string => {
+        const dt = dayjs.tz(`${dateISO} ${timeHHmm}`, 'YYYY-MM-DD HH:mm', userTimezone);
+        const utc = dt.utc();
+        return utc.toISOString();
+      };
+      
+      const startUtcIso = toUtcIso(eventDateISO, startTime);
+      let endUtcIso = toUtcIso(eventDateISO, endTime);
+      
+      // Handle overnight events (end < start means it wraps to next day)
+      if (dayjs.utc(endUtcIso).valueOf() <= dayjs.utc(startUtcIso).valueOf()) {
+        // Add 24 hours to end time
+        endUtcIso = dayjs.utc(endUtcIso).add(1, 'day').toISOString();
       }
+      
+      // Temporary debug logging
+      console.table({
+        userTimezone,
+        dateISO: eventDateISO,
+        startLocal: startTime,
+        endLocal: endTime,
+        startUtcIso,
+        endUtcIso,
+      });
 
       // Create schedule data
       const schedule: EventSchedule = {
-        start_time_utc: start.toISOString(),
-        end_time_utc: end.toISOString(),
+        start_time_utc: startUtcIso,
+        end_time_utc: endUtcIso,
         break_minutes: breakMinutes
       };
 
