@@ -115,7 +115,9 @@ class Event < ApplicationRecord
 
   # Assignment metrics
   def assigned_workers_count
-    shifts.joins(:assignments).count
+    # Only count assignments for shifts that are actually needed (based on event_skill_requirements)
+    required_role_names = event_skill_requirements.pluck(:skill_name)
+    shifts.where(role_needed: required_role_names).joins(:assignments).count
   end
 
   def staffing_percentage
