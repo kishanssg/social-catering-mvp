@@ -20,6 +20,12 @@ class ActivityLogPresenter
     when ["Event", "updated"]
       # For updates, we need to fetch the actual event to get its title
       event_title = fetch_event_title || entity_name
+      
+      # Check if this was a deletion operation
+      if was_deletion_operation?
+        return "#{actor_name} deleted #{event_title}"
+      end
+      
       changes_summary = get_changes_summary
       "#{actor_name} updated #{event_title}#{changes_summary}"
     when ["Event", "deleted"]
@@ -280,6 +286,19 @@ class ActivityLogPresenter
     end
     
     [worker_name, shift_name, role]
+  end
+  
+  def was_deletion_operation?
+    return false unless log.before_json && log.after_json
+    
+    before = log.before_json
+    after = log.after_json
+    
+    # Check if status changed to "deleted"
+    before_status = before['status'] || before[:status]
+    after_status = after['status'] || after[:status]
+    
+    after_status == 'deleted' && before_status != 'deleted'
   end
   
   def get_changes_summary

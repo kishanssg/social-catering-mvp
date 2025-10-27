@@ -9,13 +9,6 @@ module Api
         per_page = get_per_page
 
         scoped = ActivityLog.order(created_at_utc: :desc)
-        
-        # Exclude logs for deleted events unless specifically filtering for them
-        unless params[:show_deleted].present?
-          scoped = scoped.where.not(
-            "entity_type = 'Event' AND entity_id IN (SELECT id FROM events WHERE status = 'deleted')"
-          )
-        end
 
         # Apply filters
         scoped = scoped.where(entity_type: params[:entity_type]) if params[:entity_type].present?
