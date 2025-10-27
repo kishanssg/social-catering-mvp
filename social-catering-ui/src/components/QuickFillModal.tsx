@@ -156,7 +156,9 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
         disabled={submitting || selected.length === 0 || neededCount === 0}
         className="btn-primary"
       >
-        {submitting ? 'Filling Shifts...' : `Assign to ${neededCount} shifts`}
+        {submitting ? 'Filling Shifts...' : selected.length === 1 
+          ? `Assign worker to ${neededCount} shift${neededCount !== 1 ? 's' : ''}` 
+          : `Assign ${selected.length} workers to ${neededCount} shifts`}
       </button>
     </div>
   );
@@ -259,7 +261,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <CheckCircle size={16} className="text-teal-600" />
             <span>
-              Will assign <strong>{Math.min(selected.length, neededCount)}</strong> worker{Math.min(selected.length, neededCount) !== 1 ? 's' : ''} to {neededCount} shift{neededCount !== 1 ? 's' : ''}.
+              Will assign <strong>{selected.length}</strong> worker{selected.length !== 1 ? 's' : ''} to <strong>{neededCount}</strong> shift{neededCount !== 1 ? 's' : ''}.
             </span>
           </div>
           
