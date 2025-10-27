@@ -145,11 +145,24 @@ export function WorkersPage() {
         loadWorkers();
         setDeleteModal({ isOpen: false });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete worker:', error);
+      
+      // Extract error message from the response
+      let errorMessage = 'Failed to delete worker. Please try again.';
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.errors) {
+        errorMessage = Array.isArray(error.response.data.errors) 
+          ? error.response.data.errors.join(', ')
+          : error.response.data.errors.toString();
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setToast({
         isVisible: true,
-        message: 'Failed to delete worker. Please try again.',
+        message: errorMessage,
         type: 'error'
       });
     } finally {

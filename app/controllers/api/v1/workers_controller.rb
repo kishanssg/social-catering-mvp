@@ -82,8 +82,15 @@ module Api
       end
 
       def destroy
-        @worker.destroy
-        render_success
+        begin
+          @worker.destroy!
+          render_success
+        rescue ActiveRecord::RecordNotDestroyed => e
+          render_error(e.record.errors.full_messages.join(', '), status: :unprocessable_entity)
+        rescue => e
+          Rails.logger.error "Failed to delete worker #{params[:id]}: #{e.message}"
+          render_error(e.message, status: :unprocessable_entity)
+        end
       end
 
       # Add certification to worker
