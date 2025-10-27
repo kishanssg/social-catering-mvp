@@ -46,12 +46,40 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
     
     (async () => {
       try {
+        // Fetch event to get assigned workers for this role
+        const eventRes = await apiClient.get(`/events/${eventId}`);
+        const event = eventRes.data?.data || {};
+        
+        // Get all assigned worker IDs for this specific role
+        const assignedWorkerIds = new Set<number>();
+        if (event.shifts_by_role) {
+          const roleShifts = event.shifts_by_role.find((r: any) => r.skill_name === roleName || r.role_name === roleName);
+          if (roleShifts?.shifts) {
+            roleShifts.shifts.forEach((shift: any) => {
+              if (shift.assignments) {
+                shift.assignments.forEach((assignment: any) => {
+                  if (assignment.worker_id && assignment.status !== 'cancelled') {
+                    assignedWorkerIds.add(assignment.worker_id);
+                  }
+                });
+              }
+            });
+          }
+        }
+        
+        console.log(`QuickFill: Found ${assignedWorkerIds.size} already assigned workers for "${roleName}"`);
+        
         // Fetch workers
         const res = await apiClient.get('/workers?active=true');
         const list = res.data?.data || res.data || [];
-        // Only show workers with the roleName in skills
-        const filtered = list.filter((w: any) => (w.skills_json || []).includes(roleName));
-        console.log(`QuickFill: Found ${filtered.length} workers with skill "${roleName}"`);
+        
+        // Filter: must have the skill AND not already be assigned to this role
+        const filtered = list.filter((w: any) => 
+          (w.skills_json || []).includes(roleName) && 
+          !assignedWorkerIds.has(w.id)
+        );
+        
+        console.log(`QuickFill: Found ${filtered.length} eligible workers for "${roleName}"`);
         setWorkers(filtered);
         
         // Set default pay rate from prop
@@ -68,7 +96,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
         setLoading(false);
       }
     })();
-  }, [isOpen, roleName, defaultPayRate]);
+  }, [isOpen, eventId, roleName, defaultPayRate]);
 
   const eligibleWorkers = useMemo(() => {
     const q = search.trim().toLowerCase();

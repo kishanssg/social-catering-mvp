@@ -27,6 +27,7 @@ interface Shift {
   required_skill?: string;
   uniform_name?: string;
   notes?: string;
+  event_id?: number;
   event?: {
     venue?: {
       formatted_address?: string;
@@ -98,19 +99,53 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
 
   async function loadAvailableWorkers() {
     try {
+      // First, get assigned worker IDs for this shift
+      const assignedWorkerIds = new Set<number>();
+      if (shift?.event_id) {
+        try {
+          const eventRes = await apiClient.get(`/events/${shift.event_id}`);
+          const event = eventRes.data?.data || {};
+          
+          // Get all assigned workers for this specific role
+          if (event.shifts_by_role) {
+            const roleShifts = event.shifts_by_role.find((r: any) => 
+              r.skill_name === shift.role_needed || r.role_name === shift.role_needed
+            );
+            if (roleShifts?.shifts) {
+              roleShifts.shifts.forEach((s: any) => {
+                if (s.assignments) {
+                  s.assignments.forEach((assignment: any) => {
+                    if (assignment.worker_id && assignment.status !== 'cancelled' && assignment.status !== 'no_show') {
+                      assignedWorkerIds.add(assignment.worker_id);
+                    }
+                  });
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.log('Could not fetch event to filter assigned workers:', e);
+        }
+      }
+      
+      console.log(`AssignmentModal: Found ${assignedWorkerIds.size} already assigned workers for "${shift?.role_needed}"`);
+      
       const response = await apiClient.get('/workers?active=true');
       
       if (response.data.status === 'success') {
         const allWorkers = response.data.data.workers || response.data.data;
         
-        // Filter workers by required skill if shift has one
+        // Filter workers by required skill if shift has one AND exclude already assigned workers
         if (shift?.role_needed) {
           const filteredWorkers = allWorkers.filter(worker => 
-            worker.skills_json?.includes(shift.role_needed)
+            worker.skills_json?.includes(shift.role_needed) &&
+            !assignedWorkerIds.has(worker.id)
           );
+          console.log(`AssignmentModal: Showing ${filteredWorkers.length} eligible workers`);
           setWorkers(filteredWorkers);
         } else {
-          setWorkers(allWorkers);
+          const filteredWorkers = allWorkers.filter(worker => !assignedWorkerIds.has(worker.id));
+          setWorkers(filteredWorkers);
         }
       } else {
         setError('Failed to load workers');
