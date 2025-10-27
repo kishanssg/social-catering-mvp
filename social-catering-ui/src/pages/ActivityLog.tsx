@@ -60,10 +60,13 @@ export const ActivityLog: React.FC = () => {
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
 
+      console.log('Activity Log: Fetching logs with params:', params);
       const response = await apiClient.get('/activity_logs', { params });
+      console.log('Activity Log: API response:', response.data);
 
       setLogs(response.data.data.activity_logs || []);
       setPagination(response.data.data.pagination || pagination);
+      console.log('Activity Log: Loaded', response.data.data.activity_logs?.length || 0, 'logs');
     } catch (error) {
       console.error('Failed to fetch activity logs:', error);
     } finally {
