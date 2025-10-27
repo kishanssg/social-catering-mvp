@@ -1631,7 +1631,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                   </button>
                   
                   {/* Show Save as Draft for new events or draft events in edit mode */}
-                  {(!isEditMode || (isEditMode && editEvent?.status === 'draft')) && (
+                  {(!isEditMode || (isEditMode && currentEvent?.status === 'draft')) && (
                     <button
                       onClick={handleSaveDraft}
                       disabled={!canContinue || isSavingDraft}
@@ -1650,11 +1650,11 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                       canContinue && !isCreating ? 'bg-button-action hover:bg-button-action/90' : 'bg-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (editEvent?.status === 'draft' ? 'Update Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
+                    {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (currentEvent?.status === 'draft' ? 'Update Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
                   </button>
                   
                   {/* Show Publish button for draft events on Event Summary step */}
-                  {isEditMode && currentStepIndex === 4 && editEvent?.status === 'draft' && (
+                  {isEditMode && currentStepIndex === 4 && currentEvent?.status === 'draft' && (
                     <button
                       onClick={async () => {
                         try {
