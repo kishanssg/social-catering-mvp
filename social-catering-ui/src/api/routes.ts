@@ -1,6 +1,6 @@
 /**
  * Generated API Routes
- * Auto-generated from Rails routes export on 2025-10-27T12:55:26.000Z
+ * Auto-generated from Rails routes export on 2025-10-27T13:23:34.000Z
  * 
  * DO NOT EDIT MANUALLY - Regenerate with: npm run generate:routes
  */

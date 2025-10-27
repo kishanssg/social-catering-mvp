@@ -51,12 +51,26 @@ console.log(`🔍 Scanning ${files.length} files...\n`);
 const violations: Violation[] = [];
 
 files.forEach(file => {
+  const relativePath = path.relative(projectRoot, file);
+  
+  // Skip config files (these legitimately contain base URLs)
+  if (relativePath.includes('config/environment') || 
+      relativePath.includes('lib/api.ts') ||
+      relativePath.includes('services/api.ts')) {
+    return;
+  }
+  
   const content = fs.readFileSync(file, 'utf8');
   const lines = content.split('\n');
   
   lines.forEach((line, index) => {
     // Skip commented lines
     if (line.trim().startsWith('//') || line.trim().startsWith('*')) {
+      return;
+    }
+    
+    // Skip lines that are clearly base URL assignments
+    if (line.includes('API_BASE_URL') || line.includes('baseURL')) {
       return;
     }
     
@@ -77,7 +91,7 @@ files.forEach(file => {
         else if (line.toLowerCase().includes('delete(')) method = 'DELETE';
         
         violations.push({
-          file: path.relative(projectRoot, file),
+          file: relativePath,
           line: index + 1,
           method,
           path: apiPath,
