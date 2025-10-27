@@ -1657,15 +1657,62 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                   {isEditMode && currentStepIndex === 4 && currentEvent?.status === 'draft' && (
                     <button
                       onClick={async () => {
+                        if (isCreating) return;
                         try {
-                          await handleCreateEvent();
-                          // Update status to published
-                          await apiClient.patch(`/events/${currentEvent.id}/update_status`, { status: 'published' });
-                          showSuccess('Event published successfully!');
+                          setIsCreating(true);
+                          // Build event data same way as handleCreateEvent
+                          const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                          const eventDateISO = selectedDate.toISOString().split('T')[0];
+                          
+                          const toUtcIso = (dateISO: string, timeHHmm: string): string => {
+                            const dt = dayjs.tz(`${dateISO} ${timeHHmm}`, 'YYYY-MM-DD HH:mm', userTimezone);
+                            const utc = dt.utc();
+                            return utc.toISOString();
+                          };
+                          
+                          const startUtcIso = toUtcIso(eventDateISO, startTime);
+                          let endUtcIso = toUtcIso(eventDateISO, endTime);
+                          
+                          if (dayjs.utc(endUtcIso).valueOf() <= dayjs.utc(startUtcIso).valueOf()) {
+                            endUtcIso = dayjs.utc(endUtcIso).add(1, 'day').toISOString();
+                          }
+
+                          const skillRequirements: EventSkillRequirement[] = selectedSkillDetails.map(skill => ({
+                            skill_name: skill.name,
+                            needed_workers: skill.neededWorkers,
+                            description: skill.description,
+                            uniform_name: skill.uniform,
+                            certification_name: skill.certification || undefined,
+                            pay_rate: skill.pay_rate || undefined
+                          }));
+
+                          const schedule: EventSchedule = {
+                            start_time_utc: startUtcIso,
+                            end_time_utc: endUtcIso,
+                            break_minutes: breakMinutes
+                          };
+
+                          const eventData = {
+                            title: eventTitle || 'New Event',
+                            status: 'published',
+                            venue_id: selectedVenue?.id,
+                            check_in_instructions: checkInText,
+                            supervisor_name: selectedSupervisor,
+                            supervisor_phone: phoneNumber,
+                            skill_requirements: skillRequirements,
+                            schedule: schedule,
+                          };
+
+                          // Update event and publish in one call
+                          await updateEvent(currentEvent.id!, eventData);
+                          
+                          showSuccess('Event updated and published successfully!');
                           navigate(`/events?tab=active`);
                         } catch (error) {
                           console.error('Failed to publish event:', error);
                           showError('Failed to publish event');
+                        } finally {
+                          setIsCreating(false);
                         }
                       }}
                       disabled={!canContinue || isCreating}

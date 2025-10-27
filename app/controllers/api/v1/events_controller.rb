@@ -207,13 +207,22 @@ class Api::V1::EventsController < Api::V1::BaseController
   # DELETE /api/v1/events/:id
   def destroy
     # Instead of destroying, move to deleted status for potential undo
-    @event.update!(status: 'deleted')
-    render json: { 
-      status: 'success',
-      message: 'Event moved to trash',
-      event_id: @event.id,
-      event_title: @event.title
-    }
+    begin
+      @event.update!(status: 'deleted')
+      render json: { 
+        status: 'success',
+        message: 'Event moved to trash',
+        event_id: @event.id,
+        event_title: @event.title
+      }
+    rescue => e
+      Rails.logger.error "Failed to delete event #{params[:id]}: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      render json: { 
+        status: 'error',
+        message: "Failed to delete event: #{e.message}"
+      }, status: :internal_server_error
+    end
   end
 
   # POST /api/v1/events/:id/restore
