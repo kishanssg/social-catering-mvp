@@ -29,7 +29,7 @@ module Api
         csv_data = generate_timesheet_csv(assignments)
         
         send_data csv_data,
-                  filename: "timesheet_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "timesheet_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -58,7 +58,7 @@ module Api
         csv_data = generate_payroll_csv(assignments)
         
         send_data csv_data,
-                  filename: "payroll_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "payroll_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -86,7 +86,7 @@ module Api
         csv_data = generate_worker_hours_csv(assignments)
         
         send_data csv_data,
-                  filename: "worker_hours_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "worker_hours_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -105,7 +105,7 @@ module Api
         csv_data = generate_event_summary_csv(events)
         
         send_data csv_data,
-                  filename: "event_summary_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "event_summary_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
