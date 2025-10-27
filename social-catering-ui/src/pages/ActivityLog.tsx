@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { AppLayout } from '../components/layout/AppLayout';
 import { apiClient } from '../lib/api';
 import { Filter, Calendar, User, FileText, Clock } from 'lucide-react';
 
@@ -151,8 +150,7 @@ export const ActivityLog: React.FC = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
         {/* Header */}
         <div className="px-8 py-6 border-b border-gray-200">
           <h1 className="text-2xl font-semibold text-gray-900 font-manrope">
@@ -376,7 +374,6 @@ export const ActivityLog: React.FC = () => {
           )}
         </div>
       </div>
-    </AppLayout>
   );
 };
 
