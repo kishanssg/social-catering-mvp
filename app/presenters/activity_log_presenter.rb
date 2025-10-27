@@ -24,7 +24,7 @@ class ActivityLogPresenter
     when ["Event", "deleted"]
       "#{actor_name} removed #{entity_name}"
     when ["Worker", "created"]
-      "#{actor_name} added #{entity_name} to the team"
+      "#{actor_name} added #{entity_name}"
     when ["Worker", "updated"]
       "#{actor_name} updated #{entity_name}"
     when ["Worker", "deleted"]
@@ -88,7 +88,21 @@ class ActivityLogPresenter
   private
 
   def actor_name
-    log.actor_user&.email&.split('@')&.first&.capitalize || "Admin"
+    email = log.actor_user&.email
+    return "Admin" unless email
+    
+    # Extract first name from email (e.g., "natalie.smith@..." → "Natalie")
+    name = email.split('@').first
+    if name.include?('.')
+      # Format as "FirstName L." (e.g., "natalie.smith" → "Natalie S.")
+      parts = name.split('.')
+      first_name = parts[0].capitalize
+      last_initial = parts[1]&.first&.capitalize
+      last_initial ? "#{first_name} #{last_initial}." : first_name
+    else
+      # No dot, just capitalize the whole thing
+      name.capitalize
+    end
   end
 
   def entity_name

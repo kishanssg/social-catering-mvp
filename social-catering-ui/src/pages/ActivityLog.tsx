@@ -201,6 +201,31 @@ export const ActivityLog: React.FC = () => {
     });
   };
 
+  const formatTimeAgo = (timestamp: string) => {
+    if (!timestamp) return '—';
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return '—';
+    
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffSecs < 60) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    // For older entries, show actual date
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    });
+  };
+
   const getDetailChips = (details: Record<string, any>) => {
     if (!details || Object.keys(details).length === 0) return null;
     
@@ -373,16 +398,13 @@ export const ActivityLog: React.FC = () => {
                           </p>
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
-                              <span>{log.actor || 'System'}</span>
+                              <FileText className="w-3 h-3" />
+                              <span className="capitalize">{log.entity_type}</span>
                             </div>
+                            <span>•</span>
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              <span>{formatWhen(log.when)}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileText className="w-3 h-3" />
-                              <span>{log.entity_type}</span>
+                              <span>{formatTimeAgo(log.when)}</span>
                             </div>
                           </div>
                           {/* Detail Chips */}
