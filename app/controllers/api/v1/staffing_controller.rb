@@ -192,7 +192,7 @@ module Api
         # Support both formats
         if params[:worker_id].present? && params[:shift_ids].present?
           # Format 1: worker_id + shift_ids array
-          worker = Worker.find_by(id: params[:worker_id])
+        worker = Worker.find_by(id: params[:worker_id])
           shift_ids = params[:shift_ids] || []
           hourly_rates = {} # Not provided in format 1
         elsif params[:assignments].present?
@@ -270,12 +270,23 @@ module Api
               next
             end
             
-            # Skip if same event and exact same times (different roles, same event/time)
+            # Skip if same event and exact same times BUT only if DIFFERENT roles
+            # This allows same person to work different roles at same time (e.g., set-up + serve)
             if shift_a.event_id == shift_b.event_id && 
                shift_a.start_time_utc == shift_b.start_time_utc && 
-               shift_a.end_time_utc == shift_b.end_time_utc
-              Rails.logger.info("  Skipping: Same event and times (different roles allowed)")
+               shift_a.end_time_utc == shift_b.end_time_utc &&
+               shift_a.role_needed != shift_b.role_needed
+              Rails.logger.info("  Skipping: Same event and times but different roles (#{shift_a.role_needed} != #{shift_b.role_needed})")
               next
+            end
+            
+            # If same role AND same times, these ARE overlapping (same person can't do 2 identical jobs)
+            if shift_a.event_id == shift_b.event_id && 
+               shift_a.start_time_utc == shift_b.start_time_utc && 
+               shift_a.end_time_utc == shift_b.end_time_utc &&
+               shift_a.role_needed == shift_b.role_needed
+              Rails.logger.info("  ERROR: Same role and time - treating as overlap!")
+              # Continue to overlap check below
             end
             
             # Check if they overlap: (startA < endB) AND (endA > startB)
@@ -290,30 +301,30 @@ module Api
               end_a = shift_a.end_time_utc.strftime('%I:%M %p')
               start_b = shift_b.start_time_utc.strftime('%I:%M %p')
               end_b = shift_b.end_time_utc.strftime('%I:%M %p')
-              
-              return render json: {
-                status: 'error',
+          
+          return render json: {
+            status: 'error',
                 message: 'Cannot assign to overlapping shifts in the same batch',
                 errors: [{
                   type: 'batch_overlap',
                   message: "'#{shift_a.event&.title || 'Unknown Event'}' (#{start_a} - #{end_a}) overlaps with '#{shift_b.event&.title || 'Unknown Event'}' (#{start_b} - #{end_b})"
                 }]
-              }, status: :unprocessable_entity
+          }, status: :unprocessable_entity
             end
           end
         end
-      
+        
       # Now proceed with individual assignment processing (NO transaction wrap for partial success)
-      assignments = []
-      errors = []
-      
+        assignments = []
+        errors = []
+        
       # Get all existing assignments for the worker to check conflicts
       existing_assignments = worker.assignments
                                    .where(status: ['assigned', 'confirmed', 'completed'])
                                    .includes(:shift)
                                    .to_a
       
-      shifts.each do |shift|
+          shifts.each do |shift|
         begin
           # Check for conflicts with EXISTING assignments
           conflict_with_existing = existing_assignments.any? do |existing_assignment|
@@ -384,43 +395,43 @@ module Api
             shift.pay_rate
           else
             12.00 # Florida minimum wage
-          end
+            end
             
-          assignment = Assignment.new(
-            worker: worker,
-            shift: shift,
-            status: 'confirmed',
-            assigned_by_id: current_user.id,
+            assignment = Assignment.new(
+              worker: worker,
+              shift: shift,
+              status: 'confirmed',
+              assigned_by_id: current_user.id,
             assigned_at_utc: Time.current,
             hourly_rate: assignment_hourly_rate
-          )
+            )
             
-          if assignment.save
-            assignments << assignment
+            if assignment.save
+              assignments << assignment
               
             # Add to existing_assignments to check against in next iteration
             existing_assignments << assignment
               
-            # Log activity
-            ActivityLog.create(
-              action: 'staffing_created',
-              resource_type: 'Assignment',
-              resource_id: assignment.id,
-              details: {
-                worker_id: worker.id,
-                worker_name: "#{worker.first_name} #{worker.last_name}",
+              # Log activity
+              ActivityLog.create(
+                action: 'staffing_created',
+                resource_type: 'Assignment',
+                resource_id: assignment.id,
+                details: {
+                  worker_id: worker.id,
+                  worker_name: "#{worker.first_name} #{worker.last_name}",
+                  shift_id: shift.id,
+                  event_title: shift.event&.title,
+                  bulk_assignment: true
+                }
+              ) rescue nil
+            else
+              errors << {
                 shift_id: shift.id,
-                event_title: shift.event&.title,
-                bulk_assignment: true
+                event: shift.event&.title,
+                errors: assignment.errors.full_messages
               }
-            ) rescue nil
-          else
-            errors << {
-              shift_id: shift.id,
-              event: shift.event&.title,
-              errors: assignment.errors.full_messages
-            }
-          end
+            end
         rescue => e
           errors << {
             shift_id: shift.id,
@@ -433,16 +444,16 @@ module Api
       # CRITICAL FIX: Partial success mode - return results for both successful and failed
       if assignments.empty? && errors.any?
         # All failed
-        error_messages = errors.map do |error|
-          shift_info = "Shift #{error[:shift_id]} (#{error[:event]})"
-          error_details = error[:errors].join(', ')
-          "#{shift_info}: #{error_details}"
-        end
-        
-        render json: {
-          status: 'error',
+          error_messages = errors.map do |error|
+            shift_info = "Shift #{error[:shift_id]} (#{error[:event]})"
+            error_details = error[:errors].join(', ')
+            "#{shift_info}: #{error_details}"
+          end
+          
+          render json: {
+            status: 'error',
           message: 'All assignments failed',
-          details: error_messages,
+            details: error_messages,
           successful: [],
           failed: errors.map do |e|
             {
@@ -451,7 +462,7 @@ module Api
               reasons: e[:errors]
             }
           end
-        }, status: :unprocessable_entity
+          }, status: :unprocessable_entity
       elsif assignments.any? && errors.any?
         # Partial success
         render json: {
@@ -473,16 +484,16 @@ module Api
         }, status: :multi_status
       else
         # All succeeded
-        render json: {
-          status: 'success',
-          message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} shift#{assignments.count != 1 ? 's' : ''}",
-          data: {
-            created: assignments.count,
-            assignments: assignments.map { |a| serialize_assignment(a) }
+          render json: {
+            status: 'success',
+            message: "Successfully scheduled #{worker.first_name} #{worker.last_name} for #{assignments.count} shift#{assignments.count != 1 ? 's' : ''}",
+            data: {
+              created: assignments.count,
+              assignments: assignments.map { |a| serialize_assignment(a) }
+            }
           }
-        }
+        end
       end
-    end
       
       # PATCH /api/v1/staffing/:id
       def update

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_27_094809) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_27_120523) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -145,8 +145,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_27_094809) do
     t.index ["status", "created_at_utc"], name: "index_events_on_status_and_created_at"
     t.index ["status"], name: "index_events_on_status"
     t.index ["venue_id"], name: "index_events_on_venue_id"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying, 'archived'::character varying]::text[])", name: "check_event_status"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying]::text[])", name: "valid_job_status"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying, 'archived'::character varying, 'deleted'::character varying]::text[])", name: "check_event_status"
   end
 
   create_table "locations", force: :cascade do |t|
