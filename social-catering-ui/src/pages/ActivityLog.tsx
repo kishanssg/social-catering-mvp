@@ -229,9 +229,12 @@ export const ActivityLog: React.FC = () => {
   const getDetailChips = (details: Record<string, any>) => {
     if (!details || Object.keys(details).length === 0) return null;
     
-    const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'email', 'phone', 'changed'];
+    const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'email', 'phone'];
     const items = Object.entries(details)
-      .filter(([k, v]) => v != null && v !== '')
+      .filter(([k, v]) => {
+        // Filter out technical fields and empty values
+        return v != null && v !== '' && !k.includes('_id') && !k.includes('json') && !k.includes('Changes');
+      })
       .sort((a, b) => {
         const aIdx = order.indexOf(a[0]);
         const bIdx = order.indexOf(b[0]);

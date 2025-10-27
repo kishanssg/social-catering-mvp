@@ -77,12 +77,17 @@ class AssignWorkerToShift < ApplicationService
       action: "assigned_worker",
       before_json: nil,
       after_json: {
-        shift_id: @shift.id,
-        shift_name: @shift.client_name,
         worker_id: @worker.id,
         worker_name: "#{@worker.first_name} #{@worker.last_name}",
+        worker_first_name: @worker.first_name,
+        worker_last_name: @worker.last_name,
+        shift_id: @shift.id,
+        shift_name: @shift.client_name,
+        event_name: @shift.client_name,  # Alias for presenter
         role: @shift.role_needed,
-        hourly_rate: @assignment.hourly_rate
+        hourly_rate: @assignment.hourly_rate,
+        location: @shift.location&.name,
+        shift_date: @shift.start_time_utc&.strftime('%b %d, %Y')
       },
       created_at_utc: Time.current
     )

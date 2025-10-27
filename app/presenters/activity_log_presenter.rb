@@ -88,21 +88,26 @@ class ActivityLogPresenter
   private
 
   def actor_name
-    email = log.actor_user&.email
-    return "Admin" unless email
+    return "Admin" unless log.actor_user
     
-    # Extract first name from email (e.g., "natalie.smith@..." → "Natalie")
+    self.class.format_actor_name(log.actor_user)
+  end
+  
+  def self.format_actor_name(user)
+    return 'System' unless user
+    
+    email = user.email
     name = email.split('@').first
-    if name.include?('.')
-      # Format as "FirstName L." (e.g., "natalie.smith" → "Natalie S.")
-      parts = name.split('.')
-      first_name = parts[0].capitalize
-      last_initial = parts[1]&.first&.capitalize
-      last_initial ? "#{first_name} #{last_initial}." : first_name
-    else
-      # No dot, just capitalize the whole thing
-      name.capitalize
-    end
+    
+    # Remove underscores and capitalize: test_admin → Test Admin
+    name.split(/[._-]/).map(&:capitalize).join(' ')
+  end
+  
+  def self.format_person_name_short(first, last)
+    return 'Unknown' unless first && last
+    
+    # Return: "Riley A." (first name + last initial)
+    "#{first.strip.capitalize} #{last.strip[0].upcase}."
   end
 
   def entity_name
@@ -116,14 +121,18 @@ class ActivityLogPresenter
   end
 
   def build_assignment_summary(verb, worker, event, role)
-    return "#{actor_name} #{verb} #{worker || 'worker'}" unless event || role
+    # Try to format worker name nicely (first + last initial)
+    if worker && worker.include?(' ')
+      parts = worker.split(' ')
+      worker_display = self.class.format_person_name_short(parts[0], parts[1])
+    else
+      worker_display = worker || 'a worker'
+    end
     
-    parts = [verb]
-    parts << "#{worker || 'worker'}"
-    parts << "to #{event}" if event
-    parts << "as #{role}" if role
+    event_display = event || 'an event'
+    role_display = role ? " as #{role}" : ''
     
-    "#{actor_name} #{parts.join(' ')}"
+    "#{actor_name} #{verb} #{worker_display} to #{event_display}#{role_display}"
   end
 
   def format_entity_type
