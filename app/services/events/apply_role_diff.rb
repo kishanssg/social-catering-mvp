@@ -77,12 +77,12 @@ class Events::ApplyRoleDiff
       create_role_and_shifts(role_params, new_needed)
       @added += new_needed
     else
-      # Calculate diff based on actual current shift count
-      current_shifts_count = event.shifts.where(role_needed: skill_name).count
-      diff = new_needed - current_shifts_count
+      # Calculate diff based on needed_workers in the requirement, not actual shift count
+      current_needed = existing_req.needed_workers
+      diff = new_needed - current_needed
       
       if diff == 0
-        # No change needed
+        # No change needed (but still update other fields like pay_rate)
         @unchanged += new_needed
       elsif diff > 0
         # Add shifts
