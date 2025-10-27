@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_27_094809) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -75,6 +75,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
     t.integer "performance_rating"
     t.index ["created_at"], name: "index_assignments_on_created_at"
     t.index ["hourly_rate"], name: "index_assignments_on_hourly_rate"
+    t.index ["shift_id", "status"], name: "index_assignments_on_shift_id_and_status"
     t.index ["shift_id", "worker_id"], name: "index_assignments_on_shift_id_and_worker_id", unique: true
     t.index ["shift_id"], name: "index_assignments_on_shift"
     t.index ["shift_id"], name: "index_assignments_on_shift_id"
@@ -137,12 +138,14 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
     t.decimal "total_hours_worked", precision: 8, scale: 2, default: "0.0"
     t.decimal "total_pay_amount", precision: 10, scale: 2, default: "0.0"
     t.text "completion_notes"
+    t.integer "lock_version", default: 0, null: false
     t.index ["completed_at_utc"], name: "index_events_on_completed_at_utc"
     t.index ["published_at_utc"], name: "index_events_on_published_at_utc"
     t.index ["shifts_generated"], name: "index_events_on_shifts_generated"
     t.index ["status", "created_at_utc"], name: "index_events_on_status_and_created_at"
     t.index ["status"], name: "index_events_on_status"
     t.index ["venue_id"], name: "index_events_on_venue_id"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying, 'archived'::character varying]::text[])", name: "check_event_status"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'assigned'::character varying, 'completed'::character varying]::text[])", name: "valid_job_status"
   end
 
@@ -183,6 +186,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
     t.string "required_skill"
     t.string "uniform_name"
     t.index ["auto_generated"], name: "index_shifts_on_auto_generated"
+    t.index ["event_id", "role_needed"], name: "index_shifts_on_event_id_and_role_needed"
     t.index ["event_id", "status", "start_time_utc"], name: "index_shifts_on_event_status_time"
     t.index ["event_id"], name: "index_shifts_on_event_id"
     t.index ["event_skill_requirement_id"], name: "index_shifts_on_event_skill_requirement_id"
@@ -195,6 +199,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
     t.index ["status"], name: "index_shifts_on_status"
     t.check_constraint "capacity > 0", name: "shifts_positive_capacity"
     t.check_constraint "end_time_utc > start_time_utc", name: "shifts_valid_time_range"
+    t.check_constraint "start_time_utc < end_time_utc", name: "check_shift_times"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying, 'archived'::character varying]::text[])", name: "shifts_valid_status"
   end
 
@@ -294,7 +299,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_26_151641) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activity_logs", "users", column: "actor_user_id", on_delete: :nullify
-  add_foreign_key "assignments", "shifts", on_delete: :cascade
+  add_foreign_key "assignments", "shifts", on_delete: :restrict
   add_foreign_key "assignments", "users", column: "assigned_by_id"
   add_foreign_key "assignments", "workers", on_delete: :restrict
   add_foreign_key "event_schedules", "events", on_delete: :cascade

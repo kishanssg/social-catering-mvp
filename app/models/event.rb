@@ -19,6 +19,9 @@ class Event < ApplicationRecord
     with: /\A\d{3}-\d{3}-\d{4}\z/, 
     message: "must be in format xxx-xxx-xxxx" 
   }, allow_blank: true
+  
+  # Optimistic locking
+  lock_optimistically
 
   # Scopes
   scope :draft, -> { where(status: 'draft') }

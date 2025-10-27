@@ -122,6 +122,50 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # PATCH/PUT /api/v1/events/:id
   def update
+    # Allow editing published events only
+    unless @event.status == 'published'
+      return render json: {
+        status: 'error',
+        message: 'Only published events can be edited',
+        current_status: @event.status
+      }, status: :unprocessable_entity
+    end
+    
+    # Check if event has started
+    if @event.event_schedule && @event.event_schedule.start_time_utc < Time.current
+      return render json: {
+        status: 'error',
+        message: "Cannot edit event that has already started at #{@event.event_schedule.start_time_utc.strftime('%I:%M %p')}"
+      }, status: :unprocessable_entity
+    end
+    
+    # Use ApplyRoleDiff service for role changes
+    if params[:event][:roles].present?
+      result = Events::ApplyRoleDiff.new(
+        event: @event,
+        roles: params[:event][:roles],
+        force: params[:force] == 'true',
+        reason: params[:reason],
+        apply_time_to_all_shifts: params[:apply_time_to_all_shifts] == 'true'
+      ).call
+      
+      unless result[:success]
+        return render json: {
+          status: 'error',
+          errors: result[:errors]
+        }, status: :unprocessable_entity
+      end
+      
+      render json: {
+        status: 'success',
+        message: "Updated #{result[:summary][:added]} roles added, #{result[:summary][:removed]} removed",
+        data: serialize_event(@event.reload),
+        summary: result[:summary]
+      }
+      return
+    end
+    
+    # Fallback to standard update for non-role changes
     ActiveRecord::Base.transaction do
       @event.update!(event_params.except(:skill_requirements, :schedule))
       
@@ -147,6 +191,12 @@ class Api::V1::EventsController < Api::V1::BaseController
         data: serialize_event(@event.reload)
       }
     end
+  rescue ActiveRecord::StaleObjectError => e
+    render json: {
+      status: 'error',
+      message: 'This event was modified by another user. Please refresh and try again.',
+      code: 'STALE_OBJECT'
+    }, status: :conflict
   rescue ActiveRecord::RecordInvalid => e
     render json: {
       status: 'validation_error',
