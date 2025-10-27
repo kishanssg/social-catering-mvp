@@ -102,7 +102,7 @@ export function Toast({
         </div>
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes toastSlideIn {
           from {
             opacity: 0;
