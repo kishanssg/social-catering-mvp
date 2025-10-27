@@ -11,7 +11,9 @@ interface ActivityLogEntry {
   actor_user: {
     id: number;
     email: string;
+    name?: string;
   } | null;
+  action_description: string;
   before_json: any;
   after_json: any;
   created_at: string;
@@ -356,12 +358,12 @@ export const ActivityLog: React.FC = () => {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">
-                            {getActionDescription(log)}
+                            {log.action_description || getActionDescription(log)}
                           </p>
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
                               <User className="w-3 h-3" />
-                              <span>{log.actor_user?.email || 'System'}</span>
+                              <span>{log.actor_user?.name || log.actor_user?.email || 'System'}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
