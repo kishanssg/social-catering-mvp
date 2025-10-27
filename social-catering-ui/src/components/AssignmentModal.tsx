@@ -160,9 +160,17 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       // Try to extract specific error message from axios error
       let errorMessage = 'Failed to assign worker';
       if (error.response?.data?.details && error.response.data.details.length > 0) {
-        errorMessage += '\n\nDetails:\n• ' + error.response.data.details.join('\n• ');
+        // Format conflict messages more clearly
+        const conflictDetails = error.response.data.details.map(detail => {
+          // Extract event name and time from conflict message if available
+          if (detail.includes('conflicting shift')) {
+            return detail;
+          }
+          return detail;
+        });
+        errorMessage += '\n\n' + conflictDetails.join('\n');
       } else if (error.response?.data?.errors) {
-        errorMessage += '\n\nDetails:\n• ' + error.response.data.errors.join('\n• ');
+        errorMessage += '\n\n' + error.response.data.errors.join('\n');
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
@@ -179,8 +187,8 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
   if (loading) {
     return (
       <Modal isOpen={true} onClose={onClose} title="Assign Worker" size="lg">
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
         </div>
       </Modal>
     );
@@ -189,28 +197,24 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
   const footerContent = (
     <>
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-sm">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
-            <div className="flex-1">
-              <h4 className="text-sm font-semibold text-red-900 mb-1">
-                ⚠️ Scheduling Conflict
-              </h4>
-              <div className="text-sm text-red-700 space-y-1">
-                {error.split('\n').map((line, index) => (
-                  <p key={index} className={line.startsWith('•') ? 'ml-4' : ''}>
-                    {line}
-                  </p>
-                ))}
-              </div>
+        <div className="mb-4 p-3 bg-gradient-to-r from-red-50 to-amber-50 border-l-4 border-red-500 rounded-r-lg shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold">!</span>
             </div>
+            <h4 className="text-sm font-semibold text-red-900">
+              ⚠️ Scheduling Conflict Detected
+            </h4>
           </div>
+          <p className="text-xs text-gray-600 ml-8">
+            Please resolve the conflict before attempting to assign this worker
+          </p>
         </div>
       )}
       
       <div className="flex gap-2">
-        <button
-          onClick={onClose}
+          <button
+            onClick={onClose}
           disabled={assigning}
           className="btn-secondary"
         >
@@ -219,11 +223,12 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
         <button
           onClick={handleAssignWorker}
           disabled={!selectedWorker || assigning || !!error}
-          className="btn-primary"
+          className={`btn-primary ${error ? 'opacity-50 cursor-not-allowed' : ''}`}
+          title={error ? 'Cannot assign due to scheduling conflict' : ''}
         >
           {assigning ? 'Assigning Worker...' : 'Assign Worker'}
-        </button>
-      </div>
+          </button>
+        </div>
     </>
   );
 
@@ -235,7 +240,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
       size="xl"
       footer={footerContent}
     >
-      <div className="flex h-[600px]">
+        <div className="flex h-[600px]">
           {/* Left: Shift Details */}
           <div className="w-1/3 border-r border-gray-200 p-6 bg-gray-50">
             {shift ? (
@@ -334,20 +339,48 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
             {/* Workers List */}
             <div className="flex-1 overflow-y-auto">
               {error ? (
-                <div className="p-6">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3 mb-2">
-                      <AlertCircle size={24} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="p-6 flex items-center justify-center h-full">
+                  <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-5 shadow-sm w-full max-w-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                          <AlertCircle size={20} className="text-red-600" />
+                        </div>
+                      </div>
                       <div className="flex-1">
-                        <h4 className="text-base font-semibold text-red-900 mb-2">
-                          ⚠️ Cannot Assign - Scheduling Conflict
+                        <h4 className="text-lg font-semibold text-red-900 mb-1">
+                          ⚠️ Scheduling Conflict
                         </h4>
-                        <div className="text-sm text-red-700 space-y-1">
-                          {error.split('\n').map((line, index) => (
-                            <p key={index} className={line.startsWith('•') ? 'ml-4' : ''}>
-                              {line}
-                            </p>
-                          ))}
+                        <p className="text-sm text-gray-600 mb-3">
+                          This worker cannot be assigned due to a scheduling conflict
+                        </p>
+                        <div className="bg-white border border-red-200 rounded p-3 mt-3">
+                          <div className="text-sm text-red-800 font-mono">
+                            {error.split('\n').map((line, index) => {
+                              if (line.trim() === '') return null;
+                              if (line.startsWith('•')) {
+                                return (
+                                  <div key={index} className="mt-1 flex items-start gap-2">
+                                    <span className="text-red-500">●</span>
+                                    <span className="flex-1">{line.replace('•', '').trim()}</span>
+                                  </div>
+                                );
+                              }
+                              if (line.startsWith('Details:')) return null;
+                              if (line.includes('conflicting shift')) {
+                                return (
+                                  <div key={index} className="mt-1 text-red-700 font-medium">
+                                    {line}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={index} className="text-gray-700">
+                        {line}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -371,23 +404,23 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                   )}
                 </div>
               ) : (
-                <ul>
-                  {filteredWorkers.map((worker) => {
-                    const isSelected = selectedWorker?.id === worker.id;
+                  <ul>
+                    {filteredWorkers.map((worker) => {
+                      const isSelected = selectedWorker?.id === worker.id;
                     const workerPayRate = workerPayRates[worker.id] || (Number(shift.pay_rate) || 0);
                     const isCustomRate = workerPayRates[worker.id] && workerPayRates[worker.id] !== (Number(shift.pay_rate) || 0);
                     
-                    return (
+                      return (
                       <li key={worker.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
-                            {worker.first_name[0]}{worker.last_name[0]}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
+                              {worker.first_name[0]}{worker.last_name[0]}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
                             <div className="text-xs text-gray-600">{(worker.skills_json || []).slice(0,3).join(', ')}</div>
                           </div>
-                        </div>
+                            </div>
                         
                         {/* Pay Rate Input */}
                         <div className="flex items-center gap-2">
@@ -431,14 +464,14 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                             {isSelected ? 'Selected' : 'Select'}
                           </button>
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                        </li>
+                      );
+                    })}
+                  </ul>
               )}
             </div>
 
-      </div>
+        </div>
       </div>
     </Modal>
   );
