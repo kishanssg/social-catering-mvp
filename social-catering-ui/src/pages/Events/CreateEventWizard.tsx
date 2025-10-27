@@ -1653,8 +1653,8 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                     {isCreating ? (isEditMode ? 'Updating...' : 'Creating & Publishing...') : (currentStepIndex === steps.length - 1 ? (isEditMode ? (editEvent?.status === 'draft' ? 'Update Event' : 'Update Event') : 'Create & Publish Event') : 'Continue')}
                   </button>
                   
-                  {/* Show Publish button for draft events */}
-                  {isEditMode && editEvent?.status === 'draft' && currentStepIndex === steps.length - 1 && (
+                  {/* Show Publish button for draft events on Event Summary step */}
+                  {isEditMode && currentStepIndex === 4 && editEvent?.status === 'draft' && (
                     <button
                       onClick={async () => {
                         try {
