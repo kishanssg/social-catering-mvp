@@ -68,6 +68,26 @@ class AssignWorkerToShift < ApplicationService
       assigned_at_utc: Time.current,
       status: "assigned"
     )
+
+    # Log the assignment action
+    ActivityLog.create!(
+      actor_user_id: @assigned_by.id,
+      entity_type: "Assignment",
+      entity_id: @assignment.id,
+      action: "assigned_worker",
+      before_json: nil,
+      after_json: {
+        shift_id: @shift.id,
+        shift_name: @shift.client_name,
+        worker_id: @worker.id,
+        worker_name: "#{@worker.first_name} #{@worker.last_name}",
+        role: @shift.role_needed,
+        hourly_rate: @assignment.hourly_rate
+      },
+      created_at_utc: Time.current
+    )
+  rescue => e
+    Rails.logger.error("Failed to log assignment: #{e.message}")
   end
 
   def format_conflicts(conflicts)
