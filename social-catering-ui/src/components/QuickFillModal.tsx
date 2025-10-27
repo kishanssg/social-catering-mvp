@@ -201,7 +201,23 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
                         </div>
                         <div>
                           <div className="text-sm font-medium text-gray-900">{w.first_name} {w.last_name}</div>
-                          <div className="text-xs text-gray-600">{(w.skills_json || []).slice(0,3).join(', ')}</div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(w.skills_json || []).map((skill, idx) => {
+                              const isHighlighted = skill === roleName;
+                              return (
+                                <span
+                                  key={idx}
+                                  className={`px-2 py-0.5 text-xs rounded ${
+                                    isHighlighted
+                                      ? 'bg-teal-100 text-teal-700 font-medium'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  {skill}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                       
