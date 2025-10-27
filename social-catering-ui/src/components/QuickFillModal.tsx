@@ -50,36 +50,58 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
         const eventRes = await apiClient.get(`/events/${eventId}`);
         const event = eventRes.data?.data || {};
         
+        console.log('QuickFill: Full event data:', JSON.stringify(event, null, 2));
+        console.log('QuickFill: Looking for role:', roleName);
+        console.log('QuickFill: shifts_by_role:', event.shifts_by_role);
+        
         // Get all assigned worker IDs for this specific role
         const assignedWorkerIds = new Set<number>();
         if (event.shifts_by_role) {
-          const roleShifts = event.shifts_by_role.find((r: any) => r.skill_name === roleName || r.role_name === roleName);
-          if (roleShifts?.shifts) {
-            roleShifts.shifts.forEach((shift: any) => {
-              if (shift.assignments) {
-                shift.assignments.forEach((assignment: any) => {
-                  if (assignment.worker_id && assignment.status !== 'cancelled') {
-                    assignedWorkerIds.add(assignment.worker_id);
-                  }
-                });
-              }
-            });
+          const roleShifts = event.shifts_by_role.find((r: any) => {
+            console.log('QuickFill: Checking role:', r.skill_name, r.role_name, 'vs', roleName);
+            return r.skill_name === roleName || r.role_name === roleName;
+          });
+          
+          if (roleShifts) {
+            console.log('QuickFill: Found role shifts:', roleShifts);
+            if (roleShifts.shifts) {
+              roleShifts.shifts.forEach((shift: any) => {
+                if (shift.assignments) {
+                  console.log('QuickFill: Shift has assignments:', shift.assignments);
+                  shift.assignments.forEach((assignment: any) => {
+                    if (assignment.worker_id && assignment.status !== 'cancelled') {
+                      assignedWorkerIds.add(assignment.worker_id);
+                      console.log('QuickFill: Adding worker_id to exclude:', assignment.worker_id);
+                    }
+                  });
+                }
+              });
+            }
+          } else {
+            console.log('QuickFill: No role shifts found for:', roleName);
           }
         }
         
-        console.log(`QuickFill: Found ${assignedWorkerIds.size} already assigned workers for "${roleName}"`);
+        console.log(`QuickFill: Found ${assignedWorkerIds.size} already assigned worker IDs:`, Array.from(assignedWorkerIds));
         
         // Fetch workers
         const res = await apiClient.get('/workers?active=true');
         const list = res.data?.data || res.data || [];
         
         // Filter: must have the skill AND not already be assigned to this role
-        const filtered = list.filter((w: any) => 
-          (w.skills_json || []).includes(roleName) && 
-          !assignedWorkerIds.has(w.id)
-        );
+        const filtered = list.filter((w: any) => {
+          const hasSkill = (w.skills_json || []).includes(roleName);
+          const isAlreadyAssigned = assignedWorkerIds.has(w.id);
+          
+          if (isAlreadyAssigned) {
+            console.log(`QuickFill: Excluding ${w.first_name} ${w.last_name} (ID: ${w.id}) - already assigned`);
+          }
+          
+          return hasSkill && !isAlreadyAssigned;
+        });
         
         console.log(`QuickFill: Found ${filtered.length} eligible workers for "${roleName}"`);
+        console.log(`QuickFill: Eligible workers:`, filtered.map(w => `${w.first_name} ${w.last_name}`));
         setWorkers(filtered);
         
         // Set default pay rate from prop
