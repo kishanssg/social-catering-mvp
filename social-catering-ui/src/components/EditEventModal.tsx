@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, Save } from 'lucide-react';
 import { Modal } from './common/Modal';
 import { apiClient } from '../lib/api';
@@ -253,11 +253,11 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             {roles.map((role, index) => (
               <div key={index} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                 <div className="flex items-start gap-4 mb-3">
-                  <div className="flex-1 relative">
+                  <div className="flex-1 relative overflow-visible">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Role Name *
                     </label>
-                    <div className="relative">
+                    <div className="relative" style={{ zIndex: openSkillDropdown === index ? 1000 : 1 }}>
                       <button
                         type="button"
                         onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
@@ -283,23 +283,23 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                       </button>
                       
                       {openSkillDropdown === index && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-2xl z-[9999] max-h-[300px] overflow-y-auto w-full min-w-max">
                           {availableSkills
                             .filter(skill => !roles.some((r, i) => i !== index && r.skill_name === skill.name))
                             .map((skill) => (
                               <div
                                 key={skill.name}
                                 onClick={() => handleSkillSelect(index, skill.name)}
-                                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
+                                className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-teal-50 border-b border-gray-100 last:border-0"
                               >
                                 <img 
                                   src={skill.icon} 
-                                  width="20" 
-                                  height="20" 
+                                  width="24" 
+                                  height="24" 
                                   alt={skill.name}
                                   className="flex-shrink-0"
                                 />
-                                <span className="text-sm font-normal text-gray-900">
+                                <span className="text-sm font-medium text-gray-900">
                                   {skill.name}
                                 </span>
                               </div>
