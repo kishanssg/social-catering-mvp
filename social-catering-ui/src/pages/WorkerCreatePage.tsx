@@ -72,6 +72,12 @@ export function WorkerCreatePage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    phone?: string;
+  }>({});
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -79,6 +85,19 @@ export function WorkerCreatePage() {
     message: string;
     type: 'success' | 'error';
   }>({ isVisible: false, message: '', type: 'success' });
+
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Accept formats: 123-456-7890, (123) 456-7890, 123.456.7890, or simple digits
+    const phoneRegex = /^[\d\s\-\(\)\.]+$/;
+    const digitsOnly = phone.replace(/\D/g, '');
+    return phoneRegex.test(phone) && digitsOnly.length >= 10 && digitsOnly.length <= 15;
+  };
 
   // Available skills with icons (matching CreateEventWizard)
   const availableSkills = [
@@ -233,9 +252,53 @@ export function WorkerCreatePage() {
     }
   ];
 
+  const validateField = (name: keyof typeof fieldErrors, value: string) => {
+    const errors = { ...fieldErrors };
+    
+    switch(name) {
+      case 'first_name':
+        if (value.length < 2) {
+          errors.first_name = 'First name must be at least 2 characters';
+        } else {
+          delete errors.first_name;
+        }
+        break;
+      case 'last_name':
+        if (value.length < 2) {
+          errors.last_name = 'Last name must be at least 2 characters';
+        } else {
+          delete errors.last_name;
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          errors.email = 'Email is required';
+        } else if (!validateEmail(value)) {
+          errors.email = 'Please enter a valid email address';
+        } else {
+          delete errors.email;
+        }
+        break;
+      case 'phone':
+        if (value.length > 0 && !validatePhone(value)) {
+          errors.phone = 'Please enter a valid phone number (e.g., 123-456-7890)';
+        } else {
+          delete errors.phone;
+        }
+        break;
+    }
+    
+    setFieldErrors(errors);
+  };
+
   const canContinue = () => {
     if (currentStep === 'details') {
-      return formData.first_name.trim() && formData.last_name.trim() && formData.email.trim();
+      const hasValidFirstName = formData.first_name.trim().length >= 2;
+      const hasValidLastName = formData.last_name.trim().length >= 2;
+      const hasValidEmail = formData.email.trim() && validateEmail(formData.email);
+      const hasValidPhone = formData.phone.length === 0 || validatePhone(formData.phone);
+      
+      return hasValidFirstName && hasValidLastName && hasValidEmail && hasValidPhone;
     }
     return true;
   };
@@ -335,9 +398,15 @@ export function WorkerCreatePage() {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      onBlur={() => validateField('phone', formData.phone)}
+                      className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                        fieldErrors.phone ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
+                      }`}
                       placeholder="123-456-7890"
                     />
+                    {fieldErrors.phone && (
+                      <p className="text-sm text-red-600">{fieldErrors.phone}</p>
+                    )}
                   </div>
 
                   {/* Full name */}
@@ -348,9 +417,15 @@ export function WorkerCreatePage() {
                         type="text"
                         value={formData.first_name}
                         onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        onBlur={() => validateField('first_name', formData.first_name)}
+                        className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                          fieldErrors.first_name ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
+                        }`}
                         placeholder="First name"
                       />
+                      {fieldErrors.first_name && (
+                        <p className="text-sm text-red-600">{fieldErrors.first_name}</p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-medium text-font-primary">Last name</label>
@@ -358,9 +433,15 @@ export function WorkerCreatePage() {
                         type="text"
                         value={formData.last_name}
                         onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        onBlur={() => validateField('last_name', formData.last_name)}
+                        className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                          fieldErrors.last_name ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
+                        }`}
                         placeholder="Last name"
                       />
+                      {fieldErrors.last_name && (
+                        <p className="text-sm text-red-600">{fieldErrors.last_name}</p>
+                      )}
                     </div>
                   </div>
 
@@ -371,9 +452,15 @@ export function WorkerCreatePage() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      onBlur={() => validateField('email', formData.email)}
+                      className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                        fieldErrors.email ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
+                      }`}
                       placeholder="Email address"
                     />
+                    {fieldErrors.email && (
+                      <p className="text-sm text-red-600">{fieldErrors.email}</p>
+                    )}
                   </div>
 
                   {/* Home address */}
