@@ -151,6 +151,14 @@ module Api
         # First, check for entity_name (added by Auditable concern)
         return data['entity_name'] if data['entity_name'].present?
         
+        # For assignments, build a descriptive name
+        if log.entity_type == 'Assignment'
+          worker_name = data['worker_name'] || 'worker'
+          shift_name = data['shift_name'] || 'shift'
+          role = data['role'] || ''
+          return "#{worker_name} → #{shift_name}" + (role.present? ? " (#{role})" : "")
+        end
+        
         # Try multiple fields in order of preference
         return data['title'] if data['title'].present?
         return data['name'] if data['name'].present?
@@ -162,7 +170,7 @@ module Api
           return name_parts.join(' ') if name_parts.any?
         end
         
-        # For shifts/assignments, use shift_name
+        # For shifts, use shift_name
         return data['shift_name'] if data['shift_name'].present?
         
         nil
