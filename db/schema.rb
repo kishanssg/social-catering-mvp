@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_27_140000) do
+ActiveRecord::Schema[7.2].define(version: 2025_10_27_175903) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -52,6 +52,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_27_140000) do
     t.datetime "created_at_utc", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "summary"
+    t.jsonb "details_json"
     t.index ["actor_user_id"], name: "index_activity_logs_on_actor_user_id"
     t.index ["created_at_utc"], name: "index_activity_logs_on_created_at_utc"
     t.index ["entity_type", "entity_id"], name: "index_activity_logs_on_entity_type_and_entity_id"

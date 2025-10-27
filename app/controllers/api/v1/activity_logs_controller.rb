@@ -73,19 +73,14 @@ module Api
           
           {
             id: log.id,
-            action: log.action,
+            when: log.created_at_utc&.iso8601,
+            actor: actor_name,
             entity_type: log.entity_type,
             entity_id: log.entity_id,
-            actor_user_id: log.actor_user_id,
-            actor_user: log.actor_user_id ? {
-              id: log.actor_user_id,
-              email: actor_email,
-              name: actor_name
-            } : nil,
-            action_description: build_action_description(log, actor_name),
-            before_json: log.before_json,
-            after_json: log.after_json,
-            created_at: log.created_at_utc&.iso8601
+            entity_name: extract_entity_name(log),
+            action: log.action,
+            summary: log.summary || build_action_description(log, actor_name),
+            details: log.details_json || {}
           }
         end
       end
