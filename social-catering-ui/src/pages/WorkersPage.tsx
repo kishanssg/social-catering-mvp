@@ -388,19 +388,21 @@ export function WorkersPage() {
                           </p>
                           {worker.skills_json && worker.skills_json.length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {worker.skills_json.slice(0, 3).map((skill, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
-                                >
-                                  {skill}
-                                </span>
-                              ))}
-                              {worker.skills_json.length > 3 && (
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                                  +{worker.skills_json.length - 3}
-                                </span>
-                              )}
+                              {worker.skills_json.map((skill, idx) => {
+                                const isMatch = searchQuery && skill.toLowerCase().includes(searchQuery.toLowerCase());
+                                return (
+                                  <span
+                                    key={idx}
+                                    className={`px-2 py-0.5 text-xs rounded ${
+                                      isMatch 
+                                        ? 'bg-teal-100 text-teal-700 font-medium' 
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}
+                                  >
+                                    {skill}
+                                  </span>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
