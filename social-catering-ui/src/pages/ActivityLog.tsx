@@ -124,6 +124,51 @@ export const ActivityLog: React.FC = () => {
     }
   };
 
+  // Extract rich details from log entries
+  const getRichDetails = (log: ActivityLogEntry) => {
+    const details: any = {};
+    
+    // For assigned/unassigned worker actions
+    if (log.action === 'assigned_worker' && log.after_json) {
+      details.worker = log.after_json.worker_name || 'Unknown worker';
+      details.shift = log.after_json.shift_name || 'Unknown shift';
+      details.role = log.after_json.role || 'Unknown role';
+      details.pay = log.after_json.hourly_rate ? `$${Number(log.after_json.hourly_rate)}/hr` : 'No rate';
+    } else if (log.action === 'unassigned_worker' && log.before_json) {
+      details.worker = log.before_json.worker_name || 'Unknown worker';
+      details.shift = log.before_json.shift_name || 'Unknown shift';
+      details.role = log.before_json.role || 'Unknown role';
+    }
+    
+    // For worker creation/updates
+    if (log.entity_type === 'Worker') {
+      const data = log.after_json || log.before_json || {};
+      if (data.first_name && data.last_name) {
+        details.name = `${data.first_name} ${data.last_name}`;
+      }
+      if (data.email) details.email = data.email;
+      if (data.phone) details.phone = data.phone;
+      if (data.skills_json) details.skills = Array.isArray(data.skills_json) 
+        ? data.skills_json.join(', ') 
+        : data.skills_json;
+    }
+    
+    // For event creation/updates
+    if (log.entity_type === 'Event' || log.entity_type === 'Shift') {
+      const data = log.after_json || log.before_json || {};
+      if (data.title) details.title = data.title;
+      if (data.client_name) details.event = data.client_name;
+      if (data.location) details.location = data.location;
+      if (data.start_time_utc) {
+        const date = new Date(data.start_time_utc);
+        details.date = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        details.time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+    }
+    
+    return details;
+  };
+
   const getActionDescription = (log: ActivityLogEntry) => {
     const actor = log.actor_user?.email || 'System';
     const entityType = log.entity_type;
@@ -131,35 +176,18 @@ export const ActivityLog: React.FC = () => {
 
     // Try to extract a name from the JSON data
     const getName = () => {
-      // Debug: Log what's available
-      if (entityType === 'Assignment' && (log.after_json || log.before_json)) {
-        console.log('Assignment log data:', {
-          after: log.after_json,
-          before: log.before_json,
-        });
-      }
-      
       if (log.after_json?.first_name && log.after_json?.last_name) {
         return `${log.after_json.first_name} ${log.after_json.last_name}`;
       }
       if (log.after_json?.title) return log.after_json.title;
       if (log.after_json?.name) return log.after_json.name;
       if (log.after_json?.client_name) return log.after_json.client_name;
-      // Check for nested worker object in assignments
-      if (log.after_json?.worker?.first_name && log.after_json?.worker?.last_name) {
-        return `${log.after_json.worker.first_name} ${log.after_json.worker.last_name}`;
-      }
-      if (log.after_json?.shift?.client_name) return log.after_json.shift.client_name;
       if (log.before_json?.first_name && log.before_json?.last_name) {
         return `${log.before_json.first_name} ${log.before_json.last_name}`;
       }
       if (log.before_json?.title) return log.before_json.title;
       if (log.before_json?.name) return log.before_json.name;
       if (log.before_json?.client_name) return log.before_json.client_name;
-      if (log.before_json?.worker?.first_name && log.before_json?.worker?.last_name) {
-        return `${log.before_json.worker.first_name} ${log.before_json.worker.last_name}`;
-      }
-      if (log.before_json?.shift?.client_name) return log.before_json.shift.client_name;
       return null;
     };
 
@@ -353,10 +381,6 @@ export const ActivityLog: React.FC = () => {
                                     entityName = log.after_json.name;
                                   } else if (log.after_json?.client_name) {
                                     entityName = log.after_json.client_name;
-                                  } else if (log.after_json?.worker?.first_name && log.after_json?.worker?.last_name) {
-                                    entityName = `${log.after_json.worker.first_name} ${log.after_json.worker.last_name}`;
-                                  } else if (log.after_json?.shift?.client_name) {
-                                    entityName = log.after_json.shift.client_name;
                                   } else if (log.before_json?.first_name && log.before_json?.last_name) {
                                     entityName = `${log.before_json.first_name} ${log.before_json.last_name}`;
                                   } else if (log.before_json?.title) {
@@ -365,10 +389,6 @@ export const ActivityLog: React.FC = () => {
                                     entityName = log.before_json.name;
                                   } else if (log.before_json?.client_name) {
                                     entityName = log.before_json.client_name;
-                                  } else if (log.before_json?.worker?.first_name && log.before_json?.worker?.last_name) {
-                                    entityName = `${log.before_json.worker.first_name} ${log.before_json.worker.last_name}`;
-                                  } else if (log.before_json?.shift?.client_name) {
-                                    entityName = log.before_json.shift.client_name;
                                   }
                                   return entityName ? `${log.entity_type} "${entityName}"` : `${log.entity_type} #${log.entity_id}`;
                                 })()}
@@ -387,11 +407,115 @@ export const ActivityLog: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Details (if available) */}
+                      {/* Rich Detail Boxes */}
+                      {(() => {
+                        const details = getRichDetails(log);
+                        const hasRichDetails = Object.keys(details).length > 0;
+                        
+                        if (!hasRichDetails) return null;
+                        
+                        return (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {/* Worker Box (Purple) */}
+                            {details.worker && (
+                              <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-purple-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-purple-700 text-xs font-bold">👤</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-purple-900">Worker</p>
+                                  <p className="text-xs text-purple-700">{details.worker}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Shift Box (Blue) */}
+                            {details.shift && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-blue-700 text-xs font-bold">📅</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-blue-900">Event</p>
+                                  <p className="text-xs text-blue-700">{details.shift}</p>
+                                  {details.date && (
+                                    <p className="text-xs text-blue-600">{details.date}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Role Box (Teal) */}
+                            {details.role && (
+                              <div className="bg-teal-50 border border-teal-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-teal-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-teal-700 text-xs font-bold">📋</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-teal-900">Role</p>
+                                  <p className="text-xs text-teal-700">{details.role}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Pay Box (Green) */}
+                            {details.pay && (
+                              <div className="bg-green-50 border border-green-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-green-700 text-xs font-bold">💰</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-green-900">Pay Rate</p>
+                                  <p className="text-xs text-green-700 font-bold">{details.pay}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Worker Details (Name/Email/Phone) */}
+                            {details.name && (
+                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-indigo-700 text-xs font-bold">👤</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-indigo-900">{details.name}</p>
+                                  {details.email && (
+                                    <p className="text-xs text-indigo-600">{details.email}</p>
+                                  )}
+                                  {details.phone && (
+                                    <p className="text-xs text-indigo-600">{details.phone}</p>
+                                  )}
+                                  {details.skills && (
+                                    <p className="text-xs text-indigo-500 mt-1">{details.skills}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Event Details */}
+                            {details.title && !details.shift && (
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-2">
+                                <div className="w-6 h-6 bg-amber-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <span className="text-amber-700 text-xs font-bold">🎉</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-amber-900">Event</p>
+                                  <p className="text-xs text-amber-700">{details.title}</p>
+                                  {details.location && (
+                                    <p className="text-xs text-amber-600">{details.location}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Raw Details (if available) */}
                       {(log.after_json || log.before_json) && (
                         <details className="mt-3 text-xs">
                           <summary className="cursor-pointer text-primary-color hover:text-primary-color/80 font-medium">
-                            View Details
+                            View Raw Data
                           </summary>
                           <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 space-y-2">
                             {log.before_json && Object.keys(log.before_json).length > 0 && (

@@ -78,8 +78,6 @@ module Api
               id: log.actor_user_id,
               email: log.actor_user&.email
             } : nil,
-            before_json: log.before_json,
-            after_json: log.after_json,
             created_at: log.created_at_utc&.iso8601
           }
         end
