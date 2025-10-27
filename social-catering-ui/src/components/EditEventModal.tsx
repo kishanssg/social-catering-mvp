@@ -211,9 +211,9 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       >
         <div className="space-y-6">
           {/* Event Details (Read-only for now) */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-gray-900 mb-3">Event Details</h4>
-            <div className="space-y-2 text-sm">
+          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
+            <h4 className="text-base font-semibold text-gray-900 mb-4">Event Details</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Venue:</span>
                 <span className="ml-2 font-medium text-gray-900">{event.venue.name}</span>
@@ -238,32 +238,32 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
           </div>
 
           {/* Roles List */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-gray-900">Roles</h4>
+              <h4 className="text-base font-semibold text-gray-900">Roles</h4>
               <button
                 onClick={handleAddRole}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
               >
-                <Plus size={14} />
+                <Plus size={16} />
                 Add Role
               </button>
             </div>
 
             {roles.map((role, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-3">
+              <div key={index} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-start gap-4 mb-3">
                   <div className="flex-1 relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Role Name *
                     </label>
-                    {role.skill_name ? (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white text-left flex items-center justify-between"
-                        >
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white text-left flex items-center justify-between"
+                      >
+                        {role.skill_name ? (
                           <div className="flex items-center gap-2">
                             {availableSkills.find(s => s.name === role.skill_name)?.icon && (
                               <img 
@@ -272,92 +272,82 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                                 className="w-5 h-5"
                               />
                             )}
-                            <span>{role.skill_name}</span>
+                            <span className="text-gray-900">{role.skill_name}</span>
                           </div>
-                          <svg className="w-4 h-4 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
-                            <path d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                        </button>
-                        
-                        {openSkillDropdown === index && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
-                            {availableSkills
-                              .filter(skill => !roles.some((r, i) => i !== index && r.skill_name === skill.name))
-                              .map((skill) => (
-                                <div
-                                  key={skill.name}
-                                  onClick={() => handleSkillSelect(index, skill.name)}
-                                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
-                                >
-                                  <img 
-                                    src={skill.icon} 
-                                    width="20" 
-                                    height="20" 
-                                    alt={skill.name}
-                                    className="flex-shrink-0"
-                                  />
-                                  <span className="text-sm font-normal text-gray-900">
-                                    {skill.name}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
+                        ) : (
+                          <span className="text-gray-400">Pick the Skills the Worker Has</span>
                         )}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white text-left flex items-center justify-between text-gray-400"
-                      >
-                        <span>Pick the Skills the Worker Has</span>
-                        <svg className="w-4 h-4" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                           <path d="M19 9l-7 7-7-7"></path>
                         </svg>
                       </button>
-                    )}
+                      
+                      {openSkillDropdown === index && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                          {availableSkills
+                            .filter(skill => !roles.some((r, i) => i !== index && r.skill_name === skill.name))
+                            .map((skill) => (
+                              <div
+                                key={skill.name}
+                                onClick={() => handleSkillSelect(index, skill.name)}
+                                className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
+                              >
+                                <img 
+                                  src={skill.icon} 
+                                  width="20" 
+                                  height="20" 
+                                  alt={skill.name}
+                                  className="flex-shrink-0"
+                                />
+                                <span className="text-sm font-normal text-gray-900">
+                                  {skill.name}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="ml-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Needed Workers *
                     </label>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleRoleChange(index, 'needed_workers', Math.max(1, role.needed_workers - 1))}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="w-8 h-8 flex items-center justify-center border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors font-semibold text-gray-700"
                       >
-                        <span className="text-lg font-semibold">-</span>
+                        -
                       </button>
                       <input
                         type="number"
                         value={role.needed_workers}
                         onChange={(e) => handleRoleChange(index, 'needed_workers', parseInt(e.target.value) || 1)}
                         min="1"
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                       />
                       <button
                         onClick={() => handleRoleChange(index, 'needed_workers', role.needed_workers + 1)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        className="w-8 h-8 flex items-center justify-center border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors font-semibold text-gray-700"
                       >
-                        <span className="text-lg font-semibold">+</span>
+                        +
+                      </button>
+                      <button
+                        onClick={() => handleRemoveRole(index)}
+                        className="ml-2 w-8 h-8 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remove role"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => handleRemoveRole(index)}
-                    className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                    title="Remove role"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
 
                 {/* Show assigned workers count */}
                 {event.shifts_by_role?.[index] && (
                   ((event.shifts_by_role[index] as any).assigned_workers > 0 || (event.shifts_by_role[index] as any).filled_shifts > 0) && (
-                    <div className="text-sm text-amber-600 font-medium">
+                    <div className="text-sm text-amber-600 font-semibold bg-amber-50 px-3 py-2 rounded-lg">
                       {(event.shifts_by_role[index] as any).assigned_workers || (event.shifts_by_role[index] as any).filled_shifts} worker(s) assigned
                     </div>
                   )
