@@ -20,7 +20,8 @@ class ActivityLogPresenter
     when ["Event", "updated"]
       # For updates, we need to fetch the actual event to get its title
       event_title = fetch_event_title || entity_name
-      "#{actor_name} updated #{event_title}"
+      changes_summary = get_changes_summary
+      "#{actor_name} updated #{event_title}#{changes_summary}"
     when ["Event", "deleted"]
       "#{actor_name} removed #{entity_name}"
     when ["Worker", "created"]
@@ -279,6 +280,37 @@ class ActivityLogPresenter
     end
     
     [worker_name, shift_name, role]
+  end
+  
+  def get_changes_summary
+    return '' unless log.before_json && log.after_json
+    
+    before = log.before_json
+    after = log.after_json
+    
+    # Filter out tracking fields
+    tracking_fields = ['updated_at_utc', 'lock_version', 'updated_at']
+    before = before.reject { |k, _| tracking_fields.include?(k.to_s) }
+    after = after.reject { |k, _| tracking_fields.include?(k.to_s) }
+    
+    # Find changed fields
+    changed_fields = []
+    before.each do |key, old_value|
+      new_value = after[key.to_sym] || after[key.to_s]
+      if new_value && old_value != new_value
+        # Format the change nicely
+        field_name = key.to_s.humanize.downcase
+        if key.to_s == 'status'
+          changed_fields << "#{field_name}: #{old_value} → #{new_value}"
+        else
+          changed_fields << "#{field_name}"
+        end
+      end
+    end
+    
+    return '' if changed_fields.empty?
+    
+    ' (changed: ' + changed_fields.join(', ') + ')'
   end
 end
 
