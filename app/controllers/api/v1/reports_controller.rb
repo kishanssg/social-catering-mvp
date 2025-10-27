@@ -9,11 +9,11 @@ module Api
         start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
-        # Only export completed/approved assignments from past shifts
+        # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
         assignments = Assignment.includes(worker: [], shift: [event: :event_schedule])
                            .for_date_range(start_date, end_date)
-                           .where(status: ['completed', 'approved'])
-                           .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
+                           .where(status: ['assigned', 'confirmed', 'completed'])
+                           # Removed past-only filter to include future scheduled shifts
         
         # Filter by event if provided
         assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
@@ -40,9 +40,9 @@ module Api
         start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
-        # Only export completed/approved assignments (regardless of shift timing)
+        # Export all active assignments (assigned, confirmed, completed) for payroll
         assignments = Assignment.for_date_range(start_date, end_date)
-                           .where(status: ['completed', 'approved'])
+                           .where(status: ['assigned', 'confirmed', 'completed'])
         
         # Filter by event if provided
         assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
@@ -69,11 +69,11 @@ module Api
         start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
-        # Only export completed/approved assignments from past shifts
+        # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
         assignments = Assignment.includes(:worker, shift: [:event])
                            .for_date_range(start_date, end_date)
-                           .where(status: ['completed', 'approved'])
-                           .where('shifts.end_time_utc <= ?', Time.current)  # Only past shifts
+                           .where(status: ['assigned', 'confirmed', 'completed'])
+                           # Removed past-only filter to track scheduled hours for capacity planning
         
         # Filter by worker if provided
         assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
@@ -100,6 +100,7 @@ module Api
         events = Event.includes(:venue, :event_schedule, shifts: :assignments)
                       .joins(:event_schedule)
                       .where('event_schedules.start_time_utc >= ? AND event_schedules.start_time_utc <= ?', start_date, end_date)
+                      .order('event_schedules.start_time_utc DESC')
         
         csv_data = generate_event_summary_csv(events)
         
@@ -209,7 +210,7 @@ module Api
             end
             
             csv << [
-              shift.start_time_utc.strftime('%Y-%m-%d'),
+              shift.start_time_utc.strftime('%m/%d/%Y'),
               event_title,
               location,
               shift.role_needed,
@@ -235,7 +236,7 @@ module Api
             csv << [
               assignment.worker.full_name,
               event&.title || shift.client_name,
-              shift.start_time_utc.strftime('%Y-%m-%d'),
+              shift.start_time_utc.strftime('%m/%d/%Y'),
               shift.role_needed,
               assignment.hours_worked&.round(2) || 0,
               assignment.hourly_rate&.round(2) || 0,
@@ -273,12 +274,13 @@ module Api
           # Data rows
           events.each do |event|
             total_cost = event.shifts.joins(:assignments)
+                              .where(assignments: { status: ['assigned', 'confirmed', 'completed'] })
                               .sum('assignments.hours_worked * assignments.hourly_rate')
             
             csv << [
               event.id,
               event.title,
-              event.event_schedule&.start_time_utc&.strftime('%Y-%m-%d') || '',
+              event.event_schedule&.start_time_utc&.strftime('%m/%d/%Y') || '',
               event.venue&.name || '',
               event.status,
               event.total_workers_needed,
