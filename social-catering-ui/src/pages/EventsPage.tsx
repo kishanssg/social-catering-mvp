@@ -1005,7 +1005,7 @@ function ActiveEventsTab({
                 )}
                 
                 {/* Edit button - only for published events that haven't started */}
-                {event.status === 'published' && event.schedule && new Date(event.schedule.start_time_utc) > new Date() && onEdit && (
+                {onEdit && event.status === 'published' && (
                   <button
                     onClick={(e) => { 
                       e.stopPropagation();

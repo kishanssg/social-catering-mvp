@@ -99,6 +99,16 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   };
 
   const handleSave = async () => {
+    // Check if event has started (client-side guard)
+    if (event.schedule && new Date(event.schedule.start_time_utc) <= new Date()) {
+      setToast({
+        isVisible: true,
+        message: 'Cannot edit event that has already started',
+        type: 'error'
+      });
+      return;
+    }
+    
     setSaving(true);
     try {
       const response = await apiClient.patch(`/events/${event.id}`, {
