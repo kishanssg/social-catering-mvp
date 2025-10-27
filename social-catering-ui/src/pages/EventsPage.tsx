@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
+  Pencil,
   Trash2,
   Check,
   X,
@@ -21,6 +22,7 @@ import { AssignmentModal } from '../components/AssignmentModal';
 import { Toast } from '../components/common/Toast';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { QuickFillModal } from '../components/QuickFillModal';
+import { EditEventModal } from '../components/EditEventModal';
 import { apiClient } from '../lib/api';
 
 type TabType = 'draft' | 'active' | 'past' | 'completed';
@@ -148,6 +150,12 @@ export function EventsPage() {
     unfilledShiftIds: number[];
     payRate?: number;
   }>({ isOpen: false, unfilledShiftIds: [] });
+  
+  // Edit modal state
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    event?: Event;
+  }>({ isOpen: false });
   
   useEffect(() => {
     loadEvents();
@@ -576,6 +584,7 @@ export function EventsPage() {
                 onQuickFill={(eventId, roleName, unfilled, payRate) => setQuickFill({ isOpen: true, eventId, roleName, unfilledShiftIds: unfilled, payRate })}
                 onPublish={handlePublish}
                 onDelete={handleDelete}
+                onEdit={(event) => setEditModal({ isOpen: true, event })}
                 searchQuery={searchQuery}
               />
             )}
@@ -662,6 +671,19 @@ export function EventsPage() {
           loadEvents();
         }}
       />
+
+      {/* Edit Event Modal */}
+      {editModal.event && (
+        <EditEventModal
+          event={editModal.event as any}
+          isOpen={editModal.isOpen}
+          onClose={() => setEditModal({ isOpen: false, event: undefined })}
+          onSuccess={() => {
+            loadEvents(); // Reload events to show changes
+            setEditModal({ isOpen: false, event: undefined });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -802,6 +824,7 @@ interface ActiveEventsTabProps {
   onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[], payRate?: number) => void;
   onPublish: (eventId: number) => void;
   onDelete?: (eventId: number) => void;
+  onEdit?: (event: Event) => void;
   searchQuery: string;
 }
 
@@ -814,6 +837,7 @@ function ActiveEventsTab({
   onQuickFill,
   onPublish,
   onDelete,
+  onEdit,
   searchQuery 
 }: ActiveEventsTabProps) {
   const formatDate = (dateString: string) => {
@@ -979,6 +1003,21 @@ function ActiveEventsTab({
                     Delete Event
                   </button>
                 )}
+                
+                {/* Edit button - only for published events that haven't started */}
+                {event.status === 'published' && event.schedule && new Date(event.schedule.start_time_utc) > new Date() && onEdit && (
+                  <button
+                    onClick={(e) => { 
+                      e.stopPropagation();
+                      onEdit(event);
+                    }}
+                    title="Edit Event"
+                    className="p-1.5 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded transition-colors"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+                
                 {/* Compact delete button for all events */}
                 {onDelete && (
                   <button
