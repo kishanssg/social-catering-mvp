@@ -57,7 +57,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
   const handleEditEventDetails = () => {
     onClose(); // Close this modal
-    navigate(`/events/edit/${event.id}`); // Navigate to create event wizard in edit mode
+    navigate(`/events/${event.id}/edit`); // Navigate to create event wizard in edit mode
   };
 
   const availableSkills = [
