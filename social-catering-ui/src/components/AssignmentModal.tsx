@@ -189,12 +189,22 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
   const footerContent = (
     <>
       {error && (
-        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
-          {error.split('\n').map((line, index) => (
-            <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
-              {line}
-            </p>
-          ))}
+        <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-red-900 mb-1">
+                ⚠️ Scheduling Conflict
+              </h4>
+              <div className="text-sm text-red-700 space-y-1">
+                {error.split('\n').map((line, index) => (
+                  <p key={index} className={line.startsWith('•') ? 'ml-4' : ''}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
       
@@ -208,7 +218,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
         </button>
         <button
           onClick={handleAssignWorker}
-          disabled={!selectedWorker || assigning}
+          disabled={!selectedWorker || assigning || !!error}
           className="btn-primary"
         >
           {assigning ? 'Assigning Worker...' : 'Assign Worker'}
@@ -324,14 +334,23 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
             {/* Workers List */}
             <div className="flex-1 overflow-y-auto">
               {error ? (
-                <div className="text-center py-8">
-                  <AlertCircle size={32} className="text-red-400 mx-auto mb-2" />
-                  <div className="text-sm text-red-600">
-                    {error.split('\n').map((line, index) => (
-                      <p key={index} className={line.startsWith('•') ? 'ml-2' : ''}>
-                        {line}
-                      </p>
-                    ))}
+                <div className="p-6">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3 mb-2">
+                      <AlertCircle size={24} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-red-900 mb-2">
+                          ⚠️ Cannot Assign - Scheduling Conflict
+                        </h4>
+                        <div className="text-sm text-red-700 space-y-1">
+                          {error.split('\n').map((line, index) => (
+                            <p key={index} className={line.startsWith('•') ? 'ml-4' : ''}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : filteredWorkers.length === 0 ? (
