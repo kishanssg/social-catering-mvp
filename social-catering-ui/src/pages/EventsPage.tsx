@@ -702,9 +702,13 @@ export function EventsPage() {
         unfilledShiftIds={quickFill.unfilledShiftIds}
         defaultPayRate={quickFill.payRate}
         onClose={() => setQuickFill({ isOpen: false, unfilledShiftIds: [] })}
-        onDone={({ assigned, conflicts }) => {
+        onDone={({ assigned, conflicts, details }) => {
           setQuickFill({ isOpen: false, unfilledShiftIds: [] });
-          setToast({ isVisible: true, message: `Assigned ${assigned} workers • ${conflicts} skipped`, type: conflicts > 0 ? 'error' : 'success' });
+          let message = `Assigned ${assigned} workers • ${conflicts} skipped`;
+          if (conflicts > 0 && details) {
+            message += `: ${details}`;
+          }
+          setToast({ isVisible: true, message, type: conflicts > 0 ? 'error' : 'success' });
           loadEvents();
         }}
       />

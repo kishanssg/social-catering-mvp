@@ -18,7 +18,7 @@ interface QuickFillModalProps {
   unfilledShiftIds: number[]; // ordered by earliest-first
   defaultPayRate?: number;
   onClose: () => void;
-  onDone: (summary: { assigned: number; conflicts: number }) => void;
+  onDone: (summary: { assigned: number; conflicts: number; details?: string }) => void;
 }
 
 export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, defaultPayRate, onClose, onDone }: QuickFillModalProps) {
@@ -95,6 +95,8 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
     setSubmitting(true);
     let assigned = 0;
     let conflicts = 0;
+    const failedDetails: string[] = [];
+    
     try {
       // Round-robin through selected workers against ordered unfilled shifts
       const selectedWorkers = selected.map((id) => workers.find((w) => w.id === id)).filter(Boolean) as WorkerLite[];
@@ -118,13 +120,25 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
             assigned += 1;
           } else {
             conflicts += 1;
+            const errorMsg = res.data?.message || 'Unknown error';
+            failedDetails.push(`${worker.first_name} ${worker.last_name} (${errorMsg})`);
           }
-        } catch (e) {
-          conflicts += 1; // treat as conflict/failed
+        } catch (e: any) {
+          conflicts += 1;
+          const workerName = `${worker.first_name} ${worker.last_name}`;
+          const errorMsg = e.response?.data?.message || e.message || 'Unknown error';
+          failedDetails.push(`${workerName} (${errorMsg})`);
         }
         wi += 1;
       }
-      onDone({ assigned, conflicts });
+      
+      // Build detailed message if there are conflicts
+      let conflictMessage = '';
+      if (conflicts > 0 && failedDetails.length > 0) {
+        conflictMessage = failedDetails.join(', ');
+      }
+      
+      onDone({ assigned, conflicts, details: conflictMessage });
     } finally {
       setSubmitting(false);
     }
