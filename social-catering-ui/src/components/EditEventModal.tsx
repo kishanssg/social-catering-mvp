@@ -50,15 +50,20 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   // Initialize roles from event
   useEffect(() => {
     if (event.shifts_by_role && Array.isArray(event.shifts_by_role)) {
-      const initialRoles: SkillRequirement[] = event.shifts_by_role.map((role: any) => ({
-        skill_name: role.skill_name || role.role_name || '',
-        needed_workers: role.needed_workers || role.total_shifts || 1,
-        // TODO: Extract pay_rate, description, etc. from shifts
-        pay_rate: role.pay_rate || 15, // Placeholder
-        description: '',
-        uniform_id: undefined,
-        cert_id: undefined
-      }));
+      const initialRoles: SkillRequirement[] = event.shifts_by_role.map((role: any) => {
+        // Count unique shifts to get the actual needed workers
+        const shiftCount = role.shifts ? role.shifts.length : (role.total_shifts || 1);
+        
+        return {
+          skill_name: role.skill_name || role.role_name || '',
+          needed_workers: shiftCount, // Use actual shift count
+          // TODO: Extract pay_rate, description, etc. from shifts
+          pay_rate: role.pay_rate || 15, // Placeholder
+          description: '',
+          uniform_id: undefined,
+          cert_id: undefined
+        };
+      });
       setRoles(initialRoles);
     }
   }, [event]);
