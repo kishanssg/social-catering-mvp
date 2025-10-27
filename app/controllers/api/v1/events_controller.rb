@@ -275,8 +275,9 @@ class Api::V1::EventsController < Api::V1::BaseController
 
     if @event.update(status: new_status)
       render json: {
-        data: event_json(@event),
-        status: 'success'
+        status: 'success',
+        message: "Event status updated to #{new_status}",
+        data: serialize_event(@event.reload)
       }
     else
       render json: {
