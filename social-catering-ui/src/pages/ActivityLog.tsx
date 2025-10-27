@@ -150,9 +150,30 @@ export const ActivityLog: React.FC = () => {
       }
       if (data.email) details.email = data.email;
       if (data.phone) details.phone = data.phone;
-      if (data.skills_json) details.skills = Array.isArray(data.skills_json) 
-        ? data.skills_json.join(', ') 
-        : data.skills_json;
+      
+      // Show skills differently for created vs updated
+      if (log.action === 'created' && data.skills_json) {
+        details.skills = Array.isArray(data.skills_json) 
+          ? data.skills_json.join(', ') 
+          : data.skills_json;
+      } else if (log.action === 'updated' && log.after_json && log.before_json) {
+        const beforeSkills = Array.isArray(log.before_json.skills_json) 
+          ? log.before_json.skills_json 
+          : JSON.parse(log.before_json.skills_json || '[]');
+        const afterSkills = Array.isArray(log.after_json.skills_json) 
+          ? log.after_json.skills_json 
+          : JSON.parse(log.after_json.skills_json || '[]');
+        
+        const addedSkills = afterSkills.filter((s: string) => !beforeSkills.includes(s));
+        const removedSkills = beforeSkills.filter((s: string) => !afterSkills.includes(s));
+        
+        if (addedSkills.length > 0) {
+          details.skill_changes = `Added: ${addedSkills.join(', ')}`;
+        }
+        if (removedSkills.length > 0) {
+          details.skill_changes = (details.skill_changes || '') + ` ${details.skill_changes ? '| Removed: ' : 'Removed: '}${removedSkills.join(', ')}`;
+        }
+      }
     }
     
     // For event creation/updates
@@ -490,6 +511,11 @@ export const ActivityLog: React.FC = () => {
                                   {details.skills && (
                                     <p className="text-xs text-indigo-500 mt-1">{details.skills}</p>
                                   )}
+                                  {details.skill_changes && (
+                                    <p className="text-xs text-indigo-600 font-semibold mt-1">
+                                      Skills: {details.skill_changes}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -513,32 +539,7 @@ export const ActivityLog: React.FC = () => {
                         );
                       })()}
 
-                      {/* Raw Details (if available) */}
-                      {(log.after_json || log.before_json) && (
-                        <details className="mt-3 text-xs">
-                          <summary className="cursor-pointer text-primary-color hover:text-primary-color/80 font-medium">
-                            View Raw Data
-                          </summary>
-                          <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 space-y-2">
-                            {log.before_json && Object.keys(log.before_json).length > 0 && (
-                              <div>
-                                <span className="font-semibold text-gray-700">Before:</span>
-                                <pre className="mt-1 text-xs text-gray-600 whitespace-pre-wrap">
-                                  {JSON.stringify(log.before_json, null, 2)}
-                                </pre>
-                              </div>
-                            )}
-                            {log.after_json && Object.keys(log.after_json).length > 0 && (
-                              <div>
-                                <span className="font-semibold text-gray-700">After:</span>
-                                <pre className="mt-1 text-xs text-gray-600 whitespace-pre-wrap">
-                                  {JSON.stringify(log.after_json, null, 2)}
-                                </pre>
-                              </div>
-                            )}
-                          </div>
-                        </details>
-                      )}
+                      {/* Raw JSON hidden - showing meaningful details in color-coded boxes above */}
                     </div>
                   </div>
                 </div>
