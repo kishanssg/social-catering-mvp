@@ -3,6 +3,11 @@ import { X, Plus, Trash2, Save } from 'lucide-react';
 import { Modal } from './common/Modal';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
+import bartenderIcon from '../assets/icons/Skills/Bartender.svg';
+import banquetServerIcon from '../assets/icons/Skills/Banquet Server.svg';
+import captainIcon from '../assets/icons/Skills/Captain.svg';
+import eventHelperIcon from '../assets/icons/Skills/Event Helper.svg';
+import prepCookIcon from '../assets/icons/Skills/Prep Cook.svg';
 
 interface SkillRequirement {
   skill_name: string;
@@ -41,11 +46,20 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const [isEditing, setIsEditing] = useState(false);
   const [roles, setRoles] = useState<SkillRequirement[]>([]);
   const [saving, setSaving] = useState(false);
+  const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({
     isVisible: false,
     message: '',
     type: 'error'
   });
+
+  const availableSkills = [
+    { name: 'Bartender', icon: bartenderIcon },
+    { name: 'Banquet Server/Runner', icon: banquetServerIcon },
+    { name: 'Captain', icon: captainIcon },
+    { name: 'Event Helper', icon: eventHelperIcon },
+    { name: 'Prep Cook', icon: prepCookIcon },
+  ];
 
   // Initialize roles from event
   useEffect(() => {
@@ -101,6 +115,17 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       }
     }
     setRoles(roles.filter((_, i) => i !== index));
+  };
+
+  const handleSkillSelect = (index: number, skillName: string) => {
+    const skill = availableSkills.find(s => s.name === skillName);
+    const newRoles = [...roles];
+    newRoles[index] = { 
+      ...newRoles[index], 
+      skill_name: skillName 
+    };
+    setRoles(newRoles);
+    setOpenSkillDropdown(null);
   };
 
   const handleSave = async () => {
@@ -228,17 +253,69 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             {roles.map((role, index) => (
               <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Role Name *
                     </label>
-                    <input
-                      type="text"
-                      value={role.skill_name}
-                      onChange={(e) => handleRoleChange(index, 'skill_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      placeholder="e.g., Bartender"
-                    />
+                    {role.skill_name ? (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white text-left flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            {availableSkills.find(s => s.name === role.skill_name)?.icon && (
+                              <img 
+                                src={availableSkills.find(s => s.name === role.skill_name)!.icon} 
+                                alt={role.skill_name}
+                                className="w-5 h-5"
+                              />
+                            )}
+                            <span>{role.skill_name}</span>
+                          </div>
+                          <svg className="w-4 h-4 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                            <path d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                        </button>
+                        
+                        {openSkillDropdown === index && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                            {availableSkills
+                              .filter(skill => !roles.some((r, i) => i !== index && r.skill_name === skill.name))
+                              .map((skill) => (
+                                <div
+                                  key={skill.name}
+                                  onClick={() => handleSkillSelect(index, skill.name)}
+                                  className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50"
+                                >
+                                  <img 
+                                    src={skill.icon} 
+                                    width="20" 
+                                    height="20" 
+                                    alt={skill.name}
+                                    className="flex-shrink-0"
+                                  />
+                                  <span className="text-sm font-normal text-gray-900">
+                                    {skill.name}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setOpenSkillDropdown(openSkillDropdown === index ? null : index)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white text-left flex items-center justify-between text-gray-400"
+                      >
+                        <span>Pick the Skills the Worker Has</span>
+                        <svg className="w-4 h-4" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                          <path d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </button>
+                    )}
                   </div>
                   
                   <div className="ml-4">
