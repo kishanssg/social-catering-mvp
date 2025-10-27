@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, Save, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Plus, Trash2, Save, Edit } from 'lucide-react';
 import { Modal } from './common/Modal';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
-import { EditEventSummaryModal } from './EditEventSummaryModal';
 import bartenderIcon from '../assets/icons/Skills/Bartender.svg';
 import banquetServerIcon from '../assets/icons/Skills/Banquet Server.svg';
 import captainIcon from '../assets/icons/Skills/Captain.svg';
@@ -44,16 +44,21 @@ interface EditEventModalProps {
 }
 
 export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventModalProps) {
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [roles, setRoles] = useState<SkillRequirement[]>([]);
   const [saving, setSaving] = useState(false);
   const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({
     isVisible: false,
     message: '',
     type: 'error'
   });
+
+  const handleEditEventDetails = () => {
+    onClose(); // Close this modal
+    navigate(`/events/edit/${event.id}`); // Navigate to create event wizard in edit mode
+  };
 
   const availableSkills = [
     { name: 'Bartender', icon: bartenderIcon },
@@ -186,13 +191,6 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const footerContent = (
     <div className="flex gap-2">
       <button
-        onClick={() => setShowSummaryModal(true)}
-        className="btn-secondary inline-flex items-center gap-2"
-      >
-        <Eye size={16} />
-        View Summary
-      </button>
-      <button
         onClick={onClose}
         disabled={saving}
         className="btn-secondary"
@@ -221,7 +219,16 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         <div className="space-y-6">
           {/* Event Details (Read-only for now) */}
           <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <h4 className="text-base font-semibold text-gray-900 mb-4">Event Details</h4>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-base font-semibold text-gray-900">Event Details</h4>
+              <button
+                onClick={handleEditEventDetails}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Edit size={14} />
+                Edit
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Venue:</span>
@@ -372,12 +379,6 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, isVisible: false })}
-      />
-
-      <EditEventSummaryModal
-        eventId={event.id}
-        isOpen={showSummaryModal}
-        onClose={() => setShowSummaryModal(false)}
       />
     </>
   );
