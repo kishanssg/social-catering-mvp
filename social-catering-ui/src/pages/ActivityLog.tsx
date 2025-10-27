@@ -41,8 +41,8 @@ export const ActivityLog: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
-  const entityTypes = ['Worker', 'Shift', 'Assignment', 'Event', 'Skill'];
-  const actionTypes = ['created', 'updated', 'deleted', 'assigned_worker', 'unassigned_worker'];
+  const entityTypes = ['Worker', 'Event'];
+  const actionTypes = ['created', 'updated', 'deleted'];
 
   const fetchLogs = async (page = 1) => {
     try {
