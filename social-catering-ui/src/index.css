@@ -32,8 +32,8 @@ body {
 
 .modal-container {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 2rem);
@@ -162,20 +162,22 @@ body {
 
 /* Button styles to match design system */
 .btn-primary {
-  background-color: #0FA190;
+  background-color: #14B8A6;
   color: white;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0d8a7c;
+  background-color: #0FA190;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary:disabled {
@@ -186,11 +188,11 @@ body {
 .btn-secondary {
   background-color: white;
   color: #374151;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  border: 1px solid #d1d5db;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -198,7 +200,7 @@ body {
 
 .btn-secondary:hover:not(:disabled) {
   background-color: #f9fafb;
-  border-color: #9ca3af;
+  border-color: #d1d5db;
 }
 
 .btn-secondary:disabled {
