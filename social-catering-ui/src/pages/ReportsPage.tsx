@@ -120,6 +120,15 @@ export function ReportsPage() {
   };
   
   async function handleExport(reportType: ReportType) {
+    if (!selectedReport) {
+      setToast({
+        isVisible: true,
+        message: 'Please select a report type first',
+        type: 'error'
+      });
+      return;
+    }
+    
     setExporting(true);
     
     try {
@@ -150,6 +159,7 @@ export function ReportsPage() {
           endpoint = `/reports/event_summary?start_date=${dateRange.start}&end_date=${dateRange.end}`;
           if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
           break;
+          
       }
 
       // Request as blob via API client and trigger download
@@ -194,7 +204,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<FileText size={24} />}
             title="Weekly Timesheet"
-            description="Export worker hours with job details, breaks, and supervisor info"
+            description="Detailed time records with clock-in/clock-out times. Use as backup documentation if needed."
             color="teal"
             lastExport="Last 7 days"
             onExport={() => {
@@ -208,7 +218,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<DollarSign size={24} />}
             title="Payroll Summary"
-            description="Export hours, rates, and total compensation by worker. ✓ Includes hourly rates and calculated payouts"
+            description="See total hours and compensation per worker. Perfect for processing weekly or monthly payroll."
             color="indigo"
             lastExport="Last 7 days"
             onExport={() => {
@@ -222,7 +232,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<Users size={24} />}
             title="Worker Hours Report"
-            description="View total hours worked per worker for the period. ✓ Includes pay rates and total payouts"
+            description="Individual worker breakdown showing all shifts worked. Good for performance reviews and audits."
             color="blue"
             lastExport="This month"
             onExport={() => {
@@ -236,7 +246,7 @@ export function ReportsPage() {
           <ReportCard
             icon={<Calendar size={24} />}
             title="Event Summary"
-            description="Export complete staffing details by event. ✓ Includes total event costs and pay data"
+            description="Track labor costs per event. See which events are most expensive and monitor monthly spending."
             color="purple"
             lastExport="Last 30 days"
             onExport={() => {
@@ -245,6 +255,7 @@ export function ReportsPage() {
             }}
             exporting={exporting}
           />
+          
         </div>
         
         {/* Advanced Filters */}
@@ -257,7 +268,7 @@ export function ReportsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Select Report Type
               </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <button
                   onClick={() => setSelectedReport('timesheet')}
                   className={`p-4 rounded-lg border-2 transition-all text-left ${
@@ -349,6 +360,7 @@ export function ReportsPage() {
                     </div>
                   </div>
                 </button>
+                
               </div>
             </div>
             
@@ -372,15 +384,24 @@ export function ReportsPage() {
                     ].map(preset => (
                       <button
                         key={preset.value}
-                        onClick={() => setDatePreset(preset.value as DatePreset)}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          datePreset === preset.value
-                            ? 'bg-teal-100 text-teal-700'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
+                    onClick={() => {
+                      setDatePreset(preset.value as DatePreset);
+                      // Reset custom date range when switching to a preset
+                      if (preset.value !== 'custom') {
+                        setCustomDateRange({
+                          start: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+                          end: format(new Date(), 'yyyy-MM-dd')
+                        });
+                      }
+                    }}
+                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      datePreset === preset.value
+                        ? 'bg-teal-100 text-teal-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
                     ))}
                   </div>
                   
@@ -530,20 +551,101 @@ export function ReportsPage() {
         
         {/* Help Section */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">Need Help with Reports?</h3>
-          <div className="space-y-2 text-sm text-blue-800">
-            <p>
-              <strong>Timesheet Report:</strong> Contains all fields required for payroll processing including job ID, worker names, roles, hours worked, break time, and supervisor information.
-            </p>
-            <p>
-              <strong>Payroll Summary:</strong> Simplified view focusing on worker compensation calculations including hourly rates and total pay.
-            </p>
-            <p>
-              <strong>Worker Hours:</strong> Aggregate hours worked per worker for the selected period, useful for tracking worker availability and capacity.
-            </p>
-            <p>
-              <strong>Event Summary:</strong> Complete staffing details organized by event, including all workers, roles, and hours for each job.
-            </p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            📋 Which Report Should I Use?
+          </h3>
+          
+          <div className="space-y-4">
+            {/* Payroll Summary */}
+            <div className="bg-white rounded-lg p-4 border border-blue-100">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-indigo-600 font-semibold">💰</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    Payroll Summary
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>Use this to pay your workers.</strong> Shows one row per worker with total hours and total amount you owe them.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Columns:</strong> Worker Name, Total Hours, Average Rate, Total Compensation, Shifts Worked, Events
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Summary */}
+            <div className="bg-white rounded-lg p-4 border border-blue-100">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-purple-600 font-semibold">📊</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    Event Summary
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>Use this to track event costs.</strong> Shows how many workers per event and total labor cost. Perfect for monthly cost tracking.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Columns:</strong> Event Title, Date, Venue, Workers Needed/Assigned, Total Event Cost, Supervisor
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Weekly Timesheet */}
+            <div className="bg-white rounded-lg p-4 border border-blue-100">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-teal-600 font-semibold">🕐</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    Weekly Timesheet
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>Detailed time tracking.</strong> Shows clock-in/clock-out times for each shift. Use this as backup if a worker disputes their hours.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Columns:</strong> Worker Name, Shift Date, Start Time, End Time, Break Time, Total Hours, Supervisor
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Worker Hours Report */}
+            <div className="bg-white rounded-lg p-4 border border-blue-100">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-blue-600 font-semibold">👤</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900 mb-1">
+                    Worker Hours Report
+                  </h4>
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>Individual worker breakdown.</strong> Shows all shifts for specific workers. Good for performance reviews or checking one person's work history.
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Columns:</strong> Worker Name, Event Name, Date, Role, Hours, Pay Rate, Payout (with TOTAL row)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Tips */}
+          <div className="mt-6 pt-4 border-t border-blue-200">
+            <h4 className="font-semibold text-gray-900 mb-2 text-sm">💡 Quick Tips:</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• <strong>Weekly payroll?</strong> Use "Payroll Summary" with "Last 7 days"</li>
+              <li>• <strong>Monthly cost review?</strong> Use "Event Summary" with "This month"</li>
+              <li>• <strong>Worker disputed hours?</strong> Use "Weekly Timesheet" to show proof</li>
+              <li>• <strong>All reports open in Excel/Numbers</strong> - just download and use!</li>
+            </ul>
           </div>
         </div>
       </div>

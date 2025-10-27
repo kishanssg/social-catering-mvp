@@ -23,7 +23,8 @@ import {
   startOfWeek,
   endOfWeek,
   isSameMonth,
-  parseISO
+  parseISO,
+  startOfDay
 } from 'date-fns';
 import { apiClient } from '../lib/api';
 
@@ -245,7 +246,11 @@ export function DashboardPage() {
   
   const handleDayClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    navigate(`/events?tab=active&date=${dateStr}`);
+    // Determine tab based on date: past dates go to completed, future dates go to active
+    const today = startOfDay(new Date());
+    const clickedDate = startOfDay(date);
+    const tab = clickedDate < today ? 'completed' : 'active';
+    navigate(`/events?tab=${tab}&date=${dateStr}`);
   };
   
   if (loading) {
@@ -640,7 +645,7 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
     <div>
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">⚠️ Needs Your Attention</h3>
+        <h3 className="text-lg font-semibold text-gray-900">⚠️ Priority Staffing Queue</h3>
         <p className="text-sm text-gray-500 mt-1">
           {events.length} event{events.length !== 1 ? 's' : ''} need{events.length === 1 ? 's' : ''} workers • Sorted by urgency
         </p>

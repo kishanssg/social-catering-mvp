@@ -24,14 +24,26 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     # Filter by tab (support 'completed' alias for 'past')
     tab_param = params[:tab] == 'completed' ? 'past' : params[:tab]
+    
+    # Special handling: if we have a date filter AND we're on active tab, show both active and past events for that date
+    show_all_for_date = params[:date].present? && (tab_param == 'active' || params[:tab] == 'completed')
+    
     case tab_param
     when 'draft'
       events = events.draft
     when 'active'
-      events = events.published
-                   .joins(:event_schedule)
-                   .where('event_schedules.end_time_utc > ?', Time.current)
-                   .order('event_schedules.start_time_utc ASC')
+      if show_all_for_date
+        # For calendar navigation with date filter, show all published events (both active and past)
+        events = events.published
+                     .joins(:event_schedule)
+                     .order('event_schedules.start_time_utc ASC')
+      else
+        # Normal active events (upcoming only)
+        events = events.published
+                     .joins(:event_schedule)
+                     .where('event_schedules.end_time_utc > ?', Time.current)
+                     .order('event_schedules.start_time_utc ASC')
+      end
     when 'past'
       events = events.published
                    .joins(:event_schedule)
@@ -45,14 +57,17 @@ class Api::V1::EventsController < Api::V1::BaseController
     if params[:date].present?
       begin
         target_date = Date.parse(params[:date])
+        # Use date range instead of DATE() function for better performance and timezone handling
         # Only apply date filter if we haven't already joined event_schedule
         # For 'active' and 'past' tabs, event_schedule is already joined
         if tab_param == 'active' || tab_param == 'past'
-          events = events.where('DATE(event_schedules.start_time_utc) = ?', target_date)
+          events = events.where('event_schedules.start_time_utc >= ? AND event_schedules.start_time_utc < ?', 
+                                target_date.beginning_of_day, target_date.end_of_day)
         else
           # For 'draft' or other tabs, need to join event_schedule
           events = events.joins(:event_schedule)
-                       .where('DATE(event_schedules.start_time_utc) = ?', target_date)
+                       .where('event_schedules.start_time_utc >= ? AND event_schedules.start_time_utc < ?', 
+                              target_date.beginning_of_day, target_date.end_of_day)
         end
       rescue ArgumentError
         # Invalid date format, ignore the filter
@@ -490,12 +505,15 @@ class Api::V1::EventsController < Api::V1::BaseController
       Rails.logger.info "Shift #{index + 1}: ID=#{shift.id}, role_needed=#{shift.role_needed.inspect}, capacity=#{shift.capacity.inspect}"
     end
     
+    # ORDER shifts by ID ASC to ensure consistent ordering - first created = first displayed
+    sorted_shifts = shifts.order(:id)
+    
     grouped = {}
     
     # Track how many shifts we've processed per role
     role_counters = Hash.new(0)
     
-    shifts.each do |shift|
+    sorted_shifts.each do |shift|
       role = shift.role_needed
       needed = requirements[role]&.needed_workers || 0
       

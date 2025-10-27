@@ -29,7 +29,7 @@ module Api
         csv_data = generate_timesheet_csv(assignments)
         
         send_data csv_data,
-                  filename: "timesheet_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "weeklytimesheet_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -58,7 +58,7 @@ module Api
         csv_data = generate_payroll_csv(assignments)
         
         send_data csv_data,
-                  filename: "payroll_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "payrollsummary_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -86,7 +86,7 @@ module Api
         csv_data = generate_worker_hours_csv(assignments)
         
         send_data csv_data,
-                  filename: "worker_hours_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "workerhoursreport_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -105,7 +105,7 @@ module Api
         csv_data = generate_event_summary_csv(events)
         
         send_data csv_data,
-                  filename: "event_summary_report_#{start_date.strftime('%Y%m%d')}_to_#{end_date.strftime('%Y%m%d')}.csv",
+                  filename: "eventsummary_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       end
@@ -176,50 +176,67 @@ module Api
       def generate_payroll_csv(assignments)
         require 'csv'
         
+        # Group by worker
+        worker_data = assignments.group_by(&:worker)
+        
         CSV.generate(headers: true) do |csv|
           # Headers for payroll report
           csv << [
-            'Date',
-            'Event/Client',
-            'Location',
-            'Role',
-            'Worker',
-            'Hours',
-            'Rate',
-            'Total Pay'
+            'Worker Name',
+            'Total Hours',
+            'Average Hourly Rate',
+            'Total Compensation',
+            'Number of Shifts',
+            'Events Worked'
           ]
           
-          # Data rows - use simple approach to avoid association loading issues
-          assignments.each do |assignment|
-            # Get basic data directly from assignment
-            total_hours = assignment.hours_worked || 0.0
-            effective_rate = assignment.hourly_rate || 15.0  # Default rate
-            total_pay = total_hours * effective_rate
+          grand_total_hours = 0
+          grand_total_pay = 0
+          total_shifts = 0
+          
+          # Sort workers by last name, first name
+          worker_data.sort_by { |worker, _| "#{worker.last_name} #{worker.first_name}" }.each do |worker, worker_assignments|
+            total_hours = 0
+            total_pay = 0
+            rates = []
+            events = []
             
-            # Get shift data with simple queries
-            shift = Shift.find(assignment.shift_id)
-            worker = Worker.find(assignment.worker_id)
-            
-            # Get event data if available
-            event_title = 'Unknown Event'
-            location = 'Unknown Location'
-            if shift.event_id
-              event = Event.find(shift.event_id)
-              event_title = event.title
-              location = event.venue&.name || 'Unknown Location'
+            # Calculate totals for this worker
+            worker_assignments.each do |assignment|
+              hours = assignment.hours_worked || 0
+              rate = assignment.hourly_rate || 15.0
+              
+              total_hours += hours
+              total_pay += (hours * rate)
+              rates << rate
+              
+              # Get event name
+              shift = assignment.shift
+              event_title = shift.event&.title || shift.client_name || 'Unknown Event'
+              events << event_title unless events.include?(event_title)
             end
             
+            avg_rate = rates.empty? ? 0 : (rates.sum / rates.size.to_f).round(2)
+            
+            grand_total_hours += total_hours
+            grand_total_pay += total_pay
+            total_shifts += worker_assignments.size
+            
             csv << [
-              shift.start_time_utc.strftime('%m/%d/%Y'),
-              event_title,
-              location,
-              shift.role_needed,
-              "#{worker.first_name} #{worker.last_name}",
+              "#{worker.last_name}, #{worker.first_name}",
               total_hours.round(2),
-              effective_rate.round(2),
-              total_pay.round(2)
+              "$#{avg_rate}",
+              "$#{total_pay.round(2)}",
+              worker_assignments.size,
+              events.join('; ')
             ]
           end
+          
+          # Add blank row before totals
+          csv << []
+          
+          # Add grand totals row
+          csv << ['GRAND TOTAL', grand_total_hours.round(2), '', "$#{grand_total_pay.round(2)}", total_shifts, '']
         end
       end
       
