@@ -245,7 +245,7 @@ export function DashboardPage() {
   
   const handleDayClick = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    navigate(`/events?tab=active&date=${dateStr}&filter=needs_workers`);
+    navigate(`/events?tab=active&date=${dateStr}`);
   };
   
   if (loading) {

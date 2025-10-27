@@ -159,7 +159,7 @@ export function EventsPage() {
   
   useEffect(() => {
     loadEvents();
-  }, [activeTab, filterStatus]);
+  }, [activeTab, filterStatus, searchParams]);
 
   // Sync URL parameters with state
   useEffect(() => {
@@ -198,11 +198,17 @@ export function EventsPage() {
     setLoading(true);
     try {
       const tabForApi = activeTab === 'completed' ? 'completed' : activeTab;
-      const url = `/events?tab=${tabForApi}${
-        filterStatus !== 'all' ? `&filter=${filterStatus}` : ''
-      }`;
+      const dateParam = searchParams.get('date');
       
-      console.log('Loading events with URL:', url, 'filterStatus:', filterStatus);
+      let url = `/events?tab=${tabForApi}`;
+      if (filterStatus !== 'all') {
+        url += `&filter=${filterStatus}`;
+      }
+      if (dateParam) {
+        url += `&date=${dateParam}`;
+      }
+      
+      console.log('Loading events with URL:', url, 'filterStatus:', filterStatus, 'date:', dateParam);
       
       const response = await apiClient.get(url);
       
@@ -447,19 +453,42 @@ export function EventsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Events</h1>
-            <p className="text-gray-600 mt-1">Manage events and assign workers</p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Events</h1>
+              <p className="text-gray-600 mt-1">Manage events and assign workers</p>
+            </div>
+            
+            <button
+              onClick={() => navigate('/events/create')}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+            >
+              <Plus size={20} />
+              Create New Event
+            </button>
           </div>
           
-          <button
-            onClick={() => navigate('/events/create')}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
-          >
-            <Plus size={20} />
-            Create New Event
-          </button>
+          {/* Date Filter Indicator */}
+          {searchParams.get('date') && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg">
+              <Calendar size={16} className="text-teal-600" />
+              <span className="text-sm font-medium text-teal-900">
+                Showing events for {format(parseISO(searchParams.get('date')!), 'EEEE, MMMM d, yyyy')}
+              </span>
+              <button
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.delete('date');
+                  setSearchParams(newParams);
+                }}
+                className="ml-auto text-teal-600 hover:text-teal-700"
+                title="Clear date filter"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
         </div>
         
         {/* Tabs */}
