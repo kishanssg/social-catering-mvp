@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
+import { X, Plus, Trash2, Save, Eye } from 'lucide-react';
 import { Modal } from './common/Modal';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
+import { EditEventSummaryModal } from './EditEventSummaryModal';
 import bartenderIcon from '../assets/icons/Skills/Bartender.svg';
 import banquetServerIcon from '../assets/icons/Skills/Banquet Server.svg';
 import captainIcon from '../assets/icons/Skills/Captain.svg';
@@ -47,6 +48,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const [roles, setRoles] = useState<SkillRequirement[]>([]);
   const [saving, setSaving] = useState(false);
   const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({
     isVisible: false,
     message: '',
@@ -183,6 +185,13 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
   const footerContent = (
     <div className="flex gap-2">
+      <button
+        onClick={() => setShowSummaryModal(true)}
+        className="btn-secondary inline-flex items-center gap-2"
+      >
+        <Eye size={16} />
+        View Summary
+      </button>
       <button
         onClick={onClose}
         disabled={saving}
@@ -363,6 +372,12 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, isVisible: false })}
+      />
+
+      <EditEventSummaryModal
+        eventId={event.id}
+        isOpen={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
       />
     </>
   );
