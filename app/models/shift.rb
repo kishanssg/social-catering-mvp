@@ -19,6 +19,7 @@ class Shift < ApplicationRecord
   validates :capacity, numericality: { greater_than: 0 }
   validates :status, inclusion: { in: %w[draft published archived] }
   validate :end_time_after_start_time
+  validate :same_calendar_day_as_event, if: -> { event_id.present? }
 
   scope :upcoming, -> { where("start_time_utc > ?", Time.current).order(:start_time_utc) }
   scope :past, -> { where("end_time_utc < ?", Time.current).order(start_time_utc: :desc) }
@@ -162,6 +163,17 @@ class Shift < ApplicationRecord
   def end_time_after_start_time
     if end_time_utc && start_time_utc && end_time_utc <= start_time_utc
       errors.add(:end_time_utc, "must be after start time")
+    end
+  end
+
+  def same_calendar_day_as_event
+    return unless event&.event_schedule
+    
+    event_date = event.event_schedule.start_time_utc.to_date
+    shift_date = start_time_utc.to_date
+    
+    if event_date != shift_date
+      errors.add(:start_time_utc, "must be on the same calendar day as the event (#{event_date}). Shift date is #{shift_date}")
     end
   end
 end
