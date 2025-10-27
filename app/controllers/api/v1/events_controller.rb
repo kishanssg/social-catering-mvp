@@ -122,17 +122,17 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # PATCH/PUT /api/v1/events/:id
   def update
-    # Allow editing published events only
-    unless @event.status == 'published'
+    # Allow editing published and draft events
+    unless %w[draft published].include?(@event.status)
       return render json: {
         status: 'error',
-        message: 'Only published events can be edited',
+        message: 'Only draft and published events can be edited',
         current_status: @event.status
       }, status: :unprocessable_entity
     end
     
-    # Check if event has started
-    if @event.event_schedule && @event.event_schedule.start_time_utc < Time.current
+    # Check if event has started (only for published events)
+    if @event.status == 'published' && @event.event_schedule && @event.event_schedule.start_time_utc < Time.current
       return render json: {
         status: 'error',
         message: "Cannot edit event that has already started at #{@event.event_schedule.start_time_utc.strftime('%I:%M %p')}"
