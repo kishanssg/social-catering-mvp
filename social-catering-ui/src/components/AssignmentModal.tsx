@@ -115,8 +115,12 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
               roleShifts.shifts.forEach((s: any) => {
                 if (s.assignments) {
                   s.assignments.forEach((assignment: any) => {
-                    if (assignment.worker_id && assignment.status !== 'cancelled' && assignment.status !== 'no_show') {
-                      assignedWorkerIds.add(assignment.worker_id);
+                    // Check for worker_id in multiple places (assignment.worker_id or assignment.worker.id)
+                    const workerId = assignment.worker_id || assignment.worker?.id;
+                    const status = assignment.status;
+                    
+                    if (workerId && status !== 'cancelled' && status !== 'no_show') {
+                      assignedWorkerIds.add(workerId);
                     }
                   });
                 }

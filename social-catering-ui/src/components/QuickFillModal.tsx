@@ -69,9 +69,13 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
                 if (shift.assignments) {
                   console.log('QuickFill: Shift has assignments:', shift.assignments);
                   shift.assignments.forEach((assignment: any) => {
-                    if (assignment.worker_id && assignment.status !== 'cancelled') {
-                      assignedWorkerIds.add(assignment.worker_id);
-                      console.log('QuickFill: Adding worker_id to exclude:', assignment.worker_id);
+                    // Check for worker_id in multiple places (assignment.worker_id or assignment.worker.id)
+                    const workerId = assignment.worker_id || assignment.worker?.id;
+                    const status = assignment.status;
+                    
+                    if (workerId && status !== 'cancelled') {
+                      assignedWorkerIds.add(workerId);
+                      console.log('QuickFill: Adding worker_id to exclude:', workerId, 'status:', status);
                     }
                   });
                 }
