@@ -686,6 +686,7 @@ export function WorkerCreatePage() {
                             />
                           </div>
                           <button
+                            type="button"
                             onClick={() => {
                               const newCerts = [...formData.worker_certifications_attributes];
                               if (newCerts[index].id) {
@@ -705,6 +706,7 @@ export function WorkerCreatePage() {
                     
                     <div className="relative">
                       <button
+                        type="button"
                         onClick={() => setShowCertDropdown(!showCertDropdown)}
                         className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                       >
@@ -716,8 +718,27 @@ export function WorkerCreatePage() {
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
                           {availableCertsFiltered.map((cert) => (
                             <button
+                              type="button"
                               key={cert.id}
                               onClick={() => {
+                                // Prevent duplicates; if exists and marked for destroy, unmark instead
+                                const existingIdx = formData.worker_certifications_attributes.findIndex(
+                                  (c) => c.certification_id === cert.id && !c._destroy
+                                );
+                                if (existingIdx !== -1) {
+                                  setShowCertDropdown(false);
+                                  return;
+                                }
+                                const resurrectIdx = formData.worker_certifications_attributes.findIndex(
+                                  (c) => c.certification_id === cert.id && c._destroy
+                                );
+                                if (resurrectIdx !== -1) {
+                                  const newCerts = [...formData.worker_certifications_attributes];
+                                  newCerts[resurrectIdx]._destroy = false;
+                                  setFormData({ ...formData, worker_certifications_attributes: newCerts });
+                                  setShowCertDropdown(false);
+                                  return;
+                                }
                                 setFormData({
                                   ...formData,
                                   worker_certifications_attributes: [
