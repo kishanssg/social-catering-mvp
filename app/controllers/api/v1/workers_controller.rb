@@ -63,21 +63,33 @@ module Api
       end
 
       def create
-        @worker = Worker.new(worker_params)
-        attach_photo(@worker)
-        if @worker.save
-          render json: { status: 'success', data: { worker: serialize_worker(@worker) } }, status: :created
-        else
-          render json: { status: 'error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+        begin
+          normalize_cert_params!
+          @worker = Worker.new(worker_params)
+          attach_photo(@worker)
+          if @worker.save
+            render json: { status: 'success', data: { worker: serialize_worker(@worker) } }, status: :created
+          else
+            render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+          end
+        rescue => e
+          Rails.logger.error "Workers#create failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
+          render json: { status: 'error', message: 'Unable to save worker', errors: [e.message] }, status: :unprocessable_entity
         end
       end
 
       def update
-        attach_photo(@worker)
-        if @worker.update(worker_params)
-          render json: { status: 'success', data: { worker: serialize_worker(@worker) } }
-        else
-          render json: { status: 'error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+        begin
+          normalize_cert_params!
+          attach_photo(@worker)
+          if @worker.update(worker_params)
+            render json: { status: 'success', data: { worker: serialize_worker(@worker) } }
+          else
+            render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+          end
+        rescue => e
+          Rails.logger.error "Workers#update failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
+          render json: { status: 'error', message: 'Unable to update worker', errors: [e.message] }, status: :unprocessable_entity
         end
       end
 
@@ -174,6 +186,34 @@ module Api
           certification_ids: [],
           worker_certifications_attributes: [:id, :certification_id, :expires_at_utc, :_destroy]
         )
+      end
+
+      # Accept dates like "YYYY-MM-DD" from the UI and coerce to UTC ISO8601
+      # so TIMESTAMPTZ columns are set correctly. Also drop empty rows.
+      def normalize_cert_params!
+        w = params[:worker]
+        return unless w
+        attrs = w[:worker_certifications_attributes]
+        return unless attrs.is_a?(ActionController::Parameters) || attrs.is_a?(Hash)
+        attrs.each do |_k, cert|
+          next unless cert
+          # Remove entirely if missing certification_id
+          if cert[:certification_id].blank?
+            cert[:_destroy] = true
+            next
+          end
+          val = cert[:expires_at_utc]
+          next if val.blank?
+          if val.is_a?(String) && val.match?(/^\d{4}-\d{2}-\d{2}$/)
+            # Interpret as local date end-of-day UTC
+            begin
+              t = Time.zone.parse(val).end_of_day.utc
+              cert[:expires_at_utc] = t.iso8601
+            rescue
+              # leave as-is; model validation will handle
+            end
+          end
+        end
       end
 
       def attach_photo(worker)
