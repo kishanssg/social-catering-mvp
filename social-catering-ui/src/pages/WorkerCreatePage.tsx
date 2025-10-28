@@ -147,11 +147,12 @@ export function WorkerCreatePage() {
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
           skills: worker.skills_json || [],
-          certifications: worker.worker_certifications?.map((wc: any) => ({
-            certification_id: wc.certification_id,
-            name: wc.certification?.name || '',
-            expires_at_utc: wc.expires_at_utc ? wc.expires_at_utc.split('T')[0] : ''
-          })) || []
+          // API returns `certifications` from serializer; align to form shape
+          certifications: (worker.certifications || []).map((c: any) => ({
+            certification_id: c.id,
+            name: c.name || '',
+            expires_at_utc: c.expires_at_utc ? String(c.expires_at_utc).split('T')[0] : ''
+          }))
         });
         if (worker.profile_photo_url) setPhotoPreview(worker.profile_photo_url);
       }
