@@ -42,12 +42,8 @@ interface WorkerForm {
   }>;
 }
 
-const PRESET_CERTIFICATIONS = [
-  { id: 79, name: 'Food Handler Certificate' },
-  { id: 78, name: 'ServSafe' },
-  { id: 80, name: 'TIPS Certification' },
-  { id: 77, name: 'Alcohol Service License' },
-];
+// Global certifications list fetched from API
+interface Certification { id: number; name: string }
 
 export function WorkerCreatePage() {
   const { id } = useParams();
@@ -61,6 +57,7 @@ export function WorkerCreatePage() {
   const [loading, setLoading] = useState(false);
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
   const [showCertDropdown, setShowCertDropdown] = useState(false);
+  const [certificationsCatalog, setCertificationsCatalog] = useState<Certification[]>([]);
   
   const [formData, setFormData] = useState<WorkerForm>({
     first_name: '',
@@ -129,6 +126,17 @@ export function WorkerCreatePage() {
   };
   
   useEffect(() => {
+    // Load global certifications for consistent selection everywhere
+    (async () => {
+      try {
+        const res = await apiClient.get('/certifications');
+        const list = res.data?.data || res.data || [];
+        setCertificationsCatalog(list);
+      } catch (e) {
+        console.error('Failed to load certifications catalog', e);
+      }
+    })();
+
     if (isEditMode) {
       loadWorker();
     }
@@ -261,7 +269,7 @@ export function WorkerCreatePage() {
   }
   
   
-  const availableCertsFiltered = PRESET_CERTIFICATIONS.filter(
+  const availableCertsFiltered = certificationsCatalog.filter(
     cert => !formData.worker_certifications_attributes.some(c => c.certification_id === cert.id && !c._destroy)
   );
 
@@ -649,7 +657,7 @@ export function WorkerCreatePage() {
                           <div className="flex-1">
                             <input
                               type="text"
-                              value={cert.name || PRESET_CERTIFICATIONS.find(c => c.id === cert.certification_id)?.name || ''}
+                              value={cert.name || certificationsCatalog.find(c => c.id === cert.certification_id)?.name || ''}
                               onChange={(e) => {
                                 const newCerts = [...formData.worker_certifications_attributes];
                                 newCerts[index].name = e.target.value;
