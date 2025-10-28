@@ -7,8 +7,8 @@
     "chunks:check": "node social-catering-ui/scripts/check-chunks.js",
     "routes:gen": "bundle exec rake export:routes_json && tsx scripts/generate-routes.ts",
     "audit:api": "tsx scripts/audit-api-paths.ts",
-    "test:smoke": "API_BASE=\"https://sc-mvp-staging.herokuapp.com\" tsx scripts/smoke-endpoints.ts",
-    "probe:session": "API_BASE=\"https://sc-mvp-staging.herokuapp.com\" ADMIN_EMAIL=\"natalie@socialcatering.com\" ADMIN_PASSWORD=\"TempPassword123!\" tsx scripts/probe-session.ts",
+    "test:smoke": "tsx scripts/smoke-endpoints.ts",
+    "probe:session": "tsx scripts/probe-session.ts",
     "deploy": "./scripts/deploy-heroku.sh"
   },
   "engines": {
@@ -17,6 +17,7 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/glob": "^8.1.0",
+    "axios": "^1.13.0",
     "glob": "^11.0.3",
     "playwright": "^1.56.1",
     "tsx": "^4.20.6"
