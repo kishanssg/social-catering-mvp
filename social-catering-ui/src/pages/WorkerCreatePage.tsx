@@ -62,7 +62,7 @@ export function WorkerCreatePage() {
     first_name: '',
     last_name: '',
     email: '',
-    phone: '123-456-7890',
+    phone: '',
     address_line1: '',
     address_line2: '',
     profile_photo_url: '',
@@ -93,10 +93,15 @@ export function WorkerCreatePage() {
   };
 
   const validatePhone = (phone: string): boolean => {
-    // Accept formats: 123-456-7890, (123) 456-7890, 123.456.7890, or simple digits
-    const phoneRegex = /^[\d\s\-\(\)\.]+$/;
+    // Only accept digits (no hyphens, spaces, or special characters)
     const digitsOnly = phone.replace(/\D/g, '');
-    return phoneRegex.test(phone) && digitsOnly.length >= 10 && digitsOnly.length <= 15;
+    return digitsOnly.length >= 10 && digitsOnly.length <= 15;
+  };
+  
+  const handlePhoneChange = (value: string) => {
+    // Strip out all non-numeric characters
+    const digitsOnly = value.replace(/\D/g, '');
+    setFormData({ ...formData, phone: digitsOnly });
   };
 
   // Available skills with icons (matching CreateEventWizard)
@@ -137,7 +142,7 @@ export function WorkerCreatePage() {
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
           email: worker.email || '',
-          phone: worker.phone || '123-456-7890',
+          phone: worker.phone ? worker.phone.replace(/\D/g, '') : '',
           address_line1: worker.address_line1 || '',
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
@@ -281,7 +286,7 @@ export function WorkerCreatePage() {
         break;
       case 'phone':
         if (value.length > 0 && !validatePhone(value)) {
-          errors.phone = 'Please enter a valid phone number (e.g., 123-456-7890)';
+          errors.phone = 'Please enter a valid phone number (10-15 digits only, no hyphens or spaces)';
         } else {
           delete errors.phone;
         }
@@ -397,12 +402,12 @@ export function WorkerCreatePage() {
                     <input
                       type="tel"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
                       onBlur={() => validateField('phone', formData.phone)}
                       className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
                         fieldErrors.phone ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
                       }`}
-                      placeholder="123-456-7890"
+                      placeholder="1234567890"
                     />
                     {fieldErrors.phone && (
                       <p className="text-sm text-red-600">{fieldErrors.phone}</p>
