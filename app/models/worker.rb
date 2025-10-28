@@ -10,11 +10,17 @@ class Worker < ApplicationRecord
 
   validates :first_name, :last_name, presence: true
   validates :email, uniqueness: true, allow_nil: true, format: { with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address" }
+  validates :phone, format: { 
+    with: /\A\d{10,15}\z/, 
+    message: "must be 10-15 digits only (no hyphens, spaces, or special characters)",
+    allow_nil: true 
+  }
 
   scope :active, -> { where(active: true) }
   scope :with_skill, ->(skill) { where("skills_json @> ?", [skill].to_json) }
 
   before_save :sync_skills_tsvector
+  before_save :normalize_phone
 
   # Attach profile photo via Active Storage
   has_one_attached :profile_photo
@@ -69,6 +75,12 @@ class Worker < ApplicationRecord
   end
 
   private
+
+  def normalize_phone
+    return if phone.blank?
+    # Strip all non-numeric characters
+    self.phone = phone.to_s.gsub(/\D/, '')
+  end
 
   def sync_skills_tsvector
     skills_array = case skills_json
