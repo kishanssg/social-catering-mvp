@@ -1,3 +1,5 @@
+require 'set'
+
 module Api
   module V1
     class WorkersController < BaseController
