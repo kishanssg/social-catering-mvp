@@ -712,12 +712,16 @@ interface DraftEventsTabProps {
 function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }: DraftEventsTabProps) {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'No date set';
-    return format(parseISO(dateString), 'MMM d, yyyy');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'MMM d, yyyy');
   };
   
   const formatTime = (dateString?: string) => {
     if (!dateString) return '';
-    return format(parseISO(dateString), 'h:mm a');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'h:mm a');
   };
   
   if (events.length === 0) {
@@ -853,11 +857,15 @@ function ActiveEventsTab({
   searchQuery 
 }: ActiveEventsTabProps) {
   const formatDate = (dateString: string) => {
-    return format(parseISO(dateString), 'EEE, MMM d, yyyy');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'EEE, MMM d, yyyy');
   };
   
   const formatTime = (dateString: string) => {
-    return format(parseISO(dateString), 'h:mm a');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'h:mm a');
   };
   
   const getStatusBadge = (status: string) => {
@@ -1211,11 +1219,15 @@ interface PastEventsTabProps {
 
 function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: PastEventsTabProps) {
   const formatDate = (dateString: string) => {
-    return format(parseISO(dateString), 'MMM d, yyyy');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'MMM d, yyyy');
   };
   
   const formatTime = (dateString: string) => {
-    return format(parseISO(dateString), 'h:mm a');
+    // Parse UTC ISO string and format in local timezone
+    const date = parseISO(dateString);
+    return format(date, 'h:mm a');
   };
   
   if (events.length === 0) {
