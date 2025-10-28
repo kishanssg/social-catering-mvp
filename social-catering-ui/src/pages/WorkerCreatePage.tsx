@@ -150,6 +150,13 @@ export function WorkerCreatePage() {
       if (response.data.status === 'success') {
         // The API returns { data: { worker: {...} }, status: "success" }
         const worker = response.data.data.worker;
+        // Normalize certifications: handle both worker.worker_certifications (array/object) and worker.certifications
+        const rawCerts = Array.isArray(worker?.worker_certifications)
+          ? worker.worker_certifications
+          : Array.isArray(worker?.certifications)
+            ? worker.certifications
+            : [];
+        const normalizedCerts = Array.isArray(rawCerts) ? rawCerts : [];
         setFormData({
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
@@ -160,10 +167,10 @@ export function WorkerCreatePage() {
           profile_photo_url: worker.profile_photo_url || '',
           skills: worker.skills_json || [],
           // Map existing worker_certifications (if present in API) into nested attributes
-          worker_certifications_attributes: (worker.worker_certifications || []).map((wc: any) => ({
+          worker_certifications_attributes: normalizedCerts.map((wc: any) => ({
             id: wc.id,
-            certification_id: wc.certification?.id ?? wc.certification_id,
-            name: wc.certification?.name,
+            certification_id: wc.certification?.id ?? wc.certification_id ?? wc.id,
+            name: wc.certification?.name ?? wc.name,
             expires_at_utc: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : '',
             _destroy: false
           }))
@@ -269,9 +276,12 @@ export function WorkerCreatePage() {
   }
   
   
-  const availableCertsFiltered = certificationsCatalog.filter(
-    cert => !formData.worker_certifications_attributes.some(c => c.certification_id === cert.id && !c._destroy)
-  );
+  const availableCertsFiltered = (certificationsCatalog || []).filter((cert) => {
+    const certs = Array.isArray(formData.worker_certifications_attributes)
+      ? formData.worker_certifications_attributes
+      : [];
+    return !certs.some((c) => c.certification_id === cert.id && !c._destroy);
+  });
 
   // Define steps similar to CreateEventWizard
   const steps = [
@@ -652,7 +662,10 @@ export function WorkerCreatePage() {
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium text-font-primary">Certifications</label>
                     <div className="space-y-3">
-                      {formData.worker_certifications_attributes.map((cert, index) => (
+                      {(Array.isArray(formData.worker_certifications_attributes)
+                        ? formData.worker_certifications_attributes
+                        : []
+                      ).map((cert, index) => (
                         <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1">
                             <select
