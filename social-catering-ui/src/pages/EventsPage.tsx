@@ -633,7 +633,7 @@ export function EventsPage() {
         onClose={closePublishModal}
         onConfirm={confirmPublish}
         title="Publish Event"
-        message="Publish this event? This will create shifts and make them available for staffing."
+        message="Ready to publish? This will create shifts and make them available for worker assignment."
         confirmText={publishModal.isLoading ? 'Publishing…' : 'Publish'}
         cancelText="Cancel"
         isLoading={publishModal.isLoading}
@@ -659,7 +659,7 @@ export function EventsPage() {
         onClose={closeDeleteModal}
         onConfirm={confirmDelete}
         title="Delete Event"
-        message={`Are you sure you want to delete "${deleteModal.eventTitle}"? This action cannot be undone.`}
+        message={`Delete "${deleteModal.eventTitle}"? This action cannot be undone.`}
         confirmText={deleteModal.isLoading ? 'Deleting…' : 'Delete'}
         cancelText="Cancel"
         isLoading={deleteModal.isLoading}

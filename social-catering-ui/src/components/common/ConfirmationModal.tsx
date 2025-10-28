@@ -139,7 +139,6 @@ export function ConfirmationModal({
             {workerName && (
               <span className="font-bold text-gray-900"> {workerName}</span>
             )}
-            ?
           </p>
         </div>
 
