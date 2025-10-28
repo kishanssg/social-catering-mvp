@@ -91,7 +91,7 @@ export function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const initialTab = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
-  const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
+  const initialFilter = (searchParams.get('filter') as FilterType) || 'needs_workers'; // Default to needs_workers filter
   
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [filterStatus, setFilterStatus] = useState<FilterType>(initialFilter);
@@ -226,7 +226,8 @@ export function EventsPage() {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setSearchParams({ tab });
-    setFilterStatus('all');
+    // Only set needs_workers filter for active tab, otherwise no filter
+    setFilterStatus(tab === 'active' ? 'needs_workers' : 'all');
   };
   
   const handleFilterChange = (filter: FilterType) => {
@@ -551,16 +552,6 @@ export function EventsPage() {
           {activeTab === 'active' && (
             <div className="flex gap-2">
               <button
-                onClick={() => handleFilterChange('all')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
-                  filterStatus === 'all'
-                    ? 'bg-teal-100 text-teal-700'
-                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                All
-              </button>
-              <button
                 onClick={() => handleFilterChange('needs_workers')}
                 className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
                   filterStatus === 'needs_workers'
@@ -569,26 +560,6 @@ export function EventsPage() {
                 }`}
               >
                 Needs Workers
-              </button>
-              <button
-                onClick={() => handleFilterChange('partially_filled')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
-                  filterStatus === 'partially_filled'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                Partial
-              </button>
-              <button
-                onClick={() => handleFilterChange('fully_staffed')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
-                  filterStatus === 'fully_staffed'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                Ready
               </button>
             </div>
           )}
