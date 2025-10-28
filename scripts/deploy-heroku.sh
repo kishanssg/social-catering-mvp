@@ -134,6 +134,28 @@ API_BASE="$APP_URL" npm run test:smoke || true
 
 echo "\n✅ Smoke tests complete\n"
 
+# Step 10.5: Remote chunk integrity (ensure deployed index.html references valid assets)
+echo "Step 10.5: Verifying remote chunk integrity..."
+REMOTE_INDEX=$(curl -fsSL "$APP_URL/index.html" || true)
+if [ -z "$REMOTE_INDEX" ]; then
+  echo "❌ Could not fetch $APP_URL/index.html"
+  exit 1
+fi
+REMOTE_ASSETS=$(printf "%s" "$REMOTE_INDEX" | grep -o 'assets/[^"'"'"']*\\.js' | sort -u)
+REMOTE_MISSING=0
+for f in $REMOTE_ASSETS; do
+  if ! curl -fsSI "$APP_URL/$f" >/dev/null; then
+    echo "❌ 404 for $f"
+    REMOTE_MISSING=1
+  fi
+done
+if [ "$REMOTE_MISSING" = "1" ]; then
+  echo "❌ Deployed index.html references missing chunks. Rebuilding + syncing again is required."
+  exit 1
+else
+  echo "✅ Remote chunk integrity passed"
+fi
+
 # Step 11: Session probe
 echo "Step 11: Probing session handshake..."
 API_BASE="$APP_URL" \
