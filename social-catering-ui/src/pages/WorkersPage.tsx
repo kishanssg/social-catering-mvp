@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { Avatar } from '../components/common/Avatar';
 import { EmptyState } from '../components/common/EmptyState';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { Toast } from '../components/common/Toast';
@@ -396,25 +397,11 @@ export function WorkersPage() {
                   >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                          {worker.profile_photo_url ? (
-                            <img
-                              src={worker.profile_photo_url}
-                              alt={`${worker.first_name} ${worker.last_name}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Hide broken image and show initials fallback
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const fallback = target.parentElement?.querySelector('.initials-fallback') as HTMLElement;
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                          ) : null}
-                          <div className={`initials-fallback ${worker.profile_photo_url ? 'hidden' : 'flex'} w-full h-full items-center justify-center text-gray-600 font-medium`}>
-                            {(worker.first_name || 'U')[0]}{(worker.last_name || 'W')[0]}
-                          </div>
-                        </div>
+                        <Avatar
+                          name={`${worker.first_name || 'Unknown'} ${worker.last_name || 'Worker'}`}
+                          src={worker.profile_photo_url}
+                          size={40}
+                        />
                         <div>
                           <p className="font-medium text-gray-900">
                             {worker.first_name || 'Unknown'} {worker.last_name || 'Worker'}
