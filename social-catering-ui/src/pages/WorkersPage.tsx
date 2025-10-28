@@ -35,6 +35,7 @@ interface Worker {
   phone?: string;
   active: boolean;
   skills_json: string[];
+  profile_photo_url?: string;
   certifications?: Array<{
     id: number;
     name: string;
@@ -395,7 +396,24 @@ export function WorkersPage() {
                   >
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
+                        {worker.profile_photo_url ? (
+                          <img 
+                            src={worker.profile_photo_url} 
+                            alt={`${worker.first_name} ${worker.last_name}`}
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              // Fallback to initials if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement?.querySelector('.initials-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium ${worker.profile_photo_url ? 'initials-fallback hidden' : ''}`}
+                          style={{ display: worker.profile_photo_url ? 'none' : 'flex' }}
+                        >
                           {(worker.first_name || 'U')[0]}{(worker.last_name || 'W')[0]}
                         </div>
                         <div>
