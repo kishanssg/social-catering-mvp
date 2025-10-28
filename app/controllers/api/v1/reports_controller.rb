@@ -257,13 +257,13 @@ module Api
               shift.role_needed,
               assignment.hours_worked&.round(2) || 0,
               assignment.hourly_rate&.round(2) || 0,
-              assignment.total_payout.round(2)
+              assignment.total_payout
             ]
           end
           
-          # Add summary row
-          total_hours = assignments.sum(&:hours_worked)
-          total_pay = assignments.sum(&:total_payout)
+          # Add summary row - safely handle nil values
+          total_hours = assignments.sum { |a| a.hours_worked || 0 }
+          total_pay = assignments.sum { |a| a.total_payout || 0 }
           csv << []
           csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2)]
         end
