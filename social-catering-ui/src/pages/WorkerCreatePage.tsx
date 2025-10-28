@@ -655,17 +655,23 @@ export function WorkerCreatePage() {
                       {formData.worker_certifications_attributes.map((cert, index) => (
                         <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1">
-                            <input
-                              type="text"
-                              value={cert.name || certificationsCatalog.find(c => c.id === cert.certification_id)?.name || ''}
+                            <select
+                              value={cert.certification_id || ''}
                               onChange={(e) => {
+                                const selectedId = parseInt(e.target.value || '0', 10);
+                                const selected = certificationsCatalog.find(c => c.id === selectedId);
                                 const newCerts = [...formData.worker_certifications_attributes];
-                                newCerts[index].name = e.target.value;
+                                newCerts[index].certification_id = selectedId;
+                                newCerts[index].name = selected?.name || '';
                                 setFormData({ ...formData, worker_certifications_attributes: newCerts });
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                              placeholder="Certification name"
-                            />
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                            >
+                              <option value="">Select certification…</option>
+                              {certificationsCatalog.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                              ))}
+                            </select>
                           </div>
                           <div className="flex-1">
                             <input
