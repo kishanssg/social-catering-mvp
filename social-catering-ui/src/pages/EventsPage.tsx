@@ -552,6 +552,16 @@ export function EventsPage() {
           {activeTab === 'active' && (
             <div className="flex gap-2">
               <button
+                onClick={() => handleFilterChange('all')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'all'
+                    ? 'bg-gray-100 text-gray-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                All
+              </button>
+              <button
                 onClick={() => handleFilterChange('needs_workers')}
                 className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
                   filterStatus === 'needs_workers'
