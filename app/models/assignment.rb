@@ -168,39 +168,17 @@ class Assignment < ApplicationRecord
   end
 
   def worker_has_valid_certification
-    return if shift.nil? || worker.nil?
-    
-    # Check if shift requires a certification
-    required_cert_name = nil
-    
-    if shift.required_cert&.name.present?
-      # Shift has direct certification requirement
-      required_cert_name = shift.required_cert.name
-    elsif shift.skill_requirement&.certification_name.present?
-      # Event skill requirement specifies certification
-      required_cert_name = shift.skill_requirement.certification_name
-    end
-    
-    return if required_cert_name.blank?
-    
-    # Find worker's certification with this name (pick the one with latest expiry if multiple)
-    worker_cert = worker.worker_certifications
-                        .joins(:certification)
-                        .where(certifications: { name: required_cert_name })
-                        .order(expires_at_utc: :desc)
-                        .first
-    
-    if worker_cert.nil?
-      errors.add(:base, "Worker does not have required certification: #{required_cert_name}")
+    return if shift.nil? || worker.nil? || shift.required_cert_id.blank?
+
+    req_name = shift.required_cert&.name || 'required certification'
+    wc = worker.worker_certifications.find_by(certification_id: shift.required_cert_id)
+    if wc.nil?
+      errors.add(:base, "Worker does not have required certification: #{req_name}")
       return
     end
-    
-    # If present but expired relative to shift end, give a precise message
-    if worker_cert.expires_at_utc && worker_cert.expires_at_utc < shift.end_time_utc
-      errors.add(
-        :base,
-        "Worker's #{required_cert_name} expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends"
-      )
+
+    if wc.expires_at_utc && wc.expires_at_utc < shift.end_time_utc
+      errors.add(:base, "Worker's #{req_name} expires on #{wc.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends")
     end
   end
 

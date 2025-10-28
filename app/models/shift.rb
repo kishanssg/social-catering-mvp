@@ -116,22 +116,13 @@ class Shift < ApplicationRecord
       return false unless worker_skills.include?(required_skill)
     end
 
-    # Check certification requirements
-    required_cert_name = nil
-    if required_cert&.name.present?
-      required_cert_name = required_cert.name
-    elsif skill_requirement&.certification_name.present?
-      required_cert_name = skill_requirement.certification_name
-    end
-
-    if required_cert_name.present?
-      worker_cert = worker.worker_certifications
-                          .joins(:certification)
-                          .where(certifications: { name: required_cert_name })
-                          .first
-      
-      return false if worker_cert.nil?
-      return false if worker_cert.expires_at_utc && worker_cert.expires_at_utc < end_time_utc
+    # Certification check (ID-based only)
+    if required_cert_id.present?
+      has_valid = worker.worker_certifications
+                        .where(certification_id: required_cert_id)
+                        .where('expires_at_utc IS NULL OR expires_at_utc >= ?', end_time_utc)
+                        .exists?
+      return false unless has_valid
     end
 
     true
@@ -173,26 +164,13 @@ class Shift < ApplicationRecord
       end
     end
 
-    # Check certification requirements
-    required_cert_name = nil
-    if required_cert&.name.present?
-      required_cert_name = required_cert.name
-    elsif skill_requirement&.certification_name.present?
-      required_cert_name = skill_requirement.certification_name
-    end
-
-    if required_cert_name.present?
-      worker_cert = worker.worker_certifications
-                          .joins(:certification)
-                          .where(certifications: { name: required_cert_name })
-                          .first
-      
-      if worker_cert.nil?
-        return "Worker does not have required certification: #{required_cert_name}"
-      end
-      
-      if worker_cert.expires_at_utc && worker_cert.expires_at_utc < end_time_utc
-        return "Worker's certification '#{required_cert_name}' expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends on #{end_time_utc.strftime('%m/%d/%Y')}"
+    # Certification check (ID-based only)
+    if required_cert_id.present?
+      req_name = required_cert&.name || 'required certification'
+      wc = worker.worker_certifications.find_by(certification_id: required_cert_id)
+      return "Worker does not have required certification: #{req_name}" if wc.nil?
+      if wc.expires_at_utc && wc.expires_at_utc < end_time_utc
+        return "Worker's certification '#{req_name}' expires on #{wc.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends on #{end_time_utc.strftime('%m/%d/%Y')}"
       end
     end
 
