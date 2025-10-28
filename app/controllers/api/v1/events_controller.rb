@@ -241,10 +241,17 @@ class Api::V1::EventsController < Api::V1::BaseController
   def destroy
     # Instead of destroying, move to deleted status for potential undo
     begin
-      @event.update!(status: 'deleted')
+      ActiveRecord::Base.transaction do
+        # Mark all assignments as cancelled to free up workers
+        @event.assignments.update_all(status: 'cancelled')
+        
+        # Set event to deleted status
+        @event.update!(status: 'deleted')
+      end
+      
       render json: { 
         status: 'success',
-        message: 'Event moved to trash',
+        message: 'Event moved to trash and all assignments cancelled',
         event_id: @event.id,
         event_title: @event.title
       }
