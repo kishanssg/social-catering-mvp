@@ -130,8 +130,8 @@ export function WorkerCreatePage() {
     (async () => {
       try {
         const res = await apiClient.get('/certifications');
-        const list = res.data?.data || res.data || [];
-        setCertificationsCatalog(list);
+        const list = res.data?.data?.certifications || res.data?.certifications || [];
+        setCertificationsCatalog(Array.isArray(list) ? list : []);
       } catch (e) {
         console.error('Failed to load certifications catalog', e);
       }
