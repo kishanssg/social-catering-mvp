@@ -287,7 +287,7 @@ export function EventsPage() {
       } else {
         setToast({ 
           isVisible: true, 
-          message: response.data.message || 'Failed to delete event', 
+          message: response.data.message || 'Unable to delete event', 
           type: 'error' 
         });
       }
@@ -295,7 +295,7 @@ export function EventsPage() {
       console.error('Failed to delete event:', error);
       setToast({ 
         isVisible: true, 
-        message: 'Failed to delete event', 
+        message: 'Unable to delete event', 
         type: 'error' 
       });
     } finally {
@@ -317,7 +317,7 @@ export function EventsPage() {
       } else {
         setToast({ 
           isVisible: true, 
-          message: response.data.message || 'Failed to restore event', 
+          message: response.data.message || 'Unable to restore event', 
           type: 'error' 
         });
       }
@@ -325,7 +325,7 @@ export function EventsPage() {
       console.error('Failed to restore event:', error);
       setToast({ 
         isVisible: true, 
-        message: 'Failed to restore event', 
+        message: 'Unable to restore event', 
         type: 'error' 
       });
     }
@@ -345,16 +345,16 @@ export function EventsPage() {
     try {
       const response = await apiClient.post(`/events/${publishModal.eventId}/publish`);
       if (response.data.status === 'success') {
-        setToast({ isVisible: true, message: response.data.message || 'Event published', type: 'success' });
+        setToast({ isVisible: true, message: 'Event published successfully', type: 'success' });
         setPublishModal({ isOpen: false, isLoading: false });
         loadEvents();
       } else {
-        setToast({ isVisible: true, message: response.data.message || 'Failed to publish event', type: 'error' });
+        setToast({ isVisible: true, message: response.data.message || 'Unable to publish event', type: 'error' });
         setPublishModal({ isOpen: false, isLoading: false });
       }
     } catch (error) {
       console.error('Failed to publish event:', error);
-      setToast({ isVisible: true, message: 'Failed to publish event', type: 'error' });
+      setToast({ isVisible: true, message: 'Unable to publish event', type: 'error' });
       setPublishModal({ isOpen: false, isLoading: false });
     }
   }
@@ -374,16 +374,16 @@ export function EventsPage() {
     try {
       const response = await apiClient.delete(`/staffing/${unassignModal.assignmentId}`);
       if (response.data?.status === 'success') {
-        setToast({ isVisible: true, message: 'Worker unassigned', type: 'success' });
+        setToast({ isVisible: true, message: 'Worker unassigned successfully', type: 'success' });
         setUnassignModal({ isOpen: false, isLoading: false });
         loadEvents();
       } else {
-        setToast({ isVisible: true, message: response.data?.message || 'Failed to unassign worker', type: 'error' });
+        setToast({ isVisible: true, message: response.data?.message || 'Unable to unassign worker', type: 'error' });
         setUnassignModal({ isOpen: false, isLoading: false });
       }
     } catch (error) {
       console.error('Failed to unassign worker:', error);
-      setToast({ isVisible: true, message: 'Failed to unassign worker', type: 'error' });
+      setToast({ isVisible: true, message: 'Unable to unassign worker', type: 'error' });
       setUnassignModal({ isOpen: false, isLoading: false });
     }
   }
@@ -400,7 +400,7 @@ export function EventsPage() {
     closeAssignmentModal();
     setToast({
       isVisible: true,
-      message: 'Worker assigned successfully',
+      message: 'Worker assigned',
       type: 'success'
     });
     loadEvents();
