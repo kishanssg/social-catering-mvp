@@ -4,6 +4,7 @@ module Api
   module V1
     class WorkersController < BaseController
       before_action :set_worker, only: [:show, :update, :destroy]
+      before_action :normalize_cert_params!, only: [:create, :update]
 
       def index
         # Start with all workers
@@ -61,19 +62,44 @@ module Api
       end
 
       def show
-        render json: { status: 'success', data: { worker: serialize_worker(@worker) } }
+        render json: {
+          status: 'success',
+          data: {
+            worker: @worker.as_json(
+              include: {
+                worker_certifications: {
+                  include: { certification: { only: [:id, :name] } }
+                }
+              }
+            )
+          }
+        }
       end
 
       def create
         begin
-          normalize_cert_params!
           @worker = Worker.new(worker_params)
           attach_photo(@worker)
           if @worker.save
-            render json: { status: 'success', data: { worker: serialize_worker(@worker) } }, status: :created
+            render json: {
+              status: 'success',
+              data: {
+                worker: @worker.as_json(
+                  include: {
+                    worker_certifications: {
+                      include: { certification: { only: [:id, :name] } }
+                    }
+                  }
+                )
+              }
+            }, status: :created
           else
             render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
           end
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { status: 'validation_error', errors: [e.message] }, status: :unprocessable_entity
+        rescue PG::UniqueViolation => e
+          render json: { status: 'error', errors: ["Duplicate certification detected for this worker"], message: e.message }, status: :unprocessable_entity
         rescue => e
           Rails.logger.error "Workers#create failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
           render json: { status: 'error', message: 'Unable to save worker', errors: [e.message] }, status: :unprocessable_entity
@@ -82,13 +108,27 @@ module Api
 
       def update
         begin
-          normalize_cert_params!
           attach_photo(@worker)
           if @worker.update(worker_params)
-            render json: { status: 'success', data: { worker: serialize_worker(@worker) } }
+            render json: {
+              status: 'success',
+              data: {
+                worker: @worker.as_json(
+                  include: {
+                    worker_certifications: {
+                      include: { certification: { only: [:id, :name] } }
+                    }
+                  }
+                )
+              }
+            }
           else
             render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
           end
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { status: 'validation_error', errors: [e.message] }, status: :unprocessable_entity
+        rescue PG::UniqueViolation => e
+          render json: { status: 'error', errors: ["Duplicate certification detected for this worker"], message: e.message }, status: :unprocessable_entity
         rescue => e
           Rails.logger.error "Workers#update failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
           render json: { status: 'error', message: 'Unable to update worker', errors: [e.message] }, status: :unprocessable_entity

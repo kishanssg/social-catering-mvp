@@ -1,4 +1,5 @@
 ## Social Catering – Staging Handout
+
 ### Staging info
 - URL: https://sc-mvp-staging-c6ef090c6c41.herokuapp.com
 - Test login: admin@socialcatering.com / Password123
@@ -37,4 +38,5 @@
   - GET /api/v1/reports/worker_hours?start_date&end_date&worker_id?&skill_name?
   - GET /api/v1/reports/event_summary?start_date&end_date&event_id?
   - Responses: CSV attachment with descriptive filename; 4xx/5xx → JSON { message }
+
 

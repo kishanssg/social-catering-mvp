@@ -178,11 +178,26 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       }
     } catch (error: any) {
       console.error('Failed to update event:', error);
-      setToast({
-        isVisible: true,
-        message: error.response?.data?.message || 'Failed to update event',
-        type: 'error'
-      });
+      // Friendly 422 banner rendering from structured conflicts
+      const data = error?.response?.data;
+      if (data?.status === 'validation_error' && data?.data?.conflicts?.length) {
+        const lines = data.data.conflicts.map((c: any) => {
+          const start = new Date(c.conflicting_shift_start_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          const end = new Date(c.conflicting_shift_end_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          return `${c.worker_name} conflicts with ${c.conflicting_event_title} (${start} – ${end})`;
+        });
+        setToast({
+          isVisible: true,
+          message: `Can't save changes: ${lines.length} worker${lines.length!==1?'s':''} would be double-booked\n• ` + lines.join('\n• '),
+          type: 'error'
+        });
+      } else {
+        setToast({
+          isVisible: true,
+          message: data?.message || 'Failed to update event',
+          type: 'error'
+        });
+      }
     } finally {
       setSaving(false);
     }

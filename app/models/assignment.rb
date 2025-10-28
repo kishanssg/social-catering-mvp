@@ -183,10 +183,11 @@ class Assignment < ApplicationRecord
     
     return if required_cert_name.blank?
     
-    # Find worker's certification with this name
+    # Find worker's certification with this name (pick the one with latest expiry if multiple)
     worker_cert = worker.worker_certifications
                         .joins(:certification)
                         .where(certifications: { name: required_cert_name })
+                        .order(expires_at_utc: :desc)
                         .first
     
     if worker_cert.nil?
@@ -194,9 +195,12 @@ class Assignment < ApplicationRecord
       return
     end
     
-    # Check if certification is expired
+    # If present but expired relative to shift end, give a precise message
     if worker_cert.expires_at_utc && worker_cert.expires_at_utc < shift.end_time_utc
-      errors.add(:base, "Worker's certification '#{required_cert_name}' expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends on #{shift.end_time_utc.strftime('%m/%d/%Y')}")
+      errors.add(
+        :base,
+        "Worker's #{required_cert_name} expires on #{worker_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends"
+      )
     end
   end
 

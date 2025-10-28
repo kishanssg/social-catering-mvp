@@ -172,6 +172,27 @@ class Api::V1::EventsController < Api::V1::BaseController
       }, status: :unprocessable_entity
     end
     
+    # If schedule change on a published event could create overlaps for existing assignees,
+    # fail fast with a clear 422 listing the conflicts (unless force=true)
+    if @event.status == 'published' && params.dig(:event, :schedule).present?
+      proposed_start = Time.iso8601(params[:event][:schedule][:start_time_utc]) rescue nil
+      proposed_end   = Time.iso8601(params[:event][:schedule][:end_time_utc]) rescue nil
+      if proposed_start && proposed_end && proposed_end <= proposed_start
+        return render json: { status: 'validation_error', errors: ['End time must be after start time'] }, status: :unprocessable_entity
+      end
+
+      if proposed_start && proposed_end && params[:force] != 'true'
+        conflicts = find_assignment_conflicts_for_schedule(@event, proposed_start, proposed_end)
+        if conflicts.any?
+          return render json: {
+            status: 'validation_error',
+            message: "Can't save changes: #{conflicts.size} #{'worker'.pluralize(conflicts.size)} would be double-booked",
+            data: { conflicts: conflicts }
+          }, status: :unprocessable_entity
+        end
+      end
+    end
+
     # Use ApplyRoleDiff service for role changes
     if params[:event][:roles].present?
       result = Events::ApplyRoleDiff.new(
@@ -374,6 +395,35 @@ class Api::V1::EventsController < Api::V1::BaseController
         raise e
       end
     end
+  end
+
+  # Build a user-friendly list of assignment conflicts if the event schedule
+  # is changed to [proposed_start, proposed_end). Each item includes
+  # worker_name, worker_id, conflicting_event_title and time window.
+  def find_assignment_conflicts_for_schedule(event, proposed_start, proposed_end)
+    conflicts = []
+    event.shifts.includes(assignments: :worker).each do |shift|
+      shift.assignments.where(status: ['assigned','confirmed']).each do |assignment|
+        worker = assignment.worker
+        # Look for other assignments for this worker that would now overlap
+        other_assignments = Assignment.joins(:shift)
+                                      .where(worker_id: worker.id)
+                                      .where.not(shifts: { event_id: event.id })
+                                      .where.not(status: ['cancelled','no_show'])
+                                      .where("shifts.start_time_utc < ? AND shifts.end_time_utc > ?", proposed_end, proposed_start)
+        next if other_assignments.empty?
+        other = other_assignments.first
+        conflicts << {
+          worker_name: "#{worker.first_name} #{worker.last_name}",
+          worker_id: worker.id,
+          conflicting_event_title: other.shift.event&.title || other.shift.client_name,
+          conflicting_shift_start_time_utc: other.shift.start_time_utc,
+          conflicting_shift_end_time_utc: other.shift.end_time_utc,
+          reason: 'overlaps existing assignment'
+        }
+      end
+    end
+    conflicts
   end
 
   def event_params

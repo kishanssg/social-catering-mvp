@@ -31,10 +31,14 @@ interface WorkerForm {
   address_line2: string;
   profile_photo_url: string;
   skills: string[];
-  certifications: Array<{
+  // Nested attributes array that backend expects
+  worker_certifications_attributes: Array<{
+    id?: number | null;
     certification_id: number;
-    name: string;
-    expires_at_utc: string;
+    expires_at_utc: string; // YYYY-MM-DD
+    _destroy?: boolean;
+    // local-only for UI rendering
+    name?: string;
   }>;
 }
 
@@ -67,7 +71,7 @@ export function WorkerCreatePage() {
     address_line2: '',
     profile_photo_url: '',
     skills: [],
-    certifications: []
+    worker_certifications_attributes: []
   });
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -147,11 +151,13 @@ export function WorkerCreatePage() {
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
           skills: worker.skills_json || [],
-          // API returns `certifications` from serializer; align to form shape
-          certifications: (worker.certifications || []).map((c: any) => ({
-            certification_id: c.id,
-            name: c.name || '',
-            expires_at_utc: c.expires_at_utc ? String(c.expires_at_utc).split('T')[0] : ''
+          // Map existing worker_certifications (if present in API) into nested attributes
+          worker_certifications_attributes: (worker.worker_certifications || []).map((wc: any) => ({
+            id: wc.id,
+            certification_id: wc.certification?.id ?? wc.certification_id,
+            name: wc.certification?.name,
+            expires_at_utc: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : '',
+            _destroy: false
           }))
         });
         if (worker.profile_photo_url) setPhotoPreview(worker.profile_photo_url);
@@ -206,13 +212,18 @@ export function WorkerCreatePage() {
       form.append('worker[address_line1]', formData.address_line1);
       form.append('worker[address_line2]', formData.address_line2);
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
-      // Only include certifications that have a valid expiration date
-      const certsToSend = formData.certifications.filter(
-        (c) => !!c.expires_at_utc && !!c.certification_id
-      );
-      certsToSend.forEach((c, i) => {
+      // Always include nested attributes entries; backend will handle _destroy and id mapping
+      formData.worker_certifications_attributes.forEach((c, i) => {
+        if (c.id != null) {
+          form.append(`worker[worker_certifications_attributes][${i}][id]`, String(c.id));
+        }
         form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
-        form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
+        if (c.expires_at_utc) {
+          form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
+        }
+        if (c._destroy) {
+          form.append(`worker[worker_certifications_attributes][${i}][_destroy]`, 'true');
+        }
       });
       if (photoFile) form.append('profile_photo', photoFile);
 
@@ -251,7 +262,7 @@ export function WorkerCreatePage() {
   
   
   const availableCertsFiltered = PRESET_CERTIFICATIONS.filter(
-    cert => !formData.certifications.some(c => c.certification_id === cert.id)
+    cert => !formData.worker_certifications_attributes.some(c => c.certification_id === cert.id && !c._destroy)
   );
 
   // Define steps similar to CreateEventWizard
@@ -633,16 +644,16 @@ export function WorkerCreatePage() {
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium text-font-primary">Certifications</label>
                     <div className="space-y-3">
-                      {formData.certifications.map((cert, index) => (
+                      {formData.worker_certifications_attributes.map((cert, index) => (
                         <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1">
                             <input
                               type="text"
-                              value={cert.name}
+                              value={cert.name || PRESET_CERTIFICATIONS.find(c => c.id === cert.certification_id)?.name || ''}
                               onChange={(e) => {
-                                const newCerts = [...formData.certifications];
+                                const newCerts = [...formData.worker_certifications_attributes];
                                 newCerts[index].name = e.target.value;
-                                setFormData({ ...formData, certifications: newCerts });
+                                setFormData({ ...formData, worker_certifications_attributes: newCerts });
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                               placeholder="Certification name"
@@ -653,15 +664,23 @@ export function WorkerCreatePage() {
                               type="date"
                               value={cert.expires_at_utc}
                               onChange={(e) => {
-                                const newCerts = [...formData.certifications];
+                                const newCerts = [...formData.worker_certifications_attributes];
                                 newCerts[index].expires_at_utc = e.target.value;
-                                setFormData({ ...formData, certifications: newCerts });
+                                setFormData({ ...formData, worker_certifications_attributes: newCerts });
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                             />
                           </div>
                           <button
-                            onClick={() => setFormData({ ...formData, certifications: formData.certifications.filter((_, i) => i !== index) })}
+                            onClick={() => {
+                              const newCerts = [...formData.worker_certifications_attributes];
+                              if (newCerts[index].id) {
+                                newCerts[index]._destroy = true;
+                              } else {
+                                newCerts.splice(index, 1);
+                              }
+                              setFormData({ ...formData, worker_certifications_attributes: newCerts });
+                            }}
                             className="text-red-600 hover:text-red-800"
                           >
                             <X size={16} />
@@ -685,7 +704,13 @@ export function WorkerCreatePage() {
                             <button
                               key={cert.id}
                               onClick={() => {
-                                setFormData({ ...formData, certifications: [...formData.certifications, { certification_id: cert.id, name: cert.name, expires_at_utc: '' }] });
+                                setFormData({
+                                  ...formData,
+                                  worker_certifications_attributes: [
+                                    ...formData.worker_certifications_attributes,
+                                    { id: null, certification_id: cert.id, name: cert.name, expires_at_utc: '', _destroy: false }
+                                  ]
+                                });
                                 setShowCertDropdown(false);
                               }}
                               className="w-full text-left px-4 py-2 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
