@@ -34,6 +34,7 @@ export function ReportsPage() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const inFlightRef = React.useRef(false);
   const [workers, setWorkers] = useState<Array<{ id: number; name: string; skills_json?: string[] }>>([]);
   const [events, setEvents] = useState<Array<{ id: number; title: string }>>([]);
   const [skills, setSkills] = useState<string[]>([]);
@@ -120,6 +121,8 @@ export function ReportsPage() {
   };
   
   async function handleExport(reportType: ReportType) {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     
     setExporting(true);
     
@@ -168,15 +171,25 @@ export function ReportsPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to export:', error);
-      setToast({
-        isVisible: true,
-        message: 'Failed to export report',
-        type: 'error'
-      });
+      // Attempt to read server error from blob
+      const blob = error?.response?.data as Blob | undefined;
+      try {
+        if (blob && typeof blob.text === 'function') {
+          const text = await blob.text();
+          const json = JSON.parse(text);
+          const msg = json?.message || (json?.errors && (Array.isArray(json.errors) ? json.errors.join(', ') : String(json.errors)));
+          setToast({ isVisible: true, message: msg || 'Failed to export report', type: 'error' });
+        } else {
+          setToast({ isVisible: true, message: error?.message || 'Failed to export report', type: 'error' });
+        }
+      } catch {
+        setToast({ isVisible: true, message: 'Failed to export report', type: 'error' });
+      }
     } finally {
       setExporting(false);
+      inFlightRef.current = false;
     }
   }
   
@@ -690,7 +703,7 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
           {icon}
         </div>
         <button
-          onClick={onExport}
+          onClick={(e) => { e.stopPropagation(); onExport(); }}
           disabled={exporting}
           className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
           title="Quick export"

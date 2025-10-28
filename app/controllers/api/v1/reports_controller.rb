@@ -23,7 +23,8 @@ module Api
         
         # Filter by skill if provided
         if params[:skill_name].present?
-          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+          skill = CGI.unescape(params[:skill_name].to_s)
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
         csv_data = generate_timesheet_csv(assignments)
@@ -32,6 +33,9 @@ module Api
                   filename: "weeklytimesheet_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
+      rescue => e
+        Rails.logger.error("Timesheet export failed: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
+        render json: { status: 'error', message: 'Failed to generate timesheet CSV' }, status: 500
       end
       
       # GET /api/v1/reports/payroll
@@ -52,7 +56,8 @@ module Api
         
         # Filter by skill if provided
         if params[:skill_name].present?
-          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+          skill = CGI.unescape(params[:skill_name].to_s)
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
         csv_data = generate_payroll_csv(assignments)
@@ -61,6 +66,9 @@ module Api
                   filename: "payrollsummary_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
+      rescue => e
+        Rails.logger.error("Payroll export failed: #{e.message}")
+        render json: { status: 'error', message: 'Failed to generate payroll CSV' }, status: 500
       end
       
       # GET /api/v1/reports/worker_hours
@@ -80,7 +88,8 @@ module Api
         
         # Filter by skill if provided
         if params[:skill_name].present?
-          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', params[:skill_name])
+          skill = CGI.unescape(params[:skill_name].to_s)
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
         csv_data = generate_worker_hours_csv(assignments)
@@ -89,6 +98,9 @@ module Api
                   filename: "workerhoursreport_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
+      rescue => e
+        Rails.logger.error("Worker hours export failed: #{e.message}")
+        render json: { status: 'error', message: 'Failed to generate worker hours CSV' }, status: 500
       end
       
       # GET /api/v1/reports/event_summary
