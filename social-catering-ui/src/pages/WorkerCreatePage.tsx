@@ -180,6 +180,20 @@ export function WorkerCreatePage() {
   async function handleSubmit() {
     setSubmitting(true);
     try {
+      // Frontend required field guard
+      validateField('first_name', formData.first_name);
+      validateField('last_name', formData.last_name);
+      validateField('email', formData.email);
+      validateField('phone', formData.phone);
+      const firstOk = formData.first_name.trim().length >= 2;
+      const lastOk = formData.last_name.trim().length >= 2;
+      const emailOk = !!formData.email.trim() && validateEmail(formData.email);
+      const phoneOk = !!formData.phone.trim() && validatePhone(formData.phone);
+      if (!firstOk || !lastOk || !emailOk || !phoneOk) {
+        setSubmitting(false);
+        return;
+      }
+
       const method = isEditMode ? 'PATCH' : 'POST';
       const url = isEditMode ? `/workers/${id}` : '/workers';
 
@@ -300,8 +314,8 @@ export function WorkerCreatePage() {
     if (currentStep === 'details') {
       const hasValidFirstName = formData.first_name.trim().length >= 2;
       const hasValidLastName = formData.last_name.trim().length >= 2;
-      const hasValidEmail = formData.email.trim() && validateEmail(formData.email);
-      const hasValidPhone = formData.phone.length === 0 || validatePhone(formData.phone);
+      const hasValidEmail = !!formData.email.trim() && validateEmail(formData.email);
+      const hasValidPhone = !!formData.phone.trim() && validatePhone(formData.phone);
       
       return hasValidFirstName && hasValidLastName && hasValidEmail && hasValidPhone;
     }

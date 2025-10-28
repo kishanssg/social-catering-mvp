@@ -9,12 +9,16 @@ class Worker < ApplicationRecord
   accepts_nested_attributes_for :worker_certifications, allow_destroy: true
 
   validates :first_name, :last_name, presence: true
-  validates :email, uniqueness: true, allow_nil: true, format: { with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address" }
-  validates :phone, format: { 
-    with: /\A\d{10,15}\z/, 
-    message: "must be 10-15 digits only (no hyphens, spaces, or special characters)",
-    allow_nil: true 
-  }
+  validates :email,
+            presence: true,
+            uniqueness: true,
+            format: { with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address" }
+  validates :phone, 
+            presence: true,
+            format: { 
+              with: /\A\d{10,15}\z/, 
+              message: "must be 10-15 digits only (no hyphens, spaces, or special characters)"
+            }
 
   scope :active, -> { where(active: true) }
   scope :with_skill, ->(skill) { where("skills_json @> ?", [skill].to_json) }

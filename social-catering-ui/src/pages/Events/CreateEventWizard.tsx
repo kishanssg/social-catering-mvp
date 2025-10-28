@@ -1583,7 +1583,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                           })}
                         </p>
                         <p className="text-sm text-font-primary">
-                          <span className="font-medium">Time:</span> {startTime} - {endTime}
+                          <span className="font-medium">Time:</span> {dayjs(`1970-01-01 ${startTime}`).format('h:mm a')} - {dayjs(`1970-01-01 ${endTime}`).format('h:mm a')}
                         </p>
                         {breakMinutes > 0 && (
                           <p className="text-sm text-font-primary">
