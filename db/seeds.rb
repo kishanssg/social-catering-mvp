@@ -16,15 +16,28 @@ if Rails.env.development?
   puts "✓ Data cleared"
 end
 
-# Use existing demo admins for created_by/assigned_by context
-preferred_admin_emails = [
-  'natalie@socialcatering.com',
-  'madison@socialcatering.com',
-  'sarah@socialcatering.com'
+# Create or find 3 admin users for Social Catering
+puts "\n👤 Creating admin users..."
+admin_credentials = [
+  { email: 'natalie@socialcatering.com', password: 'Password@123' },
+  { email: 'madison@socialcatering.com', password: 'Password@123' },
+  { email: 'sarah@socialcatering.com', password: 'Password@123' }
 ]
-admin = preferred_admin_emails.map { |e| User.find_by(email: e) }.compact.first || User.first
-raise "No admin users found. Please create demo admins first." unless admin
-puts "Using admin: #{admin.email} (id=#{admin.id})"
+
+admins = []
+admin_credentials.each do |cred|
+  admin = User.find_or_create_by!(email: cred[:email]) do |u|
+    u.password = cred[:password]
+    u.password_confirmation = cred[:password]
+    u.role = 'admin'
+  end
+  admins << admin
+  puts "  ✓ #{admin.email}"
+end
+
+# Use first admin as primary admin for seeds
+admin = admins.first
+puts "Using primary admin: #{admin.email} (id=#{admin.id})"
 
 # ===== VENUES =====
 puts "\nCreating venues..."
