@@ -120,14 +120,6 @@ export function ReportsPage() {
   };
   
   async function handleExport(reportType: ReportType) {
-    if (!selectedReport) {
-      setToast({
-        isVisible: true,
-        message: 'Please select a report type first',
-        type: 'error'
-      });
-      return;
-    }
     
     setExporting(true);
     
@@ -159,7 +151,6 @@ export function ReportsPage() {
           endpoint = `/reports/event_summary?start_date=${dateRange.start}&end_date=${dateRange.end}`;
           if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
           break;
-          
       }
 
       // Request as blob via API client and trigger download
@@ -688,7 +679,12 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
   };
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div
+      className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+      onClick={onExport}
+      role="button"
+      aria-label={`${title} quick export`}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className={`w-12 h-12 rounded-lg ${colorClasses[color]} flex items-center justify-center`}>
           {icon}
