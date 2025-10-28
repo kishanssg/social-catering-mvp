@@ -553,103 +553,26 @@ export function ReportsPage() {
           </div>
         </div>
         
-        {/* Help Section */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            📋 Which Report Should I Use?
-          </h3>
-          
-          <div className="space-y-4">
-            {/* Payroll Summary */}
-            <div className="bg-white rounded-lg p-4 border border-blue-100">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-indigo-600 font-semibold">💰</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-1">
-                    Payroll Summary
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Use this to pay your workers.</strong> Shows one row per worker with total hours and total amount you owe them.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    <strong>Columns:</strong> Worker Name, Total Hours, Average Rate, Total Compensation, Shifts Worked, Events
-                  </p>
-                </div>
-              </div>
+        {/* Help Section (condensed) */}
+        <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Report guide</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+            <div className="p-3 rounded border border-gray-200">
+              <p className="font-medium text-gray-900">Payroll Summary</p>
+              <p className="mt-1">One row per worker with hours and payout. Use for payroll runs.</p>
             </div>
-
-            {/* Event Summary */}
-            <div className="bg-white rounded-lg p-4 border border-blue-100">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-purple-600 font-semibold">📊</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-1">
-                    Event Summary
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Use this to track event costs.</strong> Shows how many workers per event and total labor cost. Perfect for monthly cost tracking.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    <strong>Columns:</strong> Event Title, Date, Venue, Workers Needed/Assigned, Total Event Cost, Supervisor
-                  </p>
-                </div>
-              </div>
+            <div className="p-3 rounded border border-gray-200">
+              <p className="font-medium text-gray-900">Event Summary</p>
+              <p className="mt-1">Workers per event and total labor cost. Good for monthly reviews.</p>
             </div>
-
-            {/* Weekly Timesheet */}
-            <div className="bg-white rounded-lg p-4 border border-blue-100">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-teal-600 font-semibold">🕐</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-1">
-                    Weekly Timesheet
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Detailed time tracking.</strong> Shows clock-in/clock-out times for each shift. Use this as backup if a worker disputes their hours.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    <strong>Columns:</strong> Worker Name, Shift Date, Start Time, End Time, Break Time, Total Hours, Supervisor
-                  </p>
-                </div>
-              </div>
+            <div className="p-3 rounded border border-gray-200">
+              <p className="font-medium text-gray-900">Weekly Timesheet</p>
+              <p className="mt-1">Clock-in/out detail per shift for audit or disputes.</p>
             </div>
-
-            {/* Worker Hours Report */}
-            <div className="bg-white rounded-lg p-4 border border-blue-100">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-blue-600 font-semibold">👤</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-1">
-                    Worker Hours Report
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    <strong>Individual worker breakdown.</strong> Shows all shifts for specific workers. Good for performance reviews or checking one person's work history.
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    <strong>Columns:</strong> Worker Name, Event Name, Date, Role, Hours, Pay Rate, Payout (with TOTAL row)
-                  </p>
-                </div>
-              </div>
+            <div className="p-3 rounded border border-gray-200">
+              <p className="font-medium text-gray-900">Worker Hours</p>
+              <p className="mt-1">All shifts for a worker with hours and payout totals.</p>
             </div>
-          </div>
-
-          {/* Quick Tips */}
-          <div className="mt-6 pt-4 border-t border-blue-200">
-            <h4 className="font-semibold text-gray-900 mb-2 text-sm">💡 Quick Tips:</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>• <strong>Weekly payroll?</strong> Use "Payroll Summary" with "Last 7 days"</li>
-              <li>• <strong>Monthly cost review?</strong> Use "Event Summary" with "This month"</li>
-              <li>• <strong>Worker disputed hours?</strong> Use "Weekly Timesheet" to show proof</li>
-              <li>• <strong>All reports open in Excel/Numbers</strong> - just download and use!</li>
-            </ul>
           </div>
         </div>
       </div>
