@@ -561,6 +561,16 @@ export function EventsPage() {
               >
                 Needs Workers
               </button>
+              <button
+                onClick={() => handleFilterChange('fully_staffed')}
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                  filterStatus === 'fully_staffed'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
+                }`}
+              >
+                Ready
+              </button>
             </div>
           )}
         </div>
