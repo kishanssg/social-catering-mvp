@@ -195,12 +195,29 @@ module Api
         return unless w
         attrs = w[:worker_certifications_attributes]
         return unless attrs.is_a?(ActionController::Parameters) || attrs.is_a?(Hash)
+        seen = Set.new
         attrs.each do |_k, cert|
           next unless cert
           # Remove entirely if missing certification_id
           if cert[:certification_id].blank?
             cert[:_destroy] = true
             next
+          end
+          # De-duplicate within the same payload
+          if seen.include?(cert[:certification_id].to_s)
+            cert[:_destroy] = true
+            next
+          end
+          seen << cert[:certification_id].to_s
+
+          # On update: convert create into update when the worker already has this cert
+          if defined?(@worker) && @worker&.persisted?
+            begin
+              existing = @worker.worker_certifications.find_by(certification_id: cert[:certification_id])
+              cert[:id] = existing.id if existing && cert[:id].blank?
+            rescue => _e
+              # ignore lookup issues; validation will handle
+            end
           end
           val = cert[:expires_at_utc]
           next if val.blank?
