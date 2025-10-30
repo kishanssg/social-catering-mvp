@@ -27,7 +27,13 @@ module Api
           end
         end
         
-        # Apply status filter
+        # Apply explicit active boolean filter (supports ?active=true|false)
+        if params.key?(:active)
+          active_bool = ActiveModel::Type::Boolean.new.cast(params[:active])
+          workers = workers.where(active: active_bool)
+        end
+
+        # Apply status filter (legacy: accepts status=active|inactive)
         if params[:status].present?
           case params[:status].downcase
           when 'active'
