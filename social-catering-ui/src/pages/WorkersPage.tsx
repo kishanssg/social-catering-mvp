@@ -793,11 +793,10 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       const allShiftIds: number[] = [];
       const selectedShifts = availableShifts.filter(shift => selectedShiftIds.has(shift.id));
       
-      // For each selected role, get all shift IDs for that role at that event
+      // For each selected role, assign to ONE concrete shift only (representative)
+      // Do NOT include all_shift_ids to avoid intra-batch time overlaps
       selectedShifts.forEach(shift => {
-        if (shift.all_shift_ids) {
-          allShiftIds.push(...(shift.all_shift_ids || []));
-        }
+        allShiftIds.push(shift.id);
       });
       
       // Remove duplicates
