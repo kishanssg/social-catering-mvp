@@ -13,6 +13,13 @@ export default defineConfig(({ command }) => {
     server: {
       port: 5173,
       strictPort: false,
+      proxy: {
+        // Proxy API requests to the Rails server during local development
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       outDir: 'dist',                        // build to local dist first
