@@ -72,4 +72,5 @@ rails db:create db:migrate db:seed
 
 ---
 
-**Last Updated:** November 2025
+**Last Updated:** November 2025  
+**Repository:** https://github.com/kishanssg/social-catering-mvp
