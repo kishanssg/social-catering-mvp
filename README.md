@@ -49,6 +49,34 @@ rails db:create db:migrate db:seed
 
 ---
 
+## 🚀 Quick Start for Operations Team
+
+### Deploying to Production
+```bash
+# Main deployment script
+./deploy.sh production
+
+# Or use the detailed Heroku script
+./scripts/deploy-heroku.sh production
+```
+
+### Essential Documentation
+1. **[RUNBOOK.md](docs/RUNBOOK.md)** - Daily operations & troubleshooting
+2. **[API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md)** - API reference
+3. **[USER_GUIDE.md](docs/USER_GUIDE.md)** - End-user instructions
+4. **[ENV_CONFIG.md](docs/ENV_CONFIG.md)** - Environment configuration
+
+### Important URLs
+- **Production**: https://sc-mvp-production-6b7a268cc8ad.herokuapp.com
+- **Staging**: https://sc-mvp-staging.herokuapp.com
+- **Health Check**: `/healthz` (should return 200)
+
+### Emergency Contacts
+- Technical Support: See repository owner
+- Heroku Support: https://help.heroku.com
+
+---
+
 ## 🏗️ Tech Stack
 
 - **Backend:** Rails 7.2 + PostgreSQL
