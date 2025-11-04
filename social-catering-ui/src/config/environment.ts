@@ -1,7 +1,7 @@
 // Environment Configuration
 export const config = {
   // API Base URL - can be overridden by environment variables
-  API_BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  API_BASE_URL: (import.meta.env.VITE_API_URL as string | undefined) || '/api/v1',
   
   // App Configuration
   APP_NAME: 'Social Catering MVP',

@@ -1,1 +1,25 @@
-{}
+{
+  "name": "social-catering-mvp",
+  "version": "1.0.0",
+  "description": "Social Catering Workforce Management MVP",
+  "scripts": {
+    "heroku-postbuild": "echo 'Using pre-built assets from git'",
+    "chunks:check": "node social-catering-ui/scripts/check-chunks.js",
+    "routes:gen": "bundle exec rake export:routes_json && tsx scripts/generate-routes.ts",
+    "audit:api": "tsx scripts/audit-api-paths.ts",
+    "test:smoke": "tsx scripts/smoke-endpoints.ts",
+    "probe:session": "tsx scripts/probe-session.ts",
+    "deploy": "./scripts/deploy-heroku.sh"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/glob": "^8.1.0",
+    "axios": "^1.13.0",
+    "glob": "^11.0.3",
+    "playwright": "^1.56.1",
+    "tsx": "^4.20.6"
+  }
+}

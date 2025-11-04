@@ -1,11 +1,14 @@
-import api from './api';
+import { apiClient } from '../lib/api';
 
 export interface Assignment {
   id: number;
   worker_id: number;
   shift_id: number;
-  status: 'assigned' | 'completed' | 'no_show' | 'cancelled';
+  status: 'assigned' | 'confirmed' | 'completed' | 'cancelled';
   assigned_at_utc: string;
+  hours_worked?: number;
+  hourly_rate?: number;
+  total_pay?: number;
   worker: {
     id: number;
     first_name: string;
@@ -57,28 +60,40 @@ export const getAssignments = async (params?: {
   start_date?: string;
   end_date?: string;
 }): Promise<AssignmentsResponse> => {
-  const response = await api.get('/assignments', { params });
+  const response = await apiClient.get('/assignments', { params });
   return response.data;
 };
 
 // Get single assignment
 export const getAssignment = async (id: number): Promise<AssignmentResponse> => {
-  const response = await api.get(`/assignments/${id}`);
+  const response = await apiClient.get(`/assignments/${id}`);
   return response.data;
 };
 
-// Update assignment status
-export const updateAssignmentStatus = async (
+// Update assignment
+export const updateAssignment = async (
   id: number,
-  status: 'assigned' | 'completed' | 'no_show' | 'cancelled'
+  data: {
+    status?: 'assigned' | 'confirmed' | 'completed' | 'cancelled';
+    hours_worked?: number;
+    hourly_rate?: number;
+  }
 ): Promise<AssignmentResponse> => {
-  const response = await api.put(`/assignments/${id}`, {
-    assignment: { status }
+  const response = await apiClient.put(`/assignments/${id}`, {
+    assignment: data
   });
   return response.data;
 };
 
+// Update assignment status (backward compatibility)
+export const updateAssignmentStatus = async (
+  id: number,
+  status: 'assigned' | 'confirmed' | 'completed' | 'cancelled'
+): Promise<AssignmentResponse> => {
+  return updateAssignment(id, { status });
+};
+
 // Delete assignment (unassign)
 export const deleteAssignment = async (id: number): Promise<void> => {
-  await api.delete(`/assignments/${id}`);
+  await apiClient.delete(`/assignments/${id}`);
 };

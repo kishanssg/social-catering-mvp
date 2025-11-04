@@ -1,0 +1,404 @@
+import React, { useState, useEffect } from 'react';
+import { Download, Calendar, DollarSign, Users, Clock } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+// import { SortableTable } from '../../components/ui/SortableTable'; // Component doesn't exist yet
+// import type { Column } from '../../components/ui/SortableTable'; // Component doesn't exist yet
+// import { FilterBar } from '../../components/ui/FilterBar'; // Component doesn't exist yet
+import { apiClient } from '../../lib/api';
+// import { useWorkers } from '../../hooks/useWorkers'; // Hook doesn't exist yet
+// import { useLocations } from '../../hooks/useLocations'; // Hook doesn't exist yet
+
+interface TimesheetData {
+  id: number;
+  date: string;
+  worker: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  shift: {
+    id: number;
+    client_name: string;
+    role_needed: string;
+    location: string;
+  };
+  hours_worked: number;
+  hourly_rate: number;
+  total_pay: number;
+  status: string;
+}
+
+interface TimesheetSummary {
+  total_hours: number;
+  total_pay: number;
+  worker_count: number;
+  shift_count: number;
+  date_range: {
+    start: string;
+    end: string;
+  };
+}
+
+export default function TimesheetPage() {
+  // const { workers } = useWorkers(); // Hook doesn't exist yet
+  // const { locations } = useLocations(); // Hook doesn't exist yet
+  const [workers, setWorkers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  
+  const [timesheetData, setTimesheetData] = useState<TimesheetData[]>([]);
+  const [summary, setSummary] = useState<TimesheetSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Filters
+  const [dateRange, setDateRange] = useState('week');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [workerId, setWorkerId] = useState('all');
+  const [locationId, setLocationId] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Initialize date range
+  useEffect(() => {
+    const today = new Date();
+    let start: Date;
+    let end: Date;
+
+    switch (dateRange) {
+      case 'week':
+        start = startOfWeek(today, { weekStartsOn: 0 });
+        end = endOfWeek(today, { weekStartsOn: 0 });
+        break;
+      case 'month':
+        start = startOfMonth(today);
+        end = endOfMonth(today);
+        break;
+      case 'custom':
+        return; // Don't auto-set for custom
+      default:
+        start = startOfWeek(today, { weekStartsOn: 0 });
+        end = endOfWeek(today, { weekStartsOn: 0 });
+    }
+
+    setStartDate(format(start, 'yyyy-MM-dd'));
+    setEndDate(format(end, 'yyyy-MM-dd'));
+  }, [dateRange]);
+
+  // Fetch timesheet data
+  useEffect(() => {
+    if (startDate && endDate) {
+      fetchTimesheetData();
+    }
+  }, [startDate, endDate, workerId, locationId]);
+
+  const fetchTimesheetData = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        ...(workerId !== 'all' && { worker_id: workerId }),
+        ...(locationId !== 'all' && { location_id: locationId })
+      });
+
+      const response = await apiClient.get(`/reports/timesheet/preview?${params}`);
+      
+      if (response.data.status === 'success') {
+        setTimesheetData(response.data.data.assignments);
+        setSummary(response.data.data.summary);
+      }
+    } catch (error) {
+      console.error('Failed to fetch timesheet data:', error);
+      alert('Failed to load timesheet data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        ...(workerId !== 'all' && { worker_id: workerId }),
+        ...(locationId !== 'all' && { location_id: locationId })
+      });
+
+      const response = await apiClient.get(`/reports/timesheet?${params}`, {
+        responseType: 'blob'
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `timesheet_${startDate}_to_${endDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      alert('Timesheet exported successfully');
+    } catch (error) {
+      console.error('Failed to export timesheet:', error);
+      alert('Failed to export timesheet');
+    }
+  };
+
+  // Filter data locally by search term
+  const filteredData = timesheetData.filter(item => {
+    if (!searchTerm) return true;
+    
+    const search = searchTerm.toLowerCase();
+    return (
+      item.worker.name.toLowerCase().includes(search) ||
+      item.worker.email.toLowerCase().includes(search) ||
+      item.shift.client_name.toLowerCase().includes(search) ||
+      item.shift.role_needed.toLowerCase().includes(search)
+    );
+  });
+
+  // Table columns removed - using simple table instead
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Timesheet Report</h1>
+        <p className="text-gray-600 mt-2">Track hours worked and generate payroll reports</p>
+      </div>
+
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Hours</p>
+                <p className="text-2xl font-bold">{summary.total_hours.toFixed(2)}</p>
+              </div>
+              <Clock className="w-8 h-8 text-blue-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Pay</p>
+                <p className="text-2xl font-bold">${summary.total_pay.toFixed(2)}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-green-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Workers</p>
+                <p className="text-2xl font-bold">{summary.worker_count}</p>
+              </div>
+              <Users className="w-8 h-8 text-purple-500" />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Shifts</p>
+                <p className="text-2xl font-bold">{summary.shift_count}</p>
+              </div>
+              <Calendar className="w-8 h-8 text-orange-500" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date Range
+            </label>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          
+          {dateRange === 'custom' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              placeholder="Search workers, events..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Worker
+            </label>
+            <select
+              value={workerId}
+              onChange={(e) => setWorkerId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Workers</option>
+              {workers.map(w => (
+                <option key={w.id} value={w.id.toString()}>
+                  {w.first_name} {w.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <select
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Locations</option>
+              {locations.map(l => (
+                <option key={l.id} value={l.id.toString()}>
+                  {l.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={handleExport}
+            disabled={!timesheetData.length}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Download className="w-5 h-5" />
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64 bg-white rounded-lg shadow">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {filteredData.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No timesheet data found for the selected period</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Date</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Worker</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Shift Details</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Hours</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Rate</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Total</th>
+                  <th className="text-left py-3 px-6 text-sm font-medium text-gray-700">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredData.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{format(new Date(item.date), 'MMM dd, yyyy')}</div>
+                        <div className="text-xs text-gray-500">{format(new Date(item.date), 'EEEE')}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{item.worker.name}</div>
+                        <div className="text-xs text-gray-500">{item.worker.email}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div>
+                        <div className="font-medium">{item.shift.client_name}</div>
+                        <div className="text-sm text-gray-600">{item.shift.role_needed}</div>
+                        <div className="text-xs text-gray-500">{item.shift.location}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="font-medium">{item.hours_worked.toFixed(2)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span>${item.hourly_rate.toFixed(2)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="font-semibold text-green-600">
+                        ${item.total_pay.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          item.status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : item.status === 'assigned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

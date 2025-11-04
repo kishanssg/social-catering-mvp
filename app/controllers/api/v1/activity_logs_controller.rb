@@ -68,18 +68,116 @@ module Api
 
       def serialize_logs(logs)
         logs.map do |log|
+          actor_email = log.actor_user&.email || 'System'
+          actor_name = extract_first_name(actor_email)
+          
           {
             id: log.id,
-            action: log.action,
+            when: log.created_at_utc&.iso8601,
+            actor: actor_name,
             entity_type: log.entity_type,
             entity_id: log.entity_id,
-            actor_user_id: log.actor_user_id,
-            actor_user: log.actor_user_id ? {
-              id: log.actor_user_id,
-              email: log.actor_user&.email
-            } : nil,
-            created_at: log.created_at_utc&.iso8601
+            entity_name: extract_entity_name(log),
+            action: log.action,
+            summary: log.summary || build_action_description(log, actor_name),
+            details: log.details_json || {}
           }
+        end
+      end
+
+      def extract_first_name(email)
+        return 'Admin' if email.blank?
+        
+        # Extract name from email (e.g., "natalie@socialcatering.com" → "Natalie")
+        name = email.split('@').first
+        name.split('.').map(&:capitalize).join(' ')
+      end
+
+      def build_action_description(log, actor_name)
+        case log.action
+        when 'assigned_worker'
+          after = log.after_json || {}
+          worker = after['worker_name'] || "worker"
+          shift = after['shift_name'] || "shift"
+          role = after['role'] || "role"
+          "#{actor_name} assigned #{worker} to #{shift} as #{role}"
+          
+        when 'unassigned_worker'
+          before = log.before_json || {}
+          worker = before['worker_name'] || "worker"
+          shift = before['shift_name'] || "shift"
+          "#{actor_name} unassigned #{worker} from #{shift}"
+          
+        when 'created'
+          entity_name = extract_entity_name(log)
+          entity_type = format_entity_type(log.entity_type)
+          if entity_name
+            "#{actor_name} added #{entity_name} to the system"
+          else
+            "#{actor_name} created #{entity_type}"
+          end
+          
+        when 'updated'
+          entity_name = extract_entity_name(log)
+          entity_type = format_entity_type(log.entity_type)
+          if entity_name
+            "#{actor_name} updated #{entity_name}"
+          else
+            "#{actor_name} updated #{entity_type}"
+          end
+          
+        when 'deleted'
+          entity_name = extract_entity_name(log)
+          entity_type = format_entity_type(log.entity_type)
+          if entity_name
+            "#{actor_name} removed #{entity_name}"
+          else
+            "#{actor_name} deleted #{entity_type}"
+          end
+          
+        else
+          "#{actor_name} performed #{log.action} on #{log.entity_type}"
+        end
+      end
+
+      def extract_entity_name(log)
+        data = log.after_json || log.before_json || {}
+        
+        # First, check for entity_name (added by Auditable concern)
+        return data['entity_name'] if data['entity_name'].present?
+        
+        # For assignments, build a descriptive name
+        if log.entity_type == 'Assignment'
+          worker_name = data['worker_name'] || 'worker'
+          shift_name = data['shift_name'] || 'shift'
+          role = data['role'] || ''
+          return "#{worker_name} → #{shift_name}" + (role.present? ? " (#{role})" : "")
+        end
+        
+        # Try multiple fields in order of preference
+        return data['title'] if data['title'].present?
+        return data['name'] if data['name'].present?
+        return data['client_name'] if data['client_name'].present?
+        
+        # For workers, combine first and last name
+        if data['first_name'] || data['last_name']
+          name_parts = [data['first_name'], data['last_name']].compact
+          return name_parts.join(' ') if name_parts.any?
+        end
+        
+        # For shifts, use shift_name
+        return data['shift_name'] if data['shift_name'].present?
+        
+        nil
+      end
+
+      def format_entity_type(entity_type)
+        case entity_type.downcase
+        when 'assignment' then 'an assignment'
+        when 'event' then 'an event'
+        when 'shift' then 'a shift'
+        when 'worker' then 'a worker'
+        else entity_type
         end
       end
     end

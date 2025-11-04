@@ -1,21 +1,24 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { lazy, Suspense } from 'react'
-import { AuthProvider } from './contexts/AuthContext'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { DashboardLayout } from './components/Layout/DashboardLayout'
-import { LoginPage } from './pages/LoginPage'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AppLayout } from './components/layout/AppLayout';
+import { LoginPage } from './pages/LoginPage';
 
 // Lazy load pages for better performance
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then(module => ({ default: module.DashboardPage })))
-const WorkersPage = lazy(() => import('./pages/WorkersPage').then(module => ({ default: module.WorkersPage })))
-const WorkerDetail = lazy(() => import('./pages/WorkerDetail'))
-const ShiftsList = lazy(() => import('./pages/ShiftsList'))
-const ShiftDetail = lazy(() => import('./pages/ShiftDetail'))
-const ShiftForm = lazy(() => import('./pages/ShiftForm'))
-const AssignmentsList = lazy(() => import('./pages/AssignmentsList'))
-const WorkerSchedule = lazy(() => import('./pages/WorkerSchedule'))
-const CalendarView = lazy(() => import('./pages/CalendarView'))
-const ActivityLogsPage = lazy(() => import('./pages/ActivityLogsPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const EventsPage = lazy(() => import('./pages/EventsPage').then(module => ({ default: module.EventsPage })));
+const EventCreatePage = lazy(() => import('./pages/Events/CreateEventWizard'));
+const EventDetailPage = lazy(() => import('./pages/EventDetailPage').then(module => ({ default: module.EventDetailPage })));
+const WorkersPage = lazy(() => import('./pages/WorkersPage').then(module => ({ default: module.WorkersPage })));
+const WorkerCreatePage = lazy(() => import('./pages/WorkerCreatePage').then(module => ({ default: module.WorkerCreatePage })));
+const WorkerDetailPage = lazy(() => import('./pages/WorkerDetailPage').then(module => ({ default: module.WorkerDetailPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(module => ({ default: module.ReportsPage })));
+
+// Additional pages
+const TimesheetPage = lazy(() => import('./pages/Reports/TimesheetPage'));
+const ActivityLogPage = lazy(() => import('./pages/ActivityLog').then(module => ({ default: module.ActivityLog })));
 
 // Loading component
 const PageLoader = () => (
@@ -25,7 +28,7 @@ const PageLoader = () => (
       <div className="text-gray-500 mt-4">Loading...</div>
     </div>
   </div>
-)
+);
 
 function App() {
   return (
@@ -36,137 +39,44 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           
-          {/* Protected routes with layout */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <DashboardPage />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Worker management */}
-          <Route
-            path="/workers"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <WorkersPage />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/workers/:id"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <WorkerDetail />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/workers/:id/schedule"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <WorkerSchedule />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Shifts management */}
-          <Route
-            path="/shifts"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <ShiftsList />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/shifts/new"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <ShiftForm />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/shifts/:id"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <ShiftDetail />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/shifts/:id/edit"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <ShiftForm />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Assignments management */}
-          <Route
-            path="/assignments"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <AssignmentsList />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Calendar view */}
-          <Route
-            path="/calendar"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <CalendarView />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          <Route
-            path="/activity"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout>
-                  <ActivityLogsPage />
-                </DashboardLayout>
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Default redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* All protected routes use the unified layout */}
+            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              {/* Dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              
+                  {/* Events (unified with staffing) */}
+                  <Route path="/events" element={<EventsPage />} />
+                  <Route path="/events/create" element={<EventCreatePage />} />
+                  <Route path="/events/:id" element={<EventDetailPage />} />
+                  <Route path="/events/:id/edit" element={<EventCreatePage />} />
+              
+              {/* Workers */}
+              <Route path="/workers" element={<WorkersPage />} />
+              <Route path="/workers/create" element={<WorkerCreatePage />} />
+              <Route path="/workers/:id" element={<WorkerDetailPage />} />
+              <Route path="/workers/:id/edit" element={<WorkerCreatePage />} />
+              
+              {/* Reports */}
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports/timesheet" element={<TimesheetPage />} />
+              
+              {/* Activity Log */}
+              <Route path="/activity-log" element={<ActivityLogPage />} />
+              
+              {/* Backward compatibility - old routes redirect to new */}
+              <Route path="/jobs" element={<Navigate to="/events" replace />} />
+              <Route path="/jobs/create" element={<Navigate to="/events/create" replace />} />
+              <Route path="/jobs/:id" element={<Navigate to="/events/:id" replace />} />
+              <Route path="/staffing" element={<Navigate to="/events?tab=active" replace />} />
+              <Route path="/assignments" element={<Navigate to="/events?tab=active" replace />} />
+            </Route>
+            
         </Routes>
         </Suspense>
       </AuthProvider>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;

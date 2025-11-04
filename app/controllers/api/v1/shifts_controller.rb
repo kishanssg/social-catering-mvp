@@ -1,129 +1,160 @@
 module Api
   module V1
     class ShiftsController < BaseController
+      before_action :set_shift, only: [:show, :update, :destroy]
+
+      # GET /api/v1/shifts
       def index
-        shifts = Shift.includes(:workers, :assignments)
+        shifts = Shift.includes(:event, :assignments, :workers, :skill_requirement)
+                      .order(start_time_utc: :desc)
 
-        # Filter by status if provided
-        if params[:status].present?
-          shifts = shifts.where(status: params[:status])
+        # Filter by event if provided
+        shifts = shifts.where(event_id: params[:event_id]) if params[:event_id].present?
+
+        # Filter by status (computed/status scopes)
+        case params[:status]
+        when 'needs_workers'
+          shifts = shifts.needing_workers
+        when 'fully_staffed'
+          shifts = shifts.fully_staffed
+        when 'in_progress'
+          shifts = shifts.in_progress
+        when 'completed'
+          shifts = shifts.completed
+        when 'upcoming'
+          shifts = shifts.upcoming
+        when 'active'
+          shifts = shifts.active
         end
 
-        # Filter by timeframe
-        shifts = apply_timeframe_filter(shifts)
+        # Filter by date range
+        if params[:start_date].present? && params[:end_date].present?
+          start_date = Date.parse(params[:start_date]).beginning_of_day
+          end_date = Date.parse(params[:end_date]).end_of_day
+          shifts = shifts.where(start_time_utc: start_date..end_date)
+        end
 
-        # Filter by fill status
-        if params[:fill_status].present?
-          shifts = apply_fill_status_filter(shifts)
-          # Fill status filter returns an Array, so sort it manually
-          shifts = shifts.sort_by { |s| s.start_time_utc }
+        # Group by event if requested
+        if params[:group_by] == 'event'
+          grouped_data = shifts.group_by(&:event_id).map do |event_id, event_shifts|
+            event = event_id ? Event.find_by(id: event_id) : nil
+            {
+              event: event ? serialize_event_minimal(event) : nil,
+              shifts: event_shifts.map { |shift| serialize_shift(shift) }
+            }
+          end
+
+          render json: { status: 'success', data: grouped_data }
         else
-          # Order by start time for ActiveRecord relations
-          shifts = shifts.order(start_time_utc: :asc)
+          render json: { status: 'success', data: shifts.map { |shift| serialize_shift(shift) } }
         end
-
-        render_success({
-          shifts: shifts.as_json(
-            include: {
-              workers: { only: [ :id, :first_name, :last_name ] },
-              assignments: { only: [ :id, :status, :worker_id ] }
-            },
-            methods: [ :assigned_count, :available_slots ]
-          )
-        })
       end
 
+      # GET /api/v1/shifts/:id
       def show
-        shift = Shift.includes(:workers, :assignments, :created_by).find(params[:id])
-
-        render_success({
-          shift: shift.as_json(
-            include: {
-              workers: { only: [ :id, :first_name, :last_name ] },
-              assignments: { only: [ :id, :status, :worker_id, :assigned_at_utc ] },
-              created_by: { only: [ :id, :email ] }
-            },
-            methods: [ :assigned_count, :available_slots ]
-          )
-        })
+        render json: { status: 'success', data: serialize_shift_detailed(@shift) }
       end
 
+      # POST /api/v1/shifts (standalone shifts only)
       def create
-        shift = Shift.new(shift_params)
-        shift.created_by = current_user
+        @shift = Shift.new(shift_params)
+        @shift.created_by = current_user
 
-        if shift.save
-          render_success({ shift: shift }, status: :created)
+        if @shift.save
+          render json: { status: 'success', data: serialize_shift(@shift) }, status: :created
         else
-          render_validation_errors(shift.errors.messages)
+          render json: { status: 'error', errors: @shift.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
+      # PATCH /api/v1/shifts/:id
       def update
-        shift = Shift.find(params[:id])
-
-        if shift.update(shift_params)
-          render_success({ shift: shift })
+        if @shift.update(shift_params)
+          render json: { status: 'success', data: serialize_shift(@shift) }
         else
-          render_validation_errors(shift.errors.messages)
+          render json: { status: 'error', errors: @shift.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
+      # DELETE /api/v1/shifts/:id
       def destroy
-        shift = Shift.find(params[:id])
-
-        if shift.assignments.any?
-          render_error("Cannot delete shift with assignments", status: :unprocessable_entity)
-        else
-          shift.destroy
-          render_success({ message: "Shift deleted successfully" })
+        if @shift.event_id.present?
+          return render json: { status: 'error', message: 'Cannot delete shifts that belong to an event. Delete the event instead.' }, status: :forbidden
         end
+        @shift.destroy
+        head :no_content
       end
 
       private
 
+      def set_shift
+        @shift = Shift.includes(:event, :assignments, :workers, :skill_requirement, event: :venue).find(params[:id])
+      end
+
       def shift_params
-        params.require(:shift).permit(
-          :client_name,
-          :role_needed,
-          :location,
-          :start_time_utc,
-          :end_time_utc,
-          :pay_rate,
-          :capacity,
-          :status,
-          :notes,
-          :required_cert_id
+        params.require(:shift).permit(:client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, :location_id, :pay_rate, :notes)
+      end
+
+      def serialize_shift(shift)
+        {
+          id: shift.id,
+          event_id: shift.event_id,
+          event_title: shift.event&.title,
+          client_name: shift.client_name,
+          role_needed: shift.role_needed,
+          start_time_utc: shift.start_time_utc,
+          end_time_utc: shift.end_time_utc,
+          location: shift.location,
+          capacity: shift.capacity,
+          pay_rate: shift.pay_rate,
+          notes: shift.notes,
+          status: shift.current_status,
+          staffing_progress: shift.staffing_progress,
+          staffing_summary: shift.staffing_summary,
+          assigned_count: shift.assigned_count,
+          assignments_count: shift.assignments.count,
+          available_slots: shift.available_slots,
+          created_at: shift.created_at
+        }
+      end
+
+      def serialize_shift_detailed(shift)
+        serialize_shift(shift).merge(
+          skill_requirement: shift.skill_requirement ? {
+            skill_name: shift.skill_requirement.skill_name,
+            uniform_name: shift.skill_requirement.uniform_name,
+            certification_name: shift.skill_requirement.certification_name
+          } : nil,
+          event: shift.event ? {
+            id: shift.event.id,
+            title: shift.event.title,
+            venue: shift.event.venue ? {
+              id: shift.event.venue.id,
+              name: shift.event.venue.name,
+              formatted_address: shift.event.venue.formatted_address
+            } : nil
+          } : nil,
+          assignments: shift.assignments.includes(:worker).map { |a| serialize_assignment(a) }
         )
       end
 
-      def apply_timeframe_filter(scope)
-        case params[:timeframe]
-        when "past"
-          scope.where("end_time_utc < ?", Time.current)
-        when "today"
-          scope.where("DATE(start_time_utc) = ?", Time.current.utc.to_date)
-        when "upcoming"
-          scope.where("start_time_utc > ?", Time.current)
-        else
-          scope
-        end
+      def serialize_assignment(assignment)
+        {
+          id: assignment.id,
+          worker: {
+            id: assignment.worker.id,
+            first_name: assignment.worker.first_name,
+            last_name: assignment.worker.last_name,
+            email: assignment.worker.email,
+            phone: assignment.worker.phone
+          },
+          hours_worked: assignment.hours_worked,
+          created_at: assignment.created_at
+        }
       end
 
-      def apply_fill_status_filter(scope)
-        # This requires loading shifts to calculate, so do it after other filters
-        all_shifts = scope.to_a
-
-        case params[:fill_status]
-        when "unfilled"
-          all_shifts.select { |s| s.assigned_count == 0 }
-        when "partial"
-          all_shifts.select { |s| s.assigned_count > 0 && s.assigned_count < s.capacity }
-        when "covered"
-          all_shifts.select { |s| s.assigned_count >= s.capacity }
-        else
-          all_shifts
-        end
+      def serialize_event_minimal(event)
+        { id: event.id, title: event.title, status: event.status, staffing_summary: event.staffing_summary }
       end
     end
   end

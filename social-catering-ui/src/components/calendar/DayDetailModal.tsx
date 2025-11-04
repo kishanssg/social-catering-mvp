@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { X, Clock, Users, MapPin, DollarSign, UserPlus } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatTime } from '../../utils/dateUtils';
 import type { Shift } from '../../types';
 import ShiftStatusBadge from '../ShiftStatusBadge';
 
@@ -11,13 +11,6 @@ interface DayDetailModalProps {
 }
 
 const DayDetailModal = ({ date, shifts, onClose }: DayDetailModalProps) => {
-  const formatTime = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'h:mm a');
-    } catch {
-      return dateString;
-    }
-  };
   
   // Sort shifts by start time
   const sortedShifts = [...shifts].sort((a, b) => 

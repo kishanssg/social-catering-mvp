@@ -1,6 +1,0 @@
-=== sc-mvp-staging Config Vars
-
-DATABASE_URL:     postgres://u1kupoab2ci1ci:pc3b0834a5e854bd563d91c9e1ea366afe7874c1e8ae55492e7e5a38392ada19a@c7itisjfjj8ril.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/d4ee0mdj9kblhv
-RAILS_ENV:        production
-RAILS_MASTER_KEY: 8e7f5b0b74f54600a91865f4e7c55597
-SECRET_KEY_BASE:  c31383c03ffb5ae4159ce6e91da3148ffecde35f53cc3c29e5036108b1cc38e83f89bea3ed60ffa82c20e6b945c1f2e17a537428e68d3309b9b302144e8847c1

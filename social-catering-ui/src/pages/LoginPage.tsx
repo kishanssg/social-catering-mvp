@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '../contexts/AuthContext'
+import scLogo from '../assets/icons/sc_logo.png'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -14,16 +15,33 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
+  const isMountedRef = useRef(true)
+  
+  // Get the redirect path from location state, default to dashboard
+  const redirectTo = location.state?.from?.pathname || '/dashboard'
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: 'admin@socialcatering.com',
+      password: 'password123'
+    }
   })
 
   const onSubmit = async (data: LoginFormData) => {
@@ -32,29 +50,47 @@ export function LoginPage() {
       setApiError('')
 
       await login(data.email, data.password)
-      navigate('/dashboard')
+      if (isMountedRef.current) {
+        navigate(redirectTo)
+      }
     } catch (err: any) {
-      setApiError(err.message || 'Login failed. Please try again.')
+      if (isMountedRef.current) {
+        setApiError(err.message || 'Login failed. Please try again.')
+      }
     } finally {
-      setIsLoading(false)
+      if (isMountedRef.current) {
+        setIsLoading(false)
+      }
     }
   }
 
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Social Catering
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to manage your workforce
+        {/* Header with Logo */}
+        <div className="text-center">
+          {/* Professional Logo */}
+          <div className="mb-8">
+            <img 
+              src={scLogo} 
+              alt="Social Catering" 
+              className="mx-auto h-20 w-auto"
+            />
+          </div>
+          
+          {/* Tagline */}
+          <p className="text-lg text-gray-600 font-medium">
+            Workforce Management System
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Sign in to manage your team and events
           </p>
         </div>
 
-        {/* Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        {/* Form Container */}
+        <div className="bg-white py-8 px-6 shadow-xl rounded-lg border border-gray-200">
+          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
           {/* API Error */}
           {apiError && (
             <div className="rounded-md bg-red-50 p-4">
@@ -75,7 +111,7 @@ export function LoginPage() {
                 className={`mt-1 input-field ${
                   errors.email ? 'border-red-500' : ''
                 }`}
-                placeholder="natalie@socialcatering.com"
+                placeholder="test@example.com"
                 {...register('email')}
               />
               {errors.email && (
@@ -95,7 +131,7 @@ export function LoginPage() {
                 className={`mt-1 input-field ${
                   errors.password ? 'border-red-500' : ''
                 }`}
-                placeholder="Password123!"
+                placeholder="password"
                 {...register('password')}
               />
               {errors.password && (
@@ -125,12 +161,8 @@ export function LoginPage() {
             </button>
           </div>
 
-          {/* Test Credentials Hint */}
-          <div className="text-center text-sm text-gray-500">
-            <p>Test credentials:</p>
-            <p className="font-mono text-xs mt-1">natalie@socialcatering.com / Password123!</p>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   )

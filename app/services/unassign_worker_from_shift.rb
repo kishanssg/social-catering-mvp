@@ -19,6 +19,27 @@ class UnassignWorkerFromShift < ApplicationService
           return failure("Assignment is not in assigned status")
         end
 
+        # Log the unassignment before destroying
+        ActivityLog.create!(
+          actor_user_id: @unassigned_by.id,
+          entity_type: "Assignment",
+          entity_id: @assignment.id,
+          action: "unassigned_worker",
+          before_json: {
+            worker_id: @assignment.worker_id,
+            worker_name: "#{@assignment.worker.first_name} #{@assignment.worker.last_name}",
+            worker_first_name: @assignment.worker.first_name,
+            worker_last_name: @assignment.worker.last_name,
+            shift_id: @assignment.shift_id,
+            shift_name: @assignment.shift.client_name,
+            event_name: @assignment.shift.client_name,
+            role: @assignment.shift.role_needed,
+            hourly_rate: @assignment.hourly_rate
+          },
+          after_json: nil,
+          created_at_utc: Time.current
+        )
+
         # Remove the assignment
         @assignment.destroy!
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { apiService } from '../services/api'
+import { apiClient } from '../lib/api'
 import type { User } from '../types/api'
 
 interface AuthContextType {
@@ -19,15 +20,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch {
-        localStorage.removeItem('user')
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser)
+          setUser(user)
+          
+          // Verify session is still valid by trying to access a protected endpoint
+          try {
+            await apiClient.get('/workers')
+            console.log('Session verified')
+          } catch (error) {
+            console.log('Session expired, clearing user')
+            setUser(null)
+            localStorage.removeItem('user')
+          }
+        } catch {
+          localStorage.removeItem('user')
+        }
       }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    
+    checkAuth()
   }, [])
 
   const login = async (email: string, password: string) => {
@@ -35,12 +51,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null)
       setIsLoading(true)
       const response = await apiService.login({ email, password }) as any
+      
+      console.log('Login response:', response) // Debug logging
+      
       if (response.status === 'success' && response.data) {
         setUser(response.data.user)
         localStorage.setItem('user', JSON.stringify(response.data.user))
+        console.log('Login successful, user set:', response.data.user)
+      } else {
+        // Response came back but not in expected format
+        console.error('Unexpected response format:', response)
+        const errorMsg = response.error || 'Login failed - unexpected response'
+        setError(errorMsg)
+        throw new Error(errorMsg)
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || 'Login failed'
+      console.error('Login error:', err)
+      const errorMessage = err?.response?.data?.error || err?.message || 'Login failed'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {

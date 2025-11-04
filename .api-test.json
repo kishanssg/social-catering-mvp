@@ -1,0 +1,19 @@
+{
+  "job": {
+    "title": "Test Wedding",
+    "status": "draft",
+    "venue_id": 2,
+    "check_in_instructions": "Meet at front desk",
+    "supervisor_name": "John Doe",
+    "supervisor_phone": "555-123-4567",
+    "skill_requirements": [
+      { "skill_name": "Server", "needed_workers": 3 },
+      { "skill_name": "Bartender", "needed_workers": 2 }
+    ],
+    "schedule": {
+      "start_time_utc": "2025-10-25T18:00:00Z",
+      "end_time_utc": "2025-10-25T23:00:00Z",
+      "break_minutes": 30
+    }
+  }
+}

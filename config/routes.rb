@@ -16,18 +16,85 @@ Rails.application.routes.draw do
       post "login", to: "sessions#create"
       delete "logout", to: "sessions#destroy"
 
-      resources :workers, only: [ :index, :show, :create, :update ] do
+      resources :workers, only: [ :index, :show, :create, :update, :destroy ] do
         member do
           post "certifications", to: "workers#add_certification"
           delete "certifications/:certification_id", to: "workers#remove_certification"
         end
       end
       resources :shifts, only: [ :index, :show, :create, :update, :destroy ]
-      resources :assignments, only: [ :index, :create, :update, :destroy ]
+      resources :assignments, only: [ :index, :create, :update, :destroy ] do
+        collection do
+          post :bulk_create
+          get :export
+        end
+        member do
+          post :clock_in
+          post :clock_out
+          patch :update_break
+        end
+      end
       resources :certifications, only: [ :index ]
       resources :activity_logs, only: [ :index ]
+      resources :skills, only: [ :index, :create ]
+      resources :locations, only: [ :index, :create ]
+      
+      # Venues with Google Places integration
+      resources :venues, only: [ :index, :show, :create, :update ] do
+        collection do
+          get :search
+          post :select
+        end
+      end
+      
+      # Legacy exports (keep for backward compatibility)
+      get "exports/timesheet", to: "exports#timesheet"
+      
       # Dashboard
       get "dashboard", to: "dashboard#index"
+      
+      # Events
+      resources :events do
+        member do
+          patch :update_status
+          post :publish
+          post :complete
+          post :restore
+        end
+        resources :event_skill_requirements, only: [:create, :update, :destroy]
+      end
+      
+      # Keep jobs as alias for backward compatibility
+      resources :jobs, controller: 'events'
+      
+      # Staffing endpoints (keep for modal operations only)
+      resources :staffing, only: [:create, :update, :destroy] do
+        collection do
+          post :bulk_create
+          post :validate_bulk
+        end
+      end
+      
+      # Keep assignments as alias for backward compatibility
+      resources :assignments, controller: 'staffing', only: [:create, :update, :destroy] do
+        collection do
+          post :bulk_create
+          get :export
+        end
+        member do
+          post :clock_in
+          post :clock_out
+          patch :update_break
+        end
+      end
+      
+      # Reports
+      namespace :reports do
+        get :timesheet
+        get :payroll
+        get :worker_hours
+        get :event_summary
+      end
     end
   end
 
@@ -35,14 +102,13 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  # Serve React app for all non-API routes (Rails will handle static files automatically)
-  get "*path", to: "home#index", constraints: lambda { |req| 
-    !req.path.start_with?("/api") && 
-    !req.path.start_with?("/assets") &&
-    !req.path.start_with?("/favicon") &&
-    !req.path.start_with?("/robots") &&
-    !req.path.start_with?("/manifest")
-  }
+  # Serve SPA for HTML paths only, never for real files
+  get '*path', to: 'home#index',
+    constraints: ->(req) {
+      req.format.html? &&
+      !req.path.match?(/\.(?:js|css|map|png|jpe?g|gif|svg|ico|json|txt|woff2?|ttf)$/) &&
+      !req.path.start_with?('/assets/')
+    }
 
   # Defines the root path route ("/")
   root "home#index"

@@ -1,6 +1,9 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = import.meta.env.PROD ? '/api/v1' : '/api/v1'
+// Resolve API base URL from env, falling back to same-origin for bundles
+// Local dev should set VITE_API_URL (e.g. http://localhost:3001/api/v1)
+const rawBase = import.meta.env.VITE_API_URL as string | undefined
+const API_BASE_URL = rawBase ? rawBase.replace(/\/$/, '') : '/api/v1'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +11,11 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+  validateStatus: (status) => {
+    // Treat 200-299 AND 207 Multi-Status as success
+    // This allows partial_success responses to go through to the try block
+    return (status >= 200 && status < 300) || status === 207;
+  }
 })
 
 apiClient.interceptors.request.use(

@@ -1,4 +1,4 @@
-import api from './api'
+import { apiClient } from '../lib/api'
 
 export interface Assignment {
   id: number
@@ -21,7 +21,7 @@ export interface Shift {
   start_time_utc: string
   end_time_utc: string
   capacity: number
-  status: 'draft' | 'published' | 'assigned' | 'completed' | 'cancelled'
+  status: 'draft' | 'published' | 'archived'
   required_cert_id?: number
   required_certification?: {
     id: number
@@ -31,6 +31,14 @@ export interface Shift {
     updated_at: string
   }
   location?: string
+  location_id?: number
+  location?: {
+    id: number
+    name: string
+    city: string
+    state: string
+    display_name?: string
+  }
   notes?: string
   pay_rate?: string | number
   assignments?: Assignment[]
@@ -50,6 +58,7 @@ export interface Shift {
   }>
   assigned_count?: number
   available_slots?: number
+  duration_hours?: number
   created_by_id?: number
   created_by?: {
     id: number
@@ -88,45 +97,46 @@ export const getShifts = async (params?: {
   end_date?: string
   role?: string
 }): Promise<ShiftsResponse> => {
-  const response = await api.get('/shifts', { params })
+  const response = await apiClient.get('/shifts', { params })
   return response.data
 }
 
 // Get single shift
 export const getShift = async (id: number): Promise<ShiftResponse> => {
-  const response = await api.get(`/shifts/${id}`)
+  const response = await apiClient.get(`/shifts/${id}`)
   return response.data
 }
 
 // Create shift
 export const createShift = async (data: Partial<Shift>): Promise<ShiftResponse> => {
-  const response = await api.post('/shifts', { shift: data })
+  const response = await apiClient.post('/shifts', { shift: data })
   return response.data
 }
 
 // Update shift
 export const updateShift = async (id: number, data: Partial<Shift>): Promise<ShiftResponse> => {
-  const response = await api.put(`/shifts/${id}`, { shift: data })
+  const response = await apiClient.put(`/shifts/${id}`, { shift: data })
   return response.data
 }
 
 // Delete shift
 export const deleteShift = async (id: number): Promise<void> => {
-  await api.delete(`/shifts/${id}`)
+  await apiClient.delete(`/shifts/${id}`)
 }
 
 // Assign worker to shift
-export const assignWorker = async (shiftId: number, workerId: number) => {
-  const response = await api.post('/assignments', {
+export const assignWorker = async (shiftId: number, workerId: number, hourlyRate?: number) => {
+  const response = await apiClient.post('/assignments', {
     shift_id: shiftId,
     worker_id: workerId,
+    hourly_rate: hourlyRate,
   })
   return response.data
 }
 
 // Unassign worker from shift
 export const unassignWorker = async (assignmentId: number) => {
-  await api.delete(`/assignments/${assignmentId}`)
+  await apiClient.delete(`/assignments/${assignmentId}`)
 }
 
 

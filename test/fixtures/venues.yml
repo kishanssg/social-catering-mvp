@@ -1,0 +1,27 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  place_id: MyString
+  name: MyString
+  address: MyText
+  latitude: 9.99
+  longitude: 9.99
+  arrival_instructions: MyText
+  parking_info: MyText
+  phone: MyString
+  website: MyString
+  formatted_address: MyText
+  last_synced_at: 2025-10-16 05:29:25
+
+two:
+  place_id: MyString
+  name: MyString
+  address: MyText
+  latitude: 9.99
+  longitude: 9.99
+  arrival_instructions: MyText
+  parking_info: MyText
+  phone: MyString
+  website: MyString
+  formatted_address: MyText
+  last_synced_at: 2025-10-16 05:29:25
