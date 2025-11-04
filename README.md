@@ -3,6 +3,8 @@
 **Production:** https://sc-mvp-production-6b7a268cc8ad.herokuapp.com  
 **Staging:** https://sc-mvp-staging.herokuapp.com
 
+A comprehensive workforce scheduling and management system for catering companies. Manage events, assign workers to shifts based on skills and certifications, track hours, and generate payroll reports.
+
 ---
 
 ## 📚 Documentation
