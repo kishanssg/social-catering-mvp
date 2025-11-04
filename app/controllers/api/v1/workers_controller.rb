@@ -71,13 +71,7 @@ module Api
         render json: {
           status: 'success',
           data: {
-            worker: @worker.as_json(
-              include: {
-                worker_certifications: {
-                  include: { certification: { only: [:id, :name] } }
-                }
-              }
-            )
+            worker: serialize_worker(@worker)
           }
         }
       end
@@ -300,13 +294,14 @@ module Api
           hourly_rate: worker.hourly_rate,
           skills_json: worker.try(:skills_json) || [],
           certifications: worker.worker_certifications.includes(:certification).map { |wc|
+            next unless wc.certification
             {
               id: wc.certification.id,
               name: wc.certification.name,
               expires_at_utc: wc.expires_at_utc,
               expired: wc.expires_at_utc && wc.expires_at_utc < Time.current
             }
-          },
+          }.compact,
           profile_photo_url: worker.profile_photo_url,
           profile_photo_thumb_url: worker.profile_photo_thumb_url,
           created_at: worker.created_at,
