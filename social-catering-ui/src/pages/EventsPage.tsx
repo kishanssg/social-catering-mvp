@@ -1278,9 +1278,11 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
         
         event.shifts_by_role?.forEach(roleGroup => {
           roleGroup.shifts.forEach(shift => {
+            const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
             shift.assignments.forEach(assignment => {
-              // Handle both string and number values from API
-              const hours = assignment.hours_worked ? parseFloat(assignment.hours_worked.toString()) : 0;
+              // Use logged hours if available; otherwise fall back to scheduled duration
+              const logged = assignment.hours_worked ? parseFloat(assignment.hours_worked.toString()) : undefined;
+              const hours = typeof logged === 'number' && !isNaN(logged) ? logged : shiftDuration;
               totalHours += hours;
               // totalPay += assignment.total_pay || 0; // Add if available
             });
