@@ -197,7 +197,7 @@ module Api
             role_needed: assignment.shift.role_needed,
             start_time_utc: assignment.shift.start_time_utc,
             end_time_utc: assignment.shift.end_time_utc,
-            location: assignment.shift.location,
+            location: assignment.shift.location&.display_name || assignment.shift.location&.name || nil,
             event_id: assignment.shift.event_id,
             event_title: assignment.shift.event&.title,
             event: assignment.shift.event ? {

@@ -43,7 +43,7 @@ interface Assignment {
     role_needed: string;
     start_time_utc: string;
     end_time_utc: string;
-    location: string;
+    location: string | null; // Can be string or null, never object
     event_id: number;
     event_title: string;
     event: {
@@ -389,7 +389,7 @@ export function WorkerDetailPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} />
-                          {assignment.shift.event?.venue_name || assignment.shift.location || 'No venue'}
+                          {assignment.shift.event?.venue_name || (typeof assignment.shift.location === 'string' ? assignment.shift.location : null) || 'No venue'}
                         </div>
                       </div>
                     </div>
@@ -429,7 +429,7 @@ export function WorkerDetailPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} />
-                          {assignment.shift.event?.venue_name || assignment.shift.location || 'No venue'}
+                          {assignment.shift.event?.venue_name || (typeof assignment.shift.location === 'string' ? assignment.shift.location : null) || 'No venue'}
                         </div>
                       </div>
                     </div>
