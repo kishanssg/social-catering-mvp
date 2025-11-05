@@ -189,7 +189,7 @@ module Api
         require 'csv'
         
         # Group by worker
-        worker_data = assignments.group_by(&:worker)
+        worker_data = assignments.includes(shift: [:event]).group_by(&:worker)
         
         CSV.generate(headers: true) do |csv|
           # Headers for payroll report
@@ -215,16 +215,23 @@ module Api
             
             # Calculate totals for this worker
             worker_assignments.each do |assignment|
-              hours = assignment.hours_worked || 0
-              rate = assignment.hourly_rate || 15.0
-              
-              total_hours += hours
-              total_pay += (hours * rate)
-              rates << rate
-              
-              # Get event name
               shift = assignment.shift
-              event_title = shift.event&.title || shift.client_name || 'Unknown Event'
+              # Scheduled hours (defensive guards)
+              sched_hours = 0.0
+              if shift&.start_time_utc.present? && shift&.end_time_utc.present? && shift.end_time_utc > shift.start_time_utc
+                sched_hours = (shift.end_time_utc - shift.start_time_utc) / 3600.0
+                sched_hours = sched_hours.positive? ? sched_hours : 0.0
+              end
+
+              effective_hours = assignment.hours_worked.present? ? assignment.hours_worked.to_f : sched_hours
+              rate = assignment.hourly_rate || shift&.pay_rate || 12.0
+
+              total_hours += effective_hours
+              total_pay   += (effective_hours * rate)
+              rates << rate
+
+              # Get event name
+              event_title = shift&.event&.title || shift&.client_name || 'Unknown Event'
               events << event_title unless events.include?(event_title)
             end
             
@@ -258,24 +265,55 @@ module Api
         CSV.generate(headers: true) do |csv|
           csv << ['Worker Name', 'Event Name', 'Date', 'Role', 'Hours', 'Pay Rate', 'Payout']
           
-          assignments.each do |assignment|
+          assignments.includes(shift: [:event]).where.not(status: ['cancelled','no_show']).find_each do |assignment|
             shift = assignment.shift
             event = shift.event
-            
+
+            # Scheduled hours (defensive)
+            sched_hours = 0.0
+            if shift&.start_time_utc.present? && shift&.end_time_utc.present? && shift.end_time_utc > shift.start_time_utc
+              sched_hours = (shift.end_time_utc - shift.start_time_utc) / 3600.0
+              sched_hours = sched_hours.positive? ? sched_hours : 0.0
+            end
+            hours = assignment.hours_worked.present? ? assignment.hours_worked.to_f : sched_hours
+            rate  = assignment.hourly_rate || shift&.pay_rate || 12.0
+            payout = (hours * rate).round(2)
+
             csv << [
               assignment.worker.full_name,
               event&.title || shift.client_name,
               shift.start_time_utc.strftime('%m/%d/%Y'),
               shift.role_needed,
-              assignment.hours_worked&.round(2) || 0,
-              assignment.hourly_rate&.round(2) || 0,
-              assignment.total_payout
+              hours.round(2),
+              rate.round(2),
+              payout
             ]
           end
           
           # Add summary row - safely handle nil values
-          total_hours = assignments.sum { |a| a.hours_worked || 0 }
-          total_pay = assignments.sum { |a| a.total_payout || 0 }
+          total_hours = assignments.includes(:shift).sum do |a|
+            if a.hours_worked.present?
+              a.hours_worked.to_f
+            else
+              s = a.shift
+              if s&.start_time_utc.present? && s&.end_time_utc.present? && s.end_time_utc > s.start_time_utc
+                [(s.end_time_utc - s.start_time_utc) / 3600.0, 0.0].max
+              else
+                0.0
+              end
+            end
+          end
+          total_pay = assignments.includes(:shift).sum do |a|
+            s = a.shift
+            sched = if s&.start_time_utc.present? && s&.end_time_utc.present? && s.end_time_utc > s.start_time_utc
+              [(s.end_time_utc - s.start_time_utc) / 3600.0, 0.0].max
+            else
+              0.0
+            end
+            hrs = a.hours_worked.present? ? a.hours_worked.to_f : sched
+            rate = a.hourly_rate || s&.pay_rate || 12.0
+            hrs * rate
+          end
           csv << []
           csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2)]
         end
@@ -301,21 +339,43 @@ module Api
           ]
           
           # Data rows
-          events.each do |event|
-            total_cost = event.shifts.joins(:assignments)
-                              .where(assignments: { status: ['assigned', 'confirmed', 'completed'] })
-                              .sum('assignments.hours_worked * assignments.hourly_rate')
-            
+          events.find_each do |event|
+            needed = 0
+            assigned = 0
+            shifts_generated = 0
+            total_cost = 0.0
+
+            event.shifts.each do |s|
+              shifts_generated += 1
+              needed += (s.capacity || 0)
+
+              # scheduled hours
+              sched = 0.0
+              if s.start_time_utc.present? && s.end_time_utc.present? && s.end_time_utc > s.start_time_utc
+                sched = (s.end_time_utc - s.start_time_utc) / 3600.0
+                sched = sched.positive? ? sched : 0.0
+              end
+
+              s.assignments.where(status: ['assigned','confirmed','completed']).each do |a|
+                assigned += 1
+                hrs = a.hours_worked.present? ? a.hours_worked.to_f : sched
+                rate = a.hourly_rate || s.pay_rate || 12.0
+                total_cost += (hrs * rate)
+              end
+            end
+
+            pct = needed.zero? ? 0 : ((assigned.to_f / needed.to_f) * 100.0).round
+
             csv << [
               event.id,
               event.title,
               event.event_schedule&.start_time_utc&.strftime('%m/%d/%Y') || '',
               event.venue&.name || '',
               event.status,
-              event.total_workers_needed,
-              event.assigned_workers_count,
-              "#{event.staffing_percentage}%",
-              event.shifts.count,
+              needed,
+              assigned,
+              "#{pct}%",
+              shifts_generated,
               total_cost.round(2),
               event.supervisor_name || ''
             ]
