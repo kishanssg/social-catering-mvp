@@ -22,11 +22,11 @@ class Api::V1::EventsController < Api::V1::BaseController
       end
     end
     
-    # Filter by tab (support 'completed' alias for 'past')
-    tab_param = params[:tab] == 'completed' ? 'past' : params[:tab]
+    # Filter by tab
+    tab_param = params[:tab]
     
     # Special handling: if we have a date filter AND we're on active tab, show both active and past events for that date
-    show_all_for_date = params[:date].present? && (tab_param == 'active' || params[:tab] == 'completed')
+    show_all_for_date = params[:date].present? && tab_param == 'active'
     
     case tab_param
     when 'draft'
@@ -38,16 +38,28 @@ class Api::V1::EventsController < Api::V1::BaseController
                      .joins(:event_schedule)
                      .order('event_schedules.start_time_utc ASC')
       else
-        # Normal active events (upcoming only)
+        # Normal active events (upcoming only) - published + future
         events = events.published
                      .joins(:event_schedule)
                      .where('event_schedules.end_time_utc > ?', Time.current)
                      .order('event_schedules.start_time_utc ASC')
       end
     when 'past'
+      # Past events = published + past (not completed status)
       events = events.published
                    .joins(:event_schedule)
                    .where('event_schedules.end_time_utc <= ?', Time.current)
+                   .order('event_schedules.end_time_utc DESC')
+    when 'completed'
+      # Completed events = status='completed' OR (published + past)
+      # This ensures we show both manually completed events and past published events
+      completed_by_status = events.where(status: 'completed')
+      completed_by_date = events.published
+                                .joins(:event_schedule)
+                                .where('event_schedules.end_time_utc <= ?', Time.current)
+      # Union both sets (using OR to avoid duplicates)
+      events = Event.where(id: completed_by_status.pluck(:id) + completed_by_date.pluck(:id))
+                   .joins(:event_schedule)
                    .order('event_schedules.end_time_utc DESC')
     else
       events = events.where(status: ['draft', 'published'])
