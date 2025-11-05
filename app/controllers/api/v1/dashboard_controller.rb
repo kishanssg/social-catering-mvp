@@ -15,11 +15,14 @@ module Api
             .joins(:event_schedule)
             .where('event_schedules.end_time_utc > ?', Time.current)
             .count,
-          # Past = published events that have ended (these are shown in "past" tab)
-          completed_events: Event.published
-            .joins(:event_schedule)
-            .where('event_schedules.end_time_utc <= ?', Time.current)
-            .count,
+          # Completed = status='completed' OR (published + past)
+          completed_events: (
+            Event.where(status: 'completed').pluck(:id) +
+            Event.published
+              .joins(:event_schedule)
+              .where('event_schedules.end_time_utc <= ?', Time.current)
+              .pluck(:id)
+          ).uniq.size,
           total_workers: Worker.where(active: true).count,
           gaps_to_fill: 0
         }
