@@ -65,6 +65,13 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     message: '',
     type: 'error'
   });
+  // Schedule editing state (P1)
+  const [schedule, setSchedule] = useState<{
+    start_time_utc: string;
+    end_time_utc: string;
+    break_minutes: number;
+  } | null>(null);
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   
   // Fetch full event details (including skill_requirements) when modal opens
   useEffect(() => {
@@ -149,6 +156,18 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     }
   }, [eventData]);
 
+  // Initialize schedule when event data loads (P1)
+  useEffect(() => {
+    const eventToUse = fullEventData || event;
+    if (eventToUse?.schedule) {
+      setSchedule({
+        start_time_utc: eventToUse.schedule.start_time_utc,
+        end_time_utc: eventToUse.schedule.end_time_utc,
+        break_minutes: eventToUse.schedule.break_minutes || 0
+      });
+    }
+  }, [fullEventData, event]);
+
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
     const newRoles = [...roles];
     newRoles[index] = { ...newRoles[index], [field]: value };
@@ -222,11 +241,15 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             cert_id: role.cert_id
           })),
           // ✅ Fix: Include schedule data to trigger shift sync
-          schedule: eventToUpdate.schedule ? {
+          schedule: schedule ? {
+            start_time_utc: schedule.start_time_utc,
+            end_time_utc: schedule.end_time_utc,
+            break_minutes: schedule.break_minutes
+          } : (eventToUpdate.schedule ? {
             start_time_utc: eventToUpdate.schedule.start_time_utc,
             end_time_utc: eventToUpdate.schedule.end_time_utc,
             break_minutes: eventToUpdate.schedule.break_minutes || 0
-          } : undefined
+          } : undefined)
         }
       });
 
@@ -353,6 +376,86 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </div>
               <div></div>
             </div>
+          </div>
+
+          {/* Schedule Section - Editable (P1) */}
+          <div className="col-span-2 bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Event Schedule</h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingSchedule(!isEditingSchedule)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {isEditingSchedule ? 'Cancel' : 'Edit Schedule'}
+              </button>
+            </div>
+
+            {!isEditingSchedule ? (
+              // Read-only view
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {displayEvent.schedule && new Date(displayEvent.schedule.start_time_utc).toLocaleDateString('en-US', {
+                      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Time</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {schedule && (
+                      <>
+                        {new Date(schedule.start_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} -
+                        {new Date(schedule.end_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Break</p>
+                  <p className="text-sm font-semibold text-gray-900">{schedule?.break_minutes || 0} minutes</p>
+                </div>
+              </div>
+            ) : (
+              // Edit mode
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
+                    <input
+                      type="datetime-local"
+                      value={schedule?.start_time_utc ? new Date(schedule.start_time_utc).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, start_time_utc: new Date(e.target.value).toISOString() }) : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
+                    <input
+                      type="datetime-local"
+                      value={schedule?.end_time_utc ? new Date(schedule.end_time_utc).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, end_time_utc: new Date(e.target.value).toISOString() }) : null)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Break Minutes</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={schedule?.break_minutes || 0}
+                    onChange={(e) => setSchedule(prev => prev ? ({ ...prev, break_minutes: parseInt(e.target.value) || 0 }) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <p className="text-xs text-blue-800">⚠️ Changing schedule times will update ALL shifts and worker schedules for this event.</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Roles List */}
