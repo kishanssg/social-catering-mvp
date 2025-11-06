@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios'
+import { normalizeEventsList, normalizeEvent } from './normalize'
 
 // Resolve API base URL from env, falling back to same-origin for bundles
 // Local dev should set VITE_API_URL (e.g. http://localhost:3001/api/v1)
@@ -29,6 +30,20 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.status, response.config.url)
+    try {
+      const url = response.config.url || ''
+      const data = response.data
+      if (data && data.status === 'success') {
+        // Normalize common payloads used by dashboard/events to avoid undefined property crashes
+        if (url.endsWith('/events')) {
+          response.data = { ...data, data: normalizeEventsList(data.data) }
+        } else if (/\/events\/(\d+)$/.test(url) && data.data) {
+          response.data = { ...data, data: normalizeEvent(data.data) }
+        }
+      }
+    } catch (e) {
+      // non-fatal normalization error; keep original response
+    }
     return response
   },
   (error: AxiosError) => {

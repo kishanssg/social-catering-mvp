@@ -18,6 +18,7 @@
 
     /* Linting */
     "strict": false,  // Relaxed for MVP
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": false,  // Relaxed for MVP
     "noUnusedParameters": false,  // Relaxed for MVP
     "erasableSyntaxOnly": true,
