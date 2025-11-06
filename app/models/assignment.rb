@@ -1,4 +1,6 @@
 class Assignment < ApplicationRecord
+  # Allows certain state transitions to bypass capacity validation
+  attr_accessor :skip_capacity_check
   include Auditable
   # Include Single Source of Truth concerns
   include HoursCalculations
@@ -27,7 +29,7 @@ class Assignment < ApplicationRecord
     message: "is already assigned to this shift" 
   }
   validate :worker_available_for_shift
-  validate :shift_not_at_capacity
+  validate :shift_not_at_capacity, unless: :skip_capacity_check
   validate :worker_has_required_skills
   validate :worker_has_valid_certification
 
@@ -230,6 +232,7 @@ class Assignment < ApplicationRecord
   end
 
   def mark_no_show!(updated_by_user, notes: nil)
+    self.skip_capacity_check = true
     update!(
       status: 'no_show',
       hours_worked: 0,
@@ -237,9 +240,12 @@ class Assignment < ApplicationRecord
       edited_at_utc: Time.current,
       approval_notes: notes
     )
+  ensure
+    self.skip_capacity_check = false
   end
 
   def remove_from_job!(updated_by_user, notes: nil)
+    self.skip_capacity_check = true
     update!(
       status: 'cancelled',
       hours_worked: 0,
@@ -247,6 +253,8 @@ class Assignment < ApplicationRecord
       edited_at_utc: Time.current,
       approval_notes: notes
     )
+  ensure
+    self.skip_capacity_check = false
   end
 
   def can_edit_hours?

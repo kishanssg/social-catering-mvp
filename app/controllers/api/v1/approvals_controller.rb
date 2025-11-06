@@ -35,7 +35,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         actual_end_time_utc: params[:actual_end_time_utc],
         hourly_rate: params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
-        edited_at: Time.current
+        edited_at_utc: Time.current
       )
 
       ActivityLog.create!(
