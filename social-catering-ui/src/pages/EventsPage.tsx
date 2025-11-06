@@ -843,7 +843,7 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
                 {event.venue && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                     <MapPin size={16} className="text-gray-400 flex-shrink-0" />
-                    <span className="truncate">{event.venue.name}</span>
+                    <span className="truncate">{event.venue?.name || 'No venue'}</span>
                   </div>
                 )}
                 
@@ -1021,7 +1021,7 @@ function ActiveEventsTab({
                   {event.venue && (
                     <div className="flex items-center gap-1.5">
                       <MapPin size={14} className="text-gray-400" />
-                      {event.venue.name}
+                      {event.venue?.name || 'No venue'}
                     </div>
                   )}
                   {event.schedule && (
@@ -1403,7 +1403,7 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                   {event.venue && (
                     <div className="flex items-center gap-1.5">
                       <MapPin size={14} className="text-gray-400" />
-                      {event.venue.name}
+                      {event.venue?.name || 'No venue'}
                     </div>
                   )}
                 </div>

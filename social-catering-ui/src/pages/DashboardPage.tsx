@@ -709,7 +709,7 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
                 <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                   <div className="flex items-center gap-1.5">
                     <MapPin size={14} className="text-gray-400" />
-                    <span className="truncate">{event.venue.name}</span>
+                    <span className="truncate">{event.venue?.name || 'No venue'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Clock size={14} className="text-gray-400" />
