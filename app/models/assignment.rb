@@ -240,41 +240,86 @@ class Assignment < ApplicationRecord
 
   # Approval API
   def approve!(approved_by_user, notes: nil)
-    self.skip_capacity_check = true
-    update!(
+    # Build notes (append)
+    combined_notes = if notes.present?
+      timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
+      note_text = "APPROVED (#{timestamp}): #{notes}"
+      [self.approval_notes, note_text].compact.join("\n")
+    else
+      self.approval_notes
+    end
+
+    Rails.logger.info "Approving assignment #{id} (bypassing validations)"
+    result = update_columns(
       approved: true,
-      approved_by: approved_by_user,
+      approved_by_id: approved_by_user.id,
       approved_at_utc: Time.current,
-      approval_notes: notes
+      approval_notes: combined_notes,
+      updated_at: Time.current
     )
-  ensure
-    self.skip_capacity_check = false
+    Rails.logger.info "✅ Assignment #{id} approved successfully"
+    result
+  rescue => e
+    Rails.logger.error "❌ Failed to approve: #{e.class} - #{e.message}"
+    raise
   end
 
   def mark_no_show!(updated_by_user, notes: nil)
-    self.skip_capacity_check = true
-    update!(
-      status: 'no_show',
-      hours_worked: 0,
-      edited_by: updated_by_user,
-      edited_at_utc: Time.current,
-      approval_notes: notes
-    )
-  ensure
-    self.skip_capacity_check = false
+    ActiveRecord::Base.transaction do
+      timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
+      note_text = "NO SHOW (#{timestamp})"
+      note_text += ": #{notes}" if notes.present?
+      combined_notes = [self.approval_notes, note_text].compact.join("\n")
+
+      Rails.logger.info "Marking assignment #{id} as no-show (bypassing validations)"
+      result = update_columns(
+        status: 'no_show',
+        hours_worked: 0,
+        edited_by_id: updated_by_user.id,
+        edited_at_utc: Time.current,
+        approval_notes: combined_notes,
+        updated_at: Time.current
+      )
+
+      if shift&.event
+        Events::RecalculateTotals.new(event: shift.event).call rescue nil
+      end
+
+      Rails.logger.info "✅ Assignment #{id} marked as no-show successfully"
+      result
+    end
+  rescue => e
+    Rails.logger.error "❌ Failed to mark no-show: #{e.class} - #{e.message}"
+    raise
   end
 
   def remove_from_job!(updated_by_user, notes: nil)
-    self.skip_capacity_check = true
-    update!(
-      status: 'cancelled',
-      hours_worked: 0,
-      edited_by: updated_by_user,
-      edited_at_utc: Time.current,
-      approval_notes: notes
-    )
-  ensure
-    self.skip_capacity_check = false
+    ActiveRecord::Base.transaction do
+      timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
+      note_text = "REMOVED (#{timestamp})"
+      note_text += ": #{notes}" if notes.present?
+      combined_notes = [self.approval_notes, note_text].compact.join("\n")
+
+      Rails.logger.info "Removing assignment #{id} (bypassing validations)"
+      result = update_columns(
+        status: 'cancelled',
+        hours_worked: 0,
+        edited_by_id: updated_by_user.id,
+        edited_at_utc: Time.current,
+        approval_notes: combined_notes,
+        updated_at: Time.current
+      )
+
+      if shift&.event
+        Events::RecalculateTotals.new(event: shift.event).call rescue nil
+      end
+
+      Rails.logger.info "✅ Assignment #{id} removed successfully"
+      result
+    end
+  rescue => e
+    Rails.logger.error "❌ Failed to remove: #{e.class} - #{e.message}"
+    raise
   end
 
   def can_edit_hours?
