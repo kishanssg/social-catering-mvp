@@ -141,10 +141,14 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   end
 
   def serialize_event_for_approval(event)
+    # Derive a reliable event date from schedule or earliest shift
+    start_ts = event.event_schedule&.start_time_utc ||
+               (event.respond_to?(:schedule) ? event.schedule&.start_time_utc : nil) ||
+               event.shifts.minimum(:start_time_utc)
     {
       id: event.id,
       title: event.title,
-      event_date: event.respond_to?(:event_schedule) ? event.event_schedule&.start_time_utc&.to_date : nil,
+      event_date: start_ts&.to_date,
       venue_name: event.venue&.name,
       status: event.status,
       total_hours: event.total_hours_worked,
