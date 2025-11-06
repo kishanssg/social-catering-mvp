@@ -209,7 +209,8 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     
     setSaving(true);
     try {
-      const response = await apiClient.patch(`/events/${displayEvent.id}`, {
+      const eventToUpdate = fullEventData || event;
+      const response = await apiClient.patch(`/events/${eventToUpdate.id}`, {
         event: {
           roles: roles.map(role => ({
             skill_name: role.skill_name,
