@@ -105,9 +105,14 @@ class Api::V1::EventsController < Api::V1::BaseController
                     .where("events.title ILIKE ? OR venues.name ILIKE ?", search_term, search_term)
     end
     
+    # Add limit for performance (prevent loading too many events)
+    limit = params[:limit]&.to_i || 50
+    events = events.limit(limit)
+    
+    # Use lightweight serializer for list views (faster)
     render json: {
       status: 'success',
-      data: events.map { |event| serialize_event(event, tab_param) }
+      data: events.map { |event| serialize_event_lightweight(event, tab_param) }
     }
   end
 
@@ -451,6 +456,44 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   def schedule_params(schedule)
     schedule.permit(:start_time_utc, :end_time_utc, :break_minutes)
+  end
+
+  # Lightweight serializer for list views (faster, less data)
+  def serialize_event_lightweight(event, tab = nil)
+    {
+      id: event.id,
+      title: event.title,
+      status: event.status,
+      staffing_status: event.staffing_status,
+      venue_id: event.venue_id,
+      venue_name: event.venue&.name,
+      
+      # Pre-calculated counts (don't calculate on the fly)
+      total_shifts: event.total_shifts_count || event.shifts.count,
+      assigned_shifts: event.assigned_shifts_count || event.shifts.joins(:assignments).count,
+      
+      # Use denormalized totals (already calculated)
+      total_hours: event.total_hours_worked,
+      total_cost: event.total_pay_amount,
+      
+      # Schedule data (already loaded via includes)
+      schedule: event.event_schedule ? {
+        start_time_utc: event.event_schedule.start_time_utc,
+        end_time_utc: event.event_schedule.end_time_utc,
+        break_minutes: event.event_schedule.break_minutes
+      } : nil,
+      
+      # Staffing summary (use cached values)
+      total_workers_needed: event.total_workers_needed,
+      assigned_workers_count: event.assigned_workers_count,
+      unfilled_roles_count: event.unfilled_roles_count,
+      staffing_percentage: event.staffing_percentage,
+      
+      created_at: event.created_at_utc
+      
+      # DON'T include: full shifts array, full assignments, etc.
+      # Those are loaded only when viewing event detail (show action)
+    }
   end
 
   def serialize_event(event, tab = nil)

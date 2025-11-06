@@ -37,16 +37,36 @@ module Api
       end
 
       def create
-        @assignment = Assignment.new(assignment_params)
-        @assignment.assigned_by = current_user
-        @assignment.assigned_at_utc ||= Time.current
-        @assignment.status ||= 'assigned'
-
-        if @assignment.save
-          render json: { status: 'success', message: 'Worker assigned successfully', data: serialize_assignment(@assignment) }, status: :created
-        else
-          render json: { status: 'error', errors: @assignment.errors.full_messages }, status: :unprocessable_entity
+        # Only load what we need for conflict check
+        shift = Shift.includes(:event).find(assignment_params[:shift_id])
+        worker = Worker.find(assignment_params[:worker_id])
+        
+        # Fast conflict check (scoped to time window)
+        conflicts = check_conflicts_optimized(shift, worker)
+        
+        if conflicts.any?
+          return render json: {
+            status: 'error',
+            message: 'Assignment conflicts detected',
+            conflicts: conflicts
+          }, status: :unprocessable_entity
         end
+        
+        # Create assignment
+        ActiveRecord::Base.transaction do
+          @assignment = Assignment.new(assignment_params)
+          @assignment.assigned_by = current_user
+          @assignment.assigned_at_utc ||= Time.current
+          @assignment.status ||= 'assigned'
+          
+          if @assignment.save
+            render json: { status: 'success', message: 'Worker assigned successfully', data: serialize_assignment(@assignment) }, status: :created
+          else
+            render json: { status: 'error', errors: @assignment.errors.full_messages }, status: :unprocessable_entity
+          end
+        end
+      rescue ActiveRecord::RecordNotFound => e
+        render json: { status: 'error', message: e.message }, status: :not_found
       end
 
       def bulk_create
@@ -185,6 +205,67 @@ module Api
           :worker_id, :shift_id, :hours_worked, :status, :hourly_rate,
           :notes, :break_duration_minutes, :overtime_hours, :performance_rating
         )
+      end
+
+      # Optimized conflict check - only queries relevant time window
+      def check_conflicts_optimized(shift, worker)
+        conflicts = []
+        
+        # Only check assignments in a reasonable time window (not ALL assignments)
+        # This dramatically reduces query size
+        time_window_start = shift.start_time_utc - 1.day
+        time_window_end = shift.end_time_utc + 1.day
+        
+        # Scoped query - much faster than checking all assignments
+        existing_assignments = worker.assignments
+          .joins(:shift)
+          .where.not(status: ['cancelled', 'no_show'])
+          .where('shifts.start_time_utc < ? AND shifts.end_time_utc > ?',
+                 time_window_end, time_window_start)
+          .includes(:shift)
+        
+        existing_assignments.each do |existing|
+          if times_overlap?(shift, existing.shift)
+            conflicts << {
+              type: 'time_overlap',
+              message: "Worker already assigned to #{existing.shift.event&.title || existing.shift.client_name}",
+              conflicting_shift_id: existing.shift_id
+            }
+          end
+        end
+        
+        # Capacity check
+        assigned_count = Assignment.where(shift_id: shift.id, status: 'assigned').count
+        if assigned_count >= shift.capacity
+          conflicts << {
+            type: 'capacity_exceeded',
+            message: "Shift is at full capacity (#{shift.capacity} workers)",
+            current_count: assigned_count
+          }
+        end
+        
+        # Certification check (if required)
+        if shift.required_cert_id
+          cert_ok = worker.worker_certifications
+            .where(cert_id: shift.required_cert_id)
+            .where('expires_at_utc >= ?', shift.end_time_utc)
+            .exists?
+          
+          unless cert_ok
+            conflicts << {
+              type: 'certification_expired',
+              message: "Worker's certification expires before shift ends or is missing",
+              required_cert_id: shift.required_cert_id
+            }
+          end
+        end
+        
+        conflicts
+      end
+
+      def times_overlap?(shift1, shift2)
+        shift1.start_time_utc < shift2.end_time_utc &&
+        shift1.end_time_utc > shift2.start_time_utc
       end
 
       def serialize_assignment(assignment)

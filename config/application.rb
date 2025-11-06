@@ -15,6 +15,9 @@ module SocialCateringMvp
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
+    
+    # Ensure middleware directory is autoloaded
+    config.autoload_paths << Rails.root.join('app', 'middleware')
 
     # Enable static file serving in production
     config.public_file_server.enabled = true
@@ -30,5 +33,9 @@ module SocialCateringMvp
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+    
+    # Add performance logging middleware (only in development/production, not test)
+    # Using string form to avoid autoloading issues during boot
+    config.middleware.use 'PerformanceLogger' unless Rails.env.test?
   end
 end

@@ -8,6 +8,7 @@ Rails.application.routes.draw do
 
   # Custom health check endpoint for monitoring
   get "/healthz", to: "health#check"
+  get "/health/metrics", to: "health#metrics"
 
   # API routes
   namespace :api do

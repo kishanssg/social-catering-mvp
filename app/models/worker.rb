@@ -25,6 +25,8 @@ class Worker < ApplicationRecord
 
   before_save :sync_skills_tsvector
   before_save :normalize_phone
+  after_save :clear_workers_cache
+  after_destroy :clear_workers_cache
 
   # Attach profile photo via Active Storage
   has_one_attached :profile_photo
@@ -79,6 +81,10 @@ class Worker < ApplicationRecord
   end
 
   private
+
+  def clear_workers_cache
+    Rails.cache.delete('active_workers_list')
+  end
 
   def normalize_phone
     return if phone.blank?

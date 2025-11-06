@@ -7,62 +7,80 @@ module Api
       before_action :normalize_cert_params!, only: [:create, :update]
 
       def index
-        # Start with all workers
-        workers = Worker.includes(worker_certifications: :certification)
+        # Check if we can use cached active workers list (no filters applied)
+        use_cache = params[:search].blank? && 
+                   params[:skills].blank? && 
+                   params[:certification_id].blank? &&
+                   (params[:active].nil? || params[:active] == 'true') &&
+                   (params[:status].blank? || params[:status].downcase == 'active')
         
-        # Apply search filter (name, email, phone)
-        if params[:search].present?
-          search_term = "%#{params[:search].downcase}%"
-          workers = workers.where(
-            "LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?",
-            search_term, search_term, search_term, search_term
-          )
-        end
-        
-        # Apply skills filter (must have ALL selected skills)
-        if params[:skills].present?
-          skills = params[:skills].is_a?(Array) ? params[:skills] : [params[:skills]]
-          skills.each do |skill|
-            workers = workers.where("skills_json @> ?", [skill].to_json)
+        if use_cache
+          # Cache active workers list for 5 minutes (changes infrequently)
+          workers = Rails.cache.fetch('active_workers_list', expires_in: 5.minutes) do
+            Worker.where(active: true)
+              .includes(:skills, worker_certifications: :certification)
+              .order(:last_name, :first_name)
+              .to_a
           end
-        end
-        
-        # Apply explicit active boolean filter (supports ?active=true|false)
-        if params.key?(:active)
-          active_bool = ActiveModel::Type::Boolean.new.cast(params[:active])
-          workers = workers.where(active: active_bool)
-        end
-
-        # Apply status filter (legacy: accepts status=active|inactive)
-        if params[:status].present?
-          case params[:status].downcase
-          when 'active'
-            workers = workers.where(active: true)
-          when 'inactive'
-            workers = workers.where(active: false)
+        else
+          # Start with all workers (no cache for filtered queries)
+          workers = Worker.includes(worker_certifications: :certification)
+          
+          # Apply search filter (name, email, phone)
+          if params[:search].present?
+            search_term = "%#{params[:search].downcase}%"
+            workers = workers.where(
+              "LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?",
+              search_term, search_term, search_term, search_term
+            )
           end
+          
+          # Apply skills filter (must have ALL selected skills)
+          if params[:skills].present?
+            skills = params[:skills].is_a?(Array) ? params[:skills] : [params[:skills]]
+            skills.each do |skill|
+              workers = workers.where("skills_json @> ?", [skill].to_json)
+            end
+          end
+          
+          # Apply explicit active boolean filter (supports ?active=true|false)
+          if params.key?(:active)
+            active_bool = ActiveModel::Type::Boolean.new.cast(params[:active])
+            workers = workers.where(active: active_bool)
+          end
+          
+          # Apply status filter (legacy: accepts status=active|inactive)
+          if params[:status].present?
+            case params[:status].downcase
+            when 'active'
+              workers = workers.where(active: true)
+            when 'inactive'
+              workers = workers.where(active: false)
+            end
+          end
+          
+          # Apply certification filter
+          if params[:certification_id].present?
+            certified_worker_ids = WorkerCertification
+              .where(certification_id: params[:certification_id])
+              .where("expires_at_utc >= ?", Time.current)
+              .pluck(:worker_id)
+            workers = workers.where(id: certified_worker_ids)
+          end
+          
+          # Order by name
+          workers = workers.order(:first_name, :last_name).to_a
         end
-        
-        # Apply certification filter
-        if params[:certification_id].present?
-          certified_worker_ids = WorkerCertification
-            .where(certification_id: params[:certification_id])
-            .where("expires_at_utc >= ?", Time.current)
-            .pluck(:worker_id)
-          workers = workers.where(id: certified_worker_ids)
-        end
-        
-        # Order by name
-        workers = workers.order(:first_name, :last_name)
         
         render json: { 
           status: 'success', 
           data: workers.map { |w| serialize_worker(w) },
           meta: {
-            total: workers.count,
+            total: workers.size,
             search: params[:search],
             skills: params[:skills],
-            status: params[:status]
+            status: params[:status],
+            cached: use_cache
           }
         }
       end
