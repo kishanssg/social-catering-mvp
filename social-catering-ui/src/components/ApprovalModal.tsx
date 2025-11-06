@@ -45,6 +45,14 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'success' });
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message?: string;
+    requireNote?: boolean;
+    note?: string;
+    onConfirm?: () => Promise<void> | void;
+  }>({ open: false, title: '' });
 
   useEffect(() => {
     if (isOpen && event) {
@@ -95,48 +103,69 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   };
 
   const handleMarkNoShow = async (assignmentId: number, workerName: string) => {
-    if (!confirm(`Mark ${workerName} as no-show? This will set hours to 0.`)) return;
-    
-    const notes = prompt('Add a note (optional):');
-    
-    try {
-      await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, { notes });
-      await loadAssignments();
-      setToast({ isVisible: true, type: 'success', message: 'Marked as no-show' });
-    } catch (error: any) {
-      console.error('Error marking no-show:', error);
-      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to mark no-show' });
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Mark No-Show',
+      message: `Mark ${workerName} as no-show? This will set hours to 0.`,
+      requireNote: true,
+      note: '',
+      onConfirm: async () => {
+        try {
+          await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, { notes: confirmDialog.note });
+          await loadAssignments();
+          setToast({ isVisible: true, type: 'success', message: 'Marked as no-show' });
+        } catch (error: any) {
+          console.error('Error marking no-show:', error);
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to mark no-show' });
+        } finally {
+          setConfirmDialog({ open: false, title: '' });
+        }
+      }
+    });
   };
 
   const handleRemove = async (assignmentId: number, workerName: string) => {
-    if (!confirm(`Remove ${workerName} from this job? This cannot be undone.`)) return;
-    
-    const notes = prompt('Reason for removal (optional):');
-    
-    try {
-      await apiClient.delete(`/approvals/${assignmentId}/remove`, { data: { notes } });
-      await loadAssignments();
-      setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
-    } catch (error: any) {
-      console.error('Error removing assignment:', error);
-      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to remove assignment' });
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Remove from Job',
+      message: `Remove ${workerName} from this job? This cannot be undone.`,
+      requireNote: true,
+      note: '',
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/approvals/${assignmentId}/remove`, { data: { notes: confirmDialog.note } });
+          await loadAssignments();
+          setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
+        } catch (error: any) {
+          console.error('Error removing assignment:', error);
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to remove assignment' });
+        } finally {
+          setConfirmDialog({ open: false, title: '' });
+        }
+      }
+    });
   };
 
   const handleApproveAll = async () => {
     const unapprovedCount = assignments.filter(a => !a.approved && a.can_approve).length;
-    
-    if (!confirm(`Approve hours for all ${unapprovedCount} eligible workers?`)) return;
-    
-    try {
-      await apiClient.post(`/events/${event.id}/approve_all`);
-      await loadAssignments();
-      onSuccess();
-    } catch (error: any) {
-      console.error('Error approving all:', error);
-      alert(error.response?.data?.message || 'Failed to approve all hours');
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Approve All Hours',
+      message: `Approve hours for all ${unapprovedCount} eligible workers?`,
+      onConfirm: async () => {
+        try {
+          await apiClient.post(`/events/${event.id}/approve_all`);
+          await loadAssignments();
+          onSuccess();
+          setToast({ isVisible: true, type: 'success', message: `Approved ${unapprovedCount} assignments` });
+        } catch (error: any) {
+          console.error('Error approving all:', error);
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to approve all hours' });
+        } finally {
+          setConfirmDialog({ open: false, title: '' });
+        }
+      }
+    });
   };
 
   if (!isOpen) return null;
@@ -435,6 +464,42 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           </div>
         </div>
       </div>
+      {confirmDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDialog({ open: false, title: '' })}></div>
+          <div className="relative bg-white w-full max-w-md rounded-lg shadow-xl p-5">
+            <h3 className="text-lg font-semibold text-gray-900">{confirmDialog.title}</h3>
+            {confirmDialog.message && (
+              <p className="mt-2 text-sm text-gray-700">{confirmDialog.message}</p>
+            )}
+            {confirmDialog.requireNote && (
+              <div className="mt-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  value={confirmDialog.note || ''}
+                  onChange={(e) => setConfirmDialog(prev => ({ ...prev, note: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                />
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmDialog({ open: false, title: '' })}
+                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => { await confirmDialog.onConfirm?.(); }}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
