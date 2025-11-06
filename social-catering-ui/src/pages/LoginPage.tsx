@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '../contexts/AuthContext'
-import { X } from 'lucide-react'
+import { X, AlertCircle } from 'lucide-react'
 import scLogo from '../assets/icons/sc_logo.png'
 
 const loginSchema = z.object({
@@ -13,6 +13,40 @@ const loginSchema = z.object({
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
+
+// Error message mapping for better UX
+const getLoginErrorMessage = (error: any): string => {
+  const statusCode = error?.response?.status || error?.status
+  const errorData = error?.response?.data || error?.data || {}
+  const errorMessage = error?.message || errorData?.message || errorData?.error || ''
+  
+  // Check for specific error codes/messages from backend
+  if (statusCode === 401) {
+    const errorText = errorMessage.toLowerCase()
+    if (errorText.includes('email') || errorText.includes('not found') || errorText.includes('doesn\'t exist')) {
+      return 'No account found with this email address.'
+    }
+    if (errorText.includes('password') || errorText.includes('incorrect')) {
+      return 'Incorrect password. Please try again.'
+    }
+    return 'Invalid email or password. Please check your credentials.'
+  }
+  
+  if (statusCode === 429) {
+    return 'Too many login attempts. Please wait a few minutes and try again.'
+  }
+  
+  if (statusCode === 403) {
+    return 'This account has been locked. Please contact support.'
+  }
+  
+  if (statusCode >= 500) {
+    return 'Unable to connect to the server. Please try again later.'
+  }
+  
+  // Default message
+  return errorMessage || 'Invalid email or password. Please try again.'
+}
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -23,6 +57,7 @@ export function LoginPage() {
   const errorRef = useRef<string>('') // Persistent error storage
   const isMountedRef = useRef(true)
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
   
   // Get the redirect path from location state, default to dashboard
   const redirectTo = location.state?.from?.pathname || '/dashboard'
@@ -58,6 +93,7 @@ export function LoginPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -67,15 +103,46 @@ export function LoginPage() {
     }
   })
 
+  // Register password with ref callback
+  const passwordRegister = register('password')
+
+  // Track previous values to detect when user starts typing after error
+  const prevEmailRef = useRef<string>('')
+  const prevPasswordRef = useRef<string>('')
+  const emailValue = watch('email')
+  const passwordValue = watch('password')
+
+  // Auto-clear error when user starts typing after an error
+  useEffect(() => {
+    if (apiError) {
+      // Check if user changed email or password (started typing)
+      const emailChanged = emailValue !== prevEmailRef.current
+      const passwordChanged = passwordValue !== prevPasswordRef.current
+      
+      if (emailChanged || passwordChanged) {
+        // User started typing - clear the error
+        errorRef.current = ''
+        setApiError('')
+      }
+      
+      // Update refs for next comparison
+      prevEmailRef.current = emailValue
+      prevPasswordRef.current = passwordValue
+    } else {
+      // Reset refs when no error
+      prevEmailRef.current = emailValue
+      prevPasswordRef.current = passwordValue
+    }
+  }, [emailValue, passwordValue, apiError])
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true)
-      console.log('🔵 Login attempt started, current error:', errorRef.current)
-      // Don't clear error here - only clear on successful login or explicit dismiss
-      // This allows error to persist if user tries again
+      // Clear previous errors when starting new login attempt
+      errorRef.current = ''
+      setApiError('')
 
       await login(data.email, data.password)
-      console.log('✅ Login successful')
       // Only clear error on successful login
       if (isMountedRef.current) {
         errorRef.current = ''
@@ -83,48 +150,33 @@ export function LoginPage() {
         navigate(redirectTo)
       }
     } catch (err: any) {
-      console.log('❌ Login error caught:', err.message)
       if (isMountedRef.current) {
-        // Set error and keep it visible - it will only be cleared by:
-        // 1. User clicking dismiss button
-        // 2. Successful login (handled above)
-        const errorMessage = err.message || 'Login failed. Please try again.'
-        console.log('🔴 Setting error message:', errorMessage)
-        errorRef.current = errorMessage // Store in ref first
+        // Use error mapping function for better messages
+        const errorMessage = getLoginErrorMessage(err)
+        errorRef.current = errorMessage
         setApiError(errorMessage)
         
-        // Verify error persists - check multiple times
-        const checkInterval = setInterval(() => {
-          if (errorRef.current && apiError !== errorRef.current) {
-            console.log('⚠️ Error mismatch detected! Ref:', errorRef.current, 'State:', apiError)
-            setApiError(errorRef.current) // Restore from ref
-          }
-        }, 100)
-        
-        // Stop checking after 10 seconds
+        // Focus password field after error (for better UX)
         setTimeout(() => {
-          clearInterval(checkInterval)
-          console.log('🔍 Final error check - Ref:', errorRef.current, 'State:', apiError)
-        }, 10000)
+          passwordInputRef.current?.focus()
+        }, 100)
       }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false)
-        console.log('🏁 Login attempt finished, isLoading:', false)
       }
     }
   }
   
-  // Only clear error when user explicitly dismisses it or successfully logs in
-  // Don't auto-clear on input change - let user see the error
+  // Clear error when user explicitly dismisses it
   const dismissError = () => {
-    console.log('👤 User dismissed error')
     errorRef.current = ''
     setApiError('')
   }
   
   // Display error from ref if state is empty (defensive)
   const displayError = apiError || errorRef.current
+  const hasError = !!displayError
 
 
   return (
@@ -157,29 +209,54 @@ export function LoginPage() {
         {/* Form Container */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-lg border border-gray-200">
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {/* API Error - Truly persistent, only dismisses manually or on successful login */}
+          {/* Persistent Error Alert - Stays until dismissed or user types */}
           {displayError && (
-            <div className="rounded-md bg-red-50 border-2 border-red-300 p-4 relative animate-in fade-in slide-in-from-top-2 duration-300">
+            <div 
+              role="alert"
+              aria-live="assertive"
+              aria-atomic="true"
+              id="login-error"
+              className="bg-red-50 border-2 border-red-400 text-red-800 px-4 py-3 rounded-lg animate-shake"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <svg className="h-5 w-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                     <h3 className="text-sm font-semibold text-red-800">Login Failed</h3>
                   </div>
                   <p className="text-sm text-red-700 ml-7 font-medium">{displayError}</p>
-                  <p className="text-xs text-red-600 ml-7 mt-1">Please check your credentials and try again.</p>
+                  <p className="text-xs text-red-600 ml-7 mt-1">
+                    Please check your credentials and try again.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={dismissError}
-                  className="text-red-400 hover:text-red-700 hover:bg-red-100 rounded p-1 transition-all flex-shrink-0"
+                  className="text-red-600 hover:text-red-800 hover:bg-red-100 rounded p-1 transition-colors flex-shrink-0"
                   aria-label="Dismiss error"
                   title="Dismiss error"
                 >
-                  <X size={18} strokeWidth={2.5} />
+                  <X className="h-4 w-4" />
                 </button>
+              </div>
+              
+              {/* Helpful Hints */}
+              <div className="mt-3 bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-xs font-semibold text-blue-900 mb-2">Common issues:</p>
+                <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
+                  <li>Make sure you're using your full email address (including @socialcatering.com)</li>
+                  <li>Passwords are case-sensitive</li>
+                  <li>Try copying and pasting your password to avoid typos</li>
+                  {displayError.toLowerCase().includes('email') && (
+                    <li className="font-semibold text-red-700">The email address you entered doesn't exist in our system</li>
+                  )}
+                  {displayError.toLowerCase().includes('locked') && (
+                    <li className="font-semibold text-red-700">Contact your administrator to unlock your account</li>
+                  )}
+                </ul>
+                <p className="text-xs text-blue-700 mt-3">
+                  Need help? Contact <a href="mailto:support@socialcatering.com" className="underline font-medium">support@socialcatering.com</a>
+                </p>
               </div>
             </div>
           )}
@@ -194,14 +271,16 @@ export function LoginPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
+                aria-invalid={hasError || errors.email ? 'true' : 'false'}
+                aria-describedby={hasError ? 'login-error' : errors.email ? 'email-error' : undefined}
                 className={`mt-1 input-field ${
-                  errors.email ? 'border-red-500' : ''
+                  hasError || errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
-                placeholder="test@example.com"
+                placeholder="you@socialcatering.com"
                 {...register('email')}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                <p id="email-error" className="mt-1 text-sm text-red-600">{errors.email.message}</p>
               )}
             </div>
 
@@ -214,14 +293,20 @@ export function LoginPage() {
                 id="password"
                 type="password"
                 autoComplete="current-password"
+                aria-invalid={hasError || errors.password ? 'true' : 'false'}
+                aria-describedby={hasError ? 'login-error' : errors.password ? 'password-error' : undefined}
                 className={`mt-1 input-field ${
-                  errors.password ? 'border-red-500' : ''
+                  hasError || errors.password ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
-                placeholder="password"
-                {...register('password')}
+                placeholder="Enter your password"
+                {...passwordRegister}
+                ref={(e) => {
+                  passwordRegister.ref(e)
+                  passwordInputRef.current = e
+                }}
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                <p id="password-error" className="mt-1 text-sm text-red-600">{errors.password.message}</p>
               )}
             </div>
           </div>
