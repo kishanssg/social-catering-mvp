@@ -591,8 +591,11 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       grouped[role] ||= {
         role_name: role,
+        skill_name: role, # For consistency with frontend
         total_shifts: 0,
         filled_shifts: 0,
+        # Include pay_rate from EventSkillRequirement (Single Source of Truth)
+        pay_rate: requirements[role]&.pay_rate,
         shifts: []
       }
       

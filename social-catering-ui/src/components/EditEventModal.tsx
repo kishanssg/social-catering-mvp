@@ -78,8 +78,9 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         return {
           skill_name: role.skill_name || role.role_name || '',
           needed_workers: shiftCount, // Use actual shift count
-          // TODO: Extract pay_rate, description, etc. from shifts
-          pay_rate: role.pay_rate || 15, // Placeholder
+          // Use pay_rate from EventSkillRequirement (role-level, not shift-level)
+          // This is the Single Source of Truth for the role's default pay rate
+          pay_rate: role.pay_rate || 15, // Falls back to 15 if not set
           description: '',
           uniform_id: undefined,
           cert_id: undefined
