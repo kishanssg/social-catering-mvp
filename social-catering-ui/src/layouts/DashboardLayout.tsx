@@ -17,11 +17,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 px-6 py-8">
           <img
-            src={logoIcon}
+            src="/assets/icons/sc_logo.svg"
             alt="Social Catering Logo"
             className="h-10 w-auto"
-            width={198}
-            height={55}
+            onError={(e) => {
+              // Fallback to PNG
+              // @ts-ignore
+              e.currentTarget.src = logoIcon;
+            }}
             loading="eager"
             decoding="async"
             style={{ imageRendering: 'auto' }}

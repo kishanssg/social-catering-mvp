@@ -793,6 +793,31 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
   
   return (
     <div className="space-y-4">
+      {/* Daily Staffing Summary */}
+      {events.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm font-medium text-blue-900">
+                  {events.length} Event{events.length !== 1 ? 's' : ''} Today
+                </p>
+                <p className="text-xs text-blue-700">
+                  {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}/
+                  {events.reduce((sum, e) => sum + (e.total_workers_needed || 0), 0)} workers hired
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-blue-600">
+                {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}
+              </p>
+              <p className="text-xs text-blue-700">hired</p>
+            </div>
+          </div>
+        </div>
+      )}
       {events.map((event) => (
         <div key={event.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
           <div className="p-6">
@@ -1019,7 +1044,7 @@ function ActiveEventsTab({
                 <div className="mb-2">
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="font-medium text-gray-700">
-                      {event.assigned_workers_count} of {event.total_workers_needed} roles filled
+                      {event.assigned_workers_count}/{event.total_workers_needed} hired
                     </span>
                     <span className="font-semibold text-gray-900">
                       {event.staffing_percentage}%
@@ -1041,7 +1066,7 @@ function ActiveEventsTab({
                 
                 {event.unfilled_roles_count > 0 && (
                   <p className="text-sm text-red-600 font-medium">
-                    {event.unfilled_roles_count} role{event.unfilled_roles_count !== 1 ? 's' : ''} still need workers
+                    {event.unfilled_roles_count} still needed
                   </p>
                 )}
                 
@@ -1128,7 +1153,7 @@ function ActiveEventsTab({
                         <div className="flex items-center gap-3">
                           <h4 className="font-medium text-gray-900">{roleGroup.role_name}</h4>
                           <span className="text-sm text-gray-600">
-                            {roleGroup.filled_shifts}/{roleGroup.total_shifts} assigned
+                            {roleGroup.filled_shifts}/{roleGroup.total_shifts} hired
                           </span>
                         </div>
                         <div className="flex items-center gap-2">

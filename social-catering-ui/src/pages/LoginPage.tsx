@@ -186,15 +186,18 @@ export function LoginPage() {
         <div className="text-center">
           {/* Professional Logo */}
           <div className="mb-8">
-            <img 
-              src={scLogo} 
-              alt="Social Catering" 
-              className="mx-auto h-20 w-auto"
-              width={198}
-              height={55}
-              loading="eager"
-              decoding="async"
-            />
+                <img 
+                  src="/assets/icons/sc_logo.svg" 
+                  alt="Social Catering" 
+                  className="mx-auto h-20 w-auto"
+                  onError={(e) => {
+                    // Fallback to PNG if SVG fails
+                    // @ts-ignore
+                    e.currentTarget.src = scLogo;
+                  }}
+                  loading="eager"
+                  decoding="async"
+                />
           </div>
           
           {/* Tagline */}
