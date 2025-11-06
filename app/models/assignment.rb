@@ -141,18 +141,35 @@ class Assignment < ApplicationRecord
 
   def shift_not_at_capacity
     return if shift.nil?
-    # Skip capacity check when this record is not active (e.g., cancelling or marking no_show)
-    return if %w[cancelled no_show].include?(status)
-    
-    # Count only active assignments (exclude cancelled and no-show)
+    return if skip_capacity_check
+
+    # If we're changing status to a non-active state, skip capacity check
+    if (respond_to?(:will_save_change_to_status?) && will_save_change_to_status? && %w[cancelled no_show].include?(status)) ||
+       (!respond_to?(:will_save_change_to_status?) && %w[cancelled no_show].include?(status))
+      return
+    end
+
+    # If this is an update that doesn't change status (e.g., editing hours), skip
+    if persisted?
+      status_will_change = respond_to?(:will_save_change_to_status?) ? will_save_change_to_status? : false
+      return unless status_will_change
+    end
+
+    # Only enforce when adding to active headcount (new record OR changing to active state)
+    adding_to_active = new_record? || (
+      (respond_to?(:will_save_change_to_status?) ? will_save_change_to_status? : true) &&
+      %w[assigned confirmed].include?(status)
+    )
+    return unless adding_to_active
+
     active_assignments_count = shift.assignments
-                                    .where.not(id: id)  # Exclude current assignment if updating
-                                    .where.not(status: ['cancelled', 'no_show'])
+                                    .where.not(id: id)
+                                    .where(status: ['assigned', 'confirmed'])
                                     .count
-    
-    # Check if adding this assignment would exceed capacity
-    if active_assignments_count >= shift.capacity
-      errors.add(:base, "Shift is already at full capacity (#{active_assignments_count}/#{shift.capacity} workers assigned)")
+
+    capacity = shift.respond_to?(:capacity) ? shift.capacity : (shift.respond_to?(:workers_needed) ? shift.workers_needed : 0)
+    if capacity.to_i > 0 && active_assignments_count >= capacity
+      errors.add(:base, "Shift is fully staffed (#{capacity} workers)")
     end
   end
 
@@ -223,12 +240,15 @@ class Assignment < ApplicationRecord
 
   # Approval API
   def approve!(approved_by_user, notes: nil)
+    self.skip_capacity_check = true
     update!(
       approved: true,
       approved_by: approved_by_user,
       approved_at_utc: Time.current,
       approval_notes: notes
     )
+  ensure
+    self.skip_capacity_check = false
   end
 
   def mark_no_show!(updated_by_user, notes: nil)
