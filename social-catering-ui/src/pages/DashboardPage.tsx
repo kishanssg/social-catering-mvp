@@ -223,6 +223,8 @@ export function DashboardPage() {
               
               return {
                 ...e,
+                // Normalize potentially missing nested objects used by UI
+                venue: e.venue || { name: '', formatted_address: '' },
                 hours_until: hoursUntil
               };
             })
