@@ -200,6 +200,20 @@ export function EventsPage() {
       }
     }
   }, [searchParams]);
+
+  // When deep-linked from dashboard (event_id), ensure we fetch full details so shifts appear
+  useEffect(() => {
+    const eventIdParam = searchParams.get('event_id');
+    if (!eventIdParam) return;
+    const eventId = parseInt(eventIdParam);
+    if (isNaN(eventId)) return;
+
+    const ev = events.find(e => e.id === eventId);
+    if (ev && (!ev.shifts_by_role || ev.shifts_by_role.length === 0)) {
+      fetchEventDetails(eventId);
+      setExpandedEvents(new Set([eventId]));
+    }
+  }, [searchParams, events]);
   
   async function loadEvents() {
     setLoading(true);
@@ -1468,11 +1482,11 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                               className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-medium">
-                                  {assignment.worker.first_name[0]}{assignment.worker.last_name[0]}
-                                </div>
+                              <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-medium">
+                                {(assignment.worker?.first_name?.[0]) || ''}{(assignment.worker?.last_name?.[0]) || ''}
+                              </div>
                                 <span className="text-sm font-medium text-gray-900">
-                                  {assignment.worker.first_name} {assignment.worker.last_name}
+                                {assignment.worker?.first_name || 'Unknown'} {assignment.worker?.last_name || 'Worker'}
                                 </span>
                               </div>
                               
