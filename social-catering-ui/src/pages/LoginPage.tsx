@@ -48,21 +48,21 @@ export function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true)
-      setApiError('')
+      // Don't clear error here - only clear on successful login or explicit dismiss
+      // This allows error to persist if user tries again
 
       await login(data.email, data.password)
+      // Only clear error on successful login
       if (isMountedRef.current) {
+        setApiError('')
         navigate(redirectTo)
       }
     } catch (err: any) {
       if (isMountedRef.current) {
+        // Set error and keep it visible - it will only be cleared by:
+        // 1. User clicking dismiss button
+        // 2. Successful login (handled above)
         setApiError(err.message || 'Login failed. Please try again.')
-        // Keep error visible for at least 5 seconds
-        setTimeout(() => {
-          if (isMountedRef.current) {
-            // Error will remain visible until user dismisses it or submits again
-          }
-        }, 5000)
       }
     } finally {
       if (isMountedRef.current) {
@@ -71,13 +71,8 @@ export function LoginPage() {
     }
   }
   
-  // Clear error when user starts typing
-  const handleInputChange = () => {
-    if (apiError) {
-      setApiError('')
-    }
-  }
-  
+  // Only clear error when user explicitly dismisses it or successfully logs in
+  // Don't auto-clear on input change - let user see the error
   const dismissError = () => {
     setApiError('')
   }
@@ -113,9 +108,9 @@ export function LoginPage() {
         {/* Form Container */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-lg border border-gray-200">
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          {/* API Error - Persistent with dismiss button */}
+          {/* API Error - Truly persistent, only dismisses manually or on successful login */}
           {apiError && (
-            <div className="rounded-md bg-red-50 border border-red-200 p-4 relative">
+            <div className="rounded-md bg-red-50 border-2 border-red-300 p-4 relative animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -124,15 +119,17 @@ export function LoginPage() {
                     </svg>
                     <h3 className="text-sm font-semibold text-red-800">Login Failed</h3>
                   </div>
-                  <p className="text-sm text-red-700 ml-7">{apiError}</p>
+                  <p className="text-sm text-red-700 ml-7 font-medium">{apiError}</p>
+                  <p className="text-xs text-red-600 ml-7 mt-1">Please check your credentials and try again.</p>
                 </div>
                 <button
                   type="button"
                   onClick={dismissError}
-                  className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+                  className="text-red-400 hover:text-red-700 hover:bg-red-100 rounded p-1 transition-all flex-shrink-0"
                   aria-label="Dismiss error"
+                  title="Dismiss error"
                 >
-                  <X size={18} />
+                  <X size={18} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
@@ -152,9 +149,7 @@ export function LoginPage() {
                   errors.email ? 'border-red-500' : ''
                 }`}
                 placeholder="test@example.com"
-                {...register('email', {
-                  onChange: handleInputChange
-                })}
+                {...register('email')}
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -174,9 +169,7 @@ export function LoginPage() {
                   errors.password ? 'border-red-500' : ''
                 }`}
                 placeholder="password"
-                {...register('password', {
-                  onChange: handleInputChange
-                })}
+                {...register('password')}
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
