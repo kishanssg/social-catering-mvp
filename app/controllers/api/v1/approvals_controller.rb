@@ -184,12 +184,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       # Status and approval
       status: a.status,
       approved: a.approved,
-      approved_at: a.approved_at,
+      approved_at: (a.respond_to?(:approved_at) ? a.approved_at : nil) || (a.respond_to?(:approved_at_utc) ? a.approved_at_utc : nil),
       approved_by_name: a.approved_by&.email,
       
       # Audit trail
       original_hours_worked: a.original_hours_worked,
-      edited_at: a.edited_at,
+      edited_at: (a.respond_to?(:edited_at) ? a.edited_at : nil) || (a.respond_to?(:edited_at_utc) ? a.edited_at_utc : nil),
       edited_by_name: a.edited_by&.email,
       approval_notes: a.approval_notes,
       
