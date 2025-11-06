@@ -91,11 +91,16 @@ module Api
       end
 
       def update
-        if @assignment.update(assignment_params)
-          render json: { status: 'success', data: serialize_assignment(@assignment) }
-        else
-          render json: { status: 'error', errors: @assignment.errors.full_messages }, status: :unprocessable_entity
+        ActiveRecord::Base.transaction do
+          if @assignment.update!(assignment_params)
+            # Callbacks will update event totals automatically
+            render json: { status: 'success', data: serialize_assignment(@assignment) }
+          end
         end
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { status: 'error', errors: e.record.errors.full_messages }, status: :unprocessable_entity
+      rescue => e
+        render json: { status: 'error', errors: [e.message] }, status: :unprocessable_entity
       end
 
       def destroy

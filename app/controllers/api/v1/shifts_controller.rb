@@ -92,7 +92,21 @@ module Api
       end
 
       def shift_params
-        params.require(:shift).permit(:client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, :location_id, :pay_rate, :notes)
+        permitted = params.require(:shift).permit(
+          :client_name, :role_needed, :capacity, :location_id, :pay_rate, :notes
+        )
+        
+        # For event-owned shifts, do NOT allow time updates
+        # (times must be updated via event schedule to maintain Single Source of Truth)
+        if @shift.event_id.present?
+          # Block time updates for event shifts
+          permitted
+        else
+          # Standalone shifts can update times
+          permitted.merge(
+            params.require(:shift).permit(:start_time_utc, :end_time_utc)
+          )
+        end
       end
 
       def serialize_shift(shift)

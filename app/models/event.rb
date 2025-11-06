@@ -106,11 +106,19 @@ class Event < ApplicationRecord
   end
 
   def calculate_total_hours_worked
-    shifts.joins(:assignments).where.not(assignments: { hours_worked: nil }).sum('assignments.hours_worked')
+    # Use SSOT: sum effective_hours from all valid assignments
+    shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+      .sum(&:effective_hours)
+      .round(2)
   end
 
   def calculate_total_pay_amount
-    shifts.joins(:assignments).where.not(assignments: { hours_worked: nil }).sum('assignments.hours_worked * COALESCE(assignments.hourly_rate, shifts.pay_rate)')
+    # Use SSOT: sum effective_pay from all valid assignments
+    shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+      .sum(&:effective_pay)
+      .round(2)
   end
 
   # Assignment metrics
@@ -204,6 +212,16 @@ class Event < ApplicationRecord
     end
   end
 
+  # Force recalculation of totals (called by callbacks and other models)
+  # Uses centralized service for consistency
+  def recalculate_totals!
+    result = Events::RecalculateTotals.new(event: self).call
+    unless result[:success]
+      Rails.logger.error "Event #{id}: Failed to recalculate totals: #{result[:error]}"
+    end
+    result[:success]
+  end
+
   private
 
   def set_created_at_utc
@@ -227,15 +245,16 @@ class Event < ApplicationRecord
   end
 
   def should_update_completion_metrics?
-    status == 'completed' && (saved_change_to_status? || assignments.any?)
+    # Update metrics for completed events OR when recalculation requested
+    status == 'completed' || @force_recalculate
   end
 
   def update_completion_metrics
-    return unless status == 'completed'
-    
+    # Recalculate totals (works for both completed and active events now)
     update_columns(
       total_hours_worked: calculate_total_hours_worked,
-      total_pay_amount: calculate_total_pay_amount
+      total_pay_amount: calculate_total_pay_amount,
+      updated_at: Time.current
     )
   end
 end

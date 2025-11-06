@@ -20,6 +20,7 @@ class Shift < ApplicationRecord
   validates :status, inclusion: { in: %w[draft published archived] }
   validate :end_time_after_start_time
   validate :same_calendar_day_as_event, if: -> { event_id.present? }
+  validate :times_match_event_schedule, if: -> { event_id.present? && event&.event_schedule.present? }
 
   scope :upcoming, -> { where("start_time_utc > ?", Time.current).order(:start_time_utc) }
   scope :past, -> { where("end_time_utc < ?", Time.current).order(start_time_utc: :desc) }
@@ -193,6 +194,23 @@ class Shift < ApplicationRecord
     
     if event_date != shift_date
       errors.add(:start_time_utc, "must be on the same calendar day as the event (#{event_date}). Shift date is #{shift_date}")
+    end
+  end
+
+  def times_match_event_schedule
+    return unless event&.event_schedule
+    
+    schedule = event.event_schedule
+    
+    # For event-owned shifts, enforce exact time match
+    # This prevents shifts from diverging from event schedule
+    unless start_time_utc == schedule.start_time_utc && end_time_utc == schedule.end_time_utc
+      errors.add(:base, 
+        "Shift times must match event schedule. " \
+        "Expected: #{schedule.start_time_utc.strftime('%Y-%m-%d %H:%M')} - #{schedule.end_time_utc.strftime('%Y-%m-%d %H:%M')}, " \
+        "Got: #{start_time_utc.strftime('%Y-%m-%d %H:%M')} - #{end_time_utc.strftime('%Y-%m-%d %H:%M')}. " \
+        "Update the event schedule instead."
+      )
     end
   end
 end

@@ -8,9 +8,12 @@ FactoryBot.define do
     capacity { 1 }
     status { 'published' }
     client_name { 'Test Event' }
+    auto_generated { true }
     
-    association :event
-    association :event_skill_requirement
     association :created_by, factory: :user
+    
+    # Optional associations
+    association :event, optional: true
+    association :event_skill_requirement, optional: true
   end
 end

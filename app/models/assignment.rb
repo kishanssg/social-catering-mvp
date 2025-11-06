@@ -1,5 +1,8 @@
 class Assignment < ApplicationRecord
   include Auditable
+  # Include Single Source of Truth concerns
+  include HoursCalculations
+  include PayCalculations
 
   belongs_to :shift
   belongs_to :worker
@@ -51,10 +54,7 @@ class Assignment < ApplicationRecord
     total_pay
   end
   
-  # Use shift's pay rate if assignment doesn't have one
-  def effective_hourly_rate
-    hourly_rate || shift.pay_rate
-  end
+  # effective_hourly_rate is now provided by PayCalculations concern
   
   # Set default hours from shift duration if not specified
   def set_default_hours
@@ -108,9 +108,9 @@ class Assignment < ApplicationRecord
   end
 
   after_create :set_default_hours
-  after_create :update_event_counts
-  after_destroy :update_event_counts
-  after_update :update_event_counts, if: :saved_change_to_hours_worked?
+  after_create :update_event_totals
+  after_destroy :update_event_totals
+  after_update :update_event_totals, if: :should_update_event_totals?
 
   private
 
@@ -182,10 +182,24 @@ class Assignment < ApplicationRecord
     end
   end
 
-  def update_event_counts
+  # Determine if event totals need updating
+  def should_update_event_totals?
+    saved_change_to_hours_worked? || 
+    saved_change_to_hourly_rate? || 
+    saved_change_to_status?
+  end
+
+  # Update event totals when assignment changes
+  # Uses centralized service for consistency
+  def update_event_totals
     return unless shift&.event
-    shift.event.update_columns(
-      assigned_shifts_count: shift.event.shifts.joins(:assignments).count
-    )
+    
+    event = shift.event
+    
+    # Use centralized recalculation service (Single Source of Truth)
+    result = Events::RecalculateTotals.new(event: event).call
+    unless result[:success]
+      Rails.logger.error "Assignment #{id}: Failed to update event totals: #{result[:error]}"
+    end
   end
 end

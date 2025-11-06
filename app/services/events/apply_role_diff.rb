@@ -264,10 +264,12 @@ class Events::ApplyRoleDiff
   end
 
   def update_all_child_shift_times(schedule_params)
-    event.shifts.update_all(
+    # Use centralized service for shift time synchronization (Single Source of Truth)
+    Events::SyncShiftTimes.new(
+      event: event,
       start_time_utc: schedule_params[:start_time_utc],
       end_time_utc: schedule_params[:end_time_utc]
-    )
+    ).call
   end
 
   def params_include_schedule?

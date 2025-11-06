@@ -22,17 +22,27 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
 
   # PATCH/PUT /api/v1/events/:event_id/event_skill_requirements/:id
   def update
-    if @event_skill_requirement.update(event_skill_requirement_params)
-      render json: {
-        status: 'success',
-        data: serialize_event_skill_requirement(@event_skill_requirement)
-      }
-    else
-      render json: {
-        status: 'validation_error',
-        errors: @event_skill_requirement.errors.full_messages
-      }, status: :unprocessable_entity
+    # Wrap in transaction to ensure atomicity with cascade operations
+    ActiveRecord::Base.transaction do
+      if @event_skill_requirement.update!(event_skill_requirement_params)
+        # Callback will cascade pay_rate to shifts and recalculate totals
+        render json: {
+          status: 'success',
+          data: serialize_event_skill_requirement(@event_skill_requirement)
+        }
+      end
     end
+  rescue ActiveRecord::RecordInvalid => e
+    render json: {
+      status: 'validation_error',
+      errors: e.record.errors.full_messages
+    }, status: :unprocessable_entity
+  rescue => e
+    Rails.logger.error "EventSkillRequirement#update failed: #{e.message}"
+    render json: {
+      status: 'error',
+      errors: [e.message]
+    }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/events/:event_id/event_skill_requirements/:id
