@@ -254,7 +254,7 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       render json: {
         status: 'success',
-        data: serialize_event(@event.reload)
+        data: serialize_event_detailed(@event.reload) # ✅ Return detailed serializer with skill_requirements
       }
     end
   rescue ActiveRecord::StaleObjectError => e

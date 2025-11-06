@@ -105,6 +105,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   // Priority: skill_requirements (SSOT) > shifts_by_role > defaults
   // Use fullEventData if available (includes skill_requirements), otherwise fallback to event prop
   const eventData = fullEventData || event;
+  const displayEvent = fullEventData || event; // ✅ Fix: Define displayEvent for JSX usage
   
   useEffect(() => {
     if (!eventData) return;
@@ -219,7 +220,13 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             description: role.description,
             uniform_id: role.uniform_id,
             cert_id: role.cert_id
-          }))
+          })),
+          // ✅ Fix: Include schedule data to trigger shift sync
+          schedule: eventToUpdate.schedule ? {
+            start_time_utc: eventToUpdate.schedule.start_time_utc,
+            end_time_utc: eventToUpdate.schedule.end_time_utc,
+            break_minutes: eventToUpdate.schedule.break_minutes || 0
+          } : undefined
         }
       });
 
