@@ -1,3 +1,32 @@
+## Getting Started
+
+### Logging In
+
+1. Navigate to the application URL:
+   - Staging: https://sc-mvp-staging.herokuapp.com
+   - Production: https://sc-mvp-production.herokuapp.com
+
+2. Use your assigned credentials:
+   - Email: your @socialcatering.com email
+   - Password: provided by system admin
+
+3. Active admin accounts:
+   - natalie@socialcatering.com
+   - madison@socialcatering.com
+   - sarah@socialcatering.com
+   - gravyadmin@socialcatering.com
+
+### First Login
+
+Change your password on first login. Self-service password change/reset not yet available; contact admin if needed.
+
+### Troubleshooting
+
+- Verify environment (staging vs production)
+- Ensure full email (with @socialcatering.com)
+- Copy/paste to avoid typos
+- Contact admin for password reset
+
 # Social Catering MVP - User Guide
 
 **Purpose:** End-user instructions for the Social Catering MVP application  

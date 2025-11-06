@@ -1,3 +1,40 @@
+## Admin Accounts
+
+The system has 4 active admin accounts for Social Catering operations:
+
+### Production Accounts
+
+| Email | Name | Role | Initial Password |
+|-------|------|------|------------------|
+| natalie@socialcatering.com | Natalie | Operations Manager | password123 |
+| madison@socialcatering.com | Madison | Operations Manager | password123 |
+| sarah@socialcatering.com | Sarah | Operations Manager | password123 |
+| gravyadmin@socialcatering.com | System Admin | Testing/Backup | password123 |
+
+### Important Notes
+
+- ⚠️ Change password on first login
+- ✅ Admin access for all accounts (no role differentiation yet)
+- ✅ Same accounts on staging and production
+- ❌ `admin@socialcatering.com` has been removed
+
+### Create/Remove/Reset
+
+```bash
+# Verify
+heroku run rails runner scripts/verify_admin_accounts.rb -a sc-mvp-staging
+heroku run rails runner scripts/verify_admin_accounts.rb -a sc-mvp-production
+
+# Create (in console)
+User.create!(email: 'newadmin@socialcatering.com', password: 'TempPassword123!', password_confirmation: 'TempPassword123!')
+
+# Remove
+user = User.find_by(email: 'oldadmin@socialcatering.com'); user&.destroy
+
+# Reset password
+user = User.find_by(email: 'natalie@socialcatering.com'); user.update(password: 'NewTemp123!', password_confirmation: 'NewTemp123!')
+```
+
 # Social Catering MVP - Environment Configuration
 
 **Purpose:** Documentation of all environment variables used in the Social Catering MVP application  

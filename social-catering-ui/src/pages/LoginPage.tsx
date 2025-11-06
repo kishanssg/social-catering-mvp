@@ -247,6 +247,31 @@ export function LoginPage() {
             </button>
           </div>
 
+          {/* Helper text for admin accounts (staging/dev only) */}
+          {process.env.NODE_ENV !== 'production' && (
+            <div className="mt-6 text-center">
+              <details className="text-sm text-gray-600">
+                <summary className="cursor-pointer hover:text-gray-800 font-medium">
+                  Need help logging in?
+                </summary>
+                <div className="mt-3 text-left bg-gray-50 rounded-lg p-4 space-y-2">
+                  <p className="font-medium text-gray-900">Admin accounts:</p>
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    <li>natalie@socialcatering.com</li>
+                    <li>madison@socialcatering.com</li>
+                    <li>sarah@socialcatering.com</li>
+                    <li>gravyadmin@socialcatering.com</li>
+                  </ul>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Initial password: <code className="bg-gray-200 px-2 py-0.5 rounded">password123</code>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">⚠️ Change your password after first login</p>
+                  <p className="text-xs text-gray-500 mt-2">Forgot password? Contact system administrator.</p>
+                </div>
+              </details>
+            </div>
+          )}
+
           </form>
         </div>
       </div>
