@@ -47,16 +47,16 @@ class Api::V1::ExportsController < ApplicationController
           shift.role_needed,
           "#{worker.first_name} #{worker.last_name}",
           worker.email,
-          assignment.hours_worked,
-          assignment.hourly_rate || shift.pay_rate,
-          assignment.total_pay,
+          assignment.effective_hours, # ✅ SSOT: Use effective_hours
+          assignment.effective_hourly_rate, # ✅ SSOT: Use effective_hourly_rate
+          assignment.effective_pay, # ✅ SSOT: Use effective_pay
           assignment.status.capitalize
         ]
       end
       
-      # Summary row
-      total_hours = assignments.sum(:hours_worked)
-      total_pay = assignments.sum(&:total_pay)
+      # Summary row - use SSOT methods
+      total_hours = assignments.sum(&:effective_hours) # ✅ SSOT
+      total_pay = assignments.sum(&:effective_pay) # ✅ SSOT
       
       csv << []
       csv << ['TOTALS', '', '', '', '', '', '', total_hours, '', total_pay, '']
