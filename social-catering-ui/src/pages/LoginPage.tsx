@@ -54,9 +54,10 @@ export function LoginPage() {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
-  const errorRef = useRef<string>('') // Persistent error storage
+  const errorRef = useRef<string>('') // Persistent error storage (in-memory)
   const isMountedRef = useRef(true)
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const errorSetTimeRef = useRef<number>(0) // For time-locking clears
   const passwordInputRef = useRef<HTMLInputElement>(null)
   const submittingRef = useRef<boolean>(false)
   
@@ -65,8 +66,13 @@ export function LoginPage() {
 
   useEffect(() => {
     isMountedRef.current = true
-    // Restore error from ref if component re-renders
-    if (errorRef.current && !apiError) {
+    // Restore persisted error from localStorage first, then ref
+    const persisted = localStorage.getItem('loginError') || ''
+    if (persisted && !apiError) {
+      console.log('🔄 Restoring error from storage:', persisted)
+      errorRef.current = persisted
+      setApiError(persisted)
+    } else if (errorRef.current && !apiError) {
       console.log('🔄 Restoring error from ref:', errorRef.current)
       setApiError(errorRef.current)
     }
@@ -84,9 +90,12 @@ export function LoginPage() {
     if (apiError) {
       console.log('🔴 Login error set:', apiError)
       errorRef.current = apiError // Store in ref for persistence
+      errorSetTimeRef.current = Date.now()
+      try { localStorage.setItem('loginError', apiError) } catch {}
     } else {
       console.log('🟢 Login error cleared - stack trace:', new Error().stack)
       errorRef.current = '' // Clear ref too
+      try { localStorage.removeItem('loginError') } catch {}
     }
   }, [apiError])
 
@@ -120,10 +129,12 @@ export function LoginPage() {
     submittingRef.current = true
     try {
       setIsLoading(true)
-      // Clear previous errors when starting new login attempt
+      // Clear previous errors when starting new login attempt (respect lock not needed here)
       errorRef.current = ''
       setApiError('')
 
+      // Track attempted email for helper text
+      try { localStorage.setItem('attemptedEmail', data.email.trim()) } catch {}
       await login(data.email, data.password)
       // Only clear error on successful login
       if (isMountedRef.current) {
@@ -153,8 +164,18 @@ export function LoginPage() {
   
   // Clear error when user explicitly dismisses it
   const dismissError = () => {
+    // Enforce a minimum visible duration of 2s before allowing dismiss
+    const elapsed = Date.now() - (errorSetTimeRef.current || 0)
+    if (errorRef.current && elapsed < 2000) {
+      console.log(`⏰ Error locked for ${(2000 - elapsed)}ms more`)
+      return
+    }
     errorRef.current = ''
     setApiError('')
+    try {
+      localStorage.removeItem('loginError')
+      localStorage.removeItem('attemptedEmail')
+    } catch {}
   }
   
   // Display error from ref if state is empty (defensive)
@@ -276,8 +297,14 @@ export function LoginPage() {
                 placeholder="you@socialcatering.com"
                 onFocus={() => {
                   if (displayError) {
-                    errorRef.current = ''
-                    setApiError('')
+                    const elapsed = Date.now() - (errorSetTimeRef.current || 0)
+                    if (elapsed > 2000) {
+                      errorRef.current = ''
+                      setApiError('')
+                      try { localStorage.removeItem('loginError') } catch {}
+                    } else {
+                      console.log('⏰ Keeping error visible on email focus (within lock)')
+                    }
                   }
                 }}
                 {...register('email')}
@@ -305,8 +332,14 @@ export function LoginPage() {
                 {...passwordRegister}
                 onFocus={() => {
                   if (displayError) {
-                    errorRef.current = ''
-                    setApiError('')
+                    const elapsed = Date.now() - (errorSetTimeRef.current || 0)
+                    if (elapsed > 2000) {
+                      errorRef.current = ''
+                      setApiError('')
+                      try { localStorage.removeItem('loginError') } catch {}
+                    } else {
+                      console.log('⏰ Keeping error visible on password focus (within lock)')
+                    }
                   }
                 }}
                 ref={(e) => {
