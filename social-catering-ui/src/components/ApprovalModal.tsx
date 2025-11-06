@@ -52,7 +52,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     requireNote?: boolean;
     note?: string;
     onConfirm?: () => Promise<void> | void;
-  }>({ open: false, title: '' });
+    variant?: 'default' | 'warning' | 'danger';
+  }>({ open: false, title: '', variant: 'default' });
 
   useEffect(() => {
     if (isOpen && event) {
@@ -109,6 +110,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       message: `Mark ${workerName} as no-show? This will set hours to 0.`,
       requireNote: true,
       note: '',
+      variant: 'warning',
       onConfirm: async () => {
         try {
           await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, { notes: confirmDialog.note });
@@ -131,6 +133,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       message: `Remove ${workerName} from this job? This cannot be undone.`,
       requireNote: true,
       note: '',
+      variant: 'danger',
       onConfirm: async () => {
         try {
           await apiClient.delete(`/approvals/${assignmentId}/remove`, { data: { notes: confirmDialog.note } });
@@ -492,7 +495,14 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               </button>
               <button
                 onClick={async () => { await confirmDialog.onConfirm?.(); }}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+                className={
+                  `px-4 py-2 text-white text-sm font-medium rounded-md ` +
+                  (confirmDialog.variant === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : confirmDialog.variant === 'warning'
+                    ? 'bg-yellow-600 hover:bg-yellow-700'
+                    : 'bg-blue-600 hover:bg-blue-700')
+                }
               >
                 Confirm
               </button>

@@ -139,6 +139,8 @@ class Assignment < ApplicationRecord
 
   def shift_not_at_capacity
     return if shift.nil?
+    # Skip capacity check when this record is not active (e.g., cancelling or marking no_show)
+    return if %w[cancelled no_show].include?(status)
     
     # Count only active assignments (exclude cancelled and no-show)
     active_assignments_count = shift.assignments
