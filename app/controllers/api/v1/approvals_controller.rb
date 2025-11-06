@@ -35,7 +35,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         actual_end_time_utc: params[:actual_end_time_utc],
         hourly_rate: params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
-        edited_at_utc: Time.current
+        edited_at: Time.current
       )
 
       ActivityLog.create!(
@@ -180,12 +180,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       # Status and approval
       status: a.status,
       approved: a.approved,
-      approved_at: a.approved_at_utc,
+      approved_at: a.approved_at,
       approved_by_name: a.approved_by&.email,
       
       # Audit trail
       original_hours_worked: a.original_hours_worked,
-      edited_at: a.edited_at_utc,
+      edited_at: a.edited_at,
       edited_by_name: a.edited_by&.email,
       approval_notes: a.approval_notes,
       

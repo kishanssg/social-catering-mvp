@@ -1113,17 +1113,7 @@ function ActiveEventsTab({
               
               <div className="ml-4 flex items-center gap-2">
                 {/* Action buttons for events with no shifts */}
-                {(!event.shifts_by_role || event.shifts_by_role.length === 0) && onDelete && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(event.id);
-                    }}
-                    className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Delete Event
-                  </button>
-                )}
+                {/* Redundant delete button removed (trash icon already available elsewhere) */}
                 
                 {/* Edit button - only for published events that haven't started */}
                 {onEdit && event.status === 'published' && (
