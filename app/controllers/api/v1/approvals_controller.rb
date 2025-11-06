@@ -1,0 +1,154 @@
+class Api::V1::ApprovalsController < Api::V1::BaseController
+  before_action :authenticate_user!
+  before_action :set_event, only: [:show, :approve_event]
+  before_action :set_assignment, only: [:update_hours, :mark_no_show, :remove]
+
+  # GET /api/v1/events/:event_id/approvals
+  def show
+    assignments = @event.shifts.includes(:assignments, :workers)
+                     .flat_map(&:assignments)
+                     .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) }
+
+    render json: {
+      status: 'success',
+      data: {
+        event: { id: @event.id, title: @event.title, event_date: @event.event_schedule&.start_time_utc },
+        assignments: assignments.map { |a| serialize_assignment_for_approval(a) }
+      }
+    }
+  end
+
+  # PATCH /api/v1/approvals/:id/update_hours
+  def update_hours
+    ActiveRecord::Base.transaction do
+      @assignment.update!(
+        hours_worked: params[:hours_worked],
+        actual_start_time_utc: params[:actual_start_time_utc],
+        actual_end_time_utc: params[:actual_end_time_utc],
+        hourly_rate: params[:hourly_rate].presence || @assignment.hourly_rate,
+        edited_by: Current.user,
+        edited_at_utc: Time.current
+      )
+
+      ActivityLog.create!(
+        actor_user_id: Current.user&.id,
+        entity_type: 'Assignment',
+        entity_id: @assignment.id,
+        action: 'hours_updated',
+        before_json: { original_hours_worked: @assignment.original_hours_worked },
+        after_json: { hours_worked: @assignment.hours_worked },
+        created_at_utc: Time.current
+      )
+    end
+
+    render json: { status: 'success', data: serialize_assignment_for_approval(@assignment.reload) }
+  rescue => e
+    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+  end
+
+  # POST /api/v1/approvals/:id/mark_no_show
+  def mark_no_show
+    ActiveRecord::Base.transaction do
+      @assignment.mark_no_show!(Current.user, notes: params[:notes])
+
+      ActivityLog.create!(
+        actor_user_id: Current.user&.id,
+        entity_type: 'Assignment',
+        entity_id: @assignment.id,
+        action: 'marked_no_show',
+        after_json: { status: 'no_show', notes: params[:notes] },
+        created_at_utc: Time.current
+      )
+    end
+
+    render json: { status: 'success', data: serialize_assignment_for_approval(@assignment.reload) }
+  rescue => e
+    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+  end
+
+  # DELETE /api/v1/approvals/:id/remove
+  def remove
+    ActiveRecord::Base.transaction do
+      @assignment.remove_from_job!(Current.user, notes: params[:notes])
+
+      ActivityLog.create!(
+        actor_user_id: Current.user&.id,
+        entity_type: 'Assignment',
+        entity_id: @assignment.id,
+        action: 'removed_from_job',
+        after_json: { status: 'cancelled', notes: params[:notes] },
+        created_at_utc: Time.current
+      )
+    end
+
+    render json: { status: 'success', message: 'Assignment removed' }
+  rescue => e
+    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+  end
+
+  # POST /api/v1/events/:event_id/approve_all
+  def approve_event
+    count = 0
+    ActiveRecord::Base.transaction do
+      @event.shifts.includes(:assignments).flat_map(&:assignments)
+            .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) && !a.approved? }
+            .each do |a|
+        a.approve!(Current.user)
+        count += 1
+      end
+
+      ActivityLog.create!(
+        actor_user_id: Current.user&.id,
+        entity_type: 'Event',
+        entity_id: @event.id,
+        action: 'hours_approved',
+        after_json: { approved_assignments: count },
+        created_at_utc: Time.current
+      )
+    end
+
+    render json: { status: 'success', message: "Approved #{count} assignments" }
+  rescue => e
+    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+  end
+
+  private
+
+  def set_event
+    @event = Event.find(params[:event_id] || params[:id])
+  end
+
+  def set_assignment
+    @assignment = Assignment.find(params[:id])
+  end
+
+  def serialize_assignment_for_approval(a)
+    {
+      id: a.id,
+      worker_id: a.worker_id,
+      worker_name: [a.worker&.first_name, a.worker&.last_name].compact.join(' '),
+      shift_id: a.shift_id,
+      shift_role: a.shift&.role_needed,
+      scheduled_start: a.shift&.start_time_utc,
+      scheduled_end: a.shift&.end_time_utc,
+      scheduled_hours: a.scheduled_hours,
+      actual_start: a.actual_start_time_utc,
+      actual_end: a.actual_end_time_utc,
+      hours_worked: a.hours_worked,
+      effective_hours: a.effective_hours,
+      hourly_rate: a.hourly_rate,
+      effective_hourly_rate: a.effective_hourly_rate,
+      effective_pay: a.effective_pay,
+      status: a.status,
+      approved: a.approved,
+      approved_at_utc: a.approved_at_utc,
+      approved_by_name: a.approved_by&.email,
+      original_hours_worked: a.original_hours_worked,
+      edited_at_utc: a.edited_at_utc,
+      edited_by_name: a.edited_by&.email,
+      approval_notes: a.approval_notes
+    }
+  end
+end
+
+

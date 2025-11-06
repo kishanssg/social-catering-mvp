@@ -60,6 +60,9 @@ Rails.application.routes.draw do
           post :publish
           post :complete
           post :restore
+          # Approvals
+          get :approvals, to: 'approvals#show'
+          post :approve_all, to: 'approvals#approve_event'
         end
         resources :event_skill_requirements, only: [:create, :update, :destroy]
       end
@@ -94,6 +97,15 @@ Rails.application.routes.draw do
         get :payroll
         get :worker_hours
         get :event_summary
+      end
+
+      # Approval actions on assignments
+      resources :approvals, only: [] do
+        collection do
+          patch ':id/update_hours', to: 'approvals#update_hours', as: :update_hours
+          post ':id/mark_no_show', to: 'approvals#mark_no_show', as: :mark_no_show
+          delete ':id/remove', to: 'approvals#remove', as: :remove_assignment
+        end
       end
     end
   end

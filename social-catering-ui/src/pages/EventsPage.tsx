@@ -23,6 +23,7 @@ import { Toast } from '../components/common/Toast';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { QuickFillModal } from '../components/QuickFillModal';
 import { EditEventModal } from '../components/EditEventModal';
+import ApprovalModal from '../components/ApprovalModal';
 import { apiClient } from '../lib/api';
 
 type TabType = 'draft' | 'active' | 'past' | 'completed';
@@ -100,6 +101,8 @@ export function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
+  // Approval modal
+  const [approvalModal, setApprovalModal] = useState<{ isOpen: boolean; event?: any }>({ isOpen: false });
   
   // Assignment modal
   const [assignmentModal, setAssignmentModal] = useState<{
@@ -623,6 +626,7 @@ export function EventsPage() {
                 expandedEvents={expandedEvents}
                 onToggleEvent={toggleEvent}
                 searchQuery={searchQuery}
+                onApproveHours={(event) => setApprovalModal({ isOpen: true, event })}
               />
             )}
           </>
@@ -713,6 +717,19 @@ export function EventsPage() {
           onSuccess={() => {
             loadEvents(); // Reload events to show changes
             setEditModal({ isOpen: false, event: undefined });
+          }}
+        />
+      )}
+
+      {/* Approval Modal */}
+      {approvalModal.isOpen && approvalModal.event && (
+        <ApprovalModal
+          event={approvalModal.event}
+          isOpen={approvalModal.isOpen}
+          onClose={() => setApprovalModal({ isOpen: false })}
+          onSuccess={() => {
+            loadEvents();
+            setApprovalModal({ isOpen: false });
           }}
         />
       )}
@@ -1254,9 +1271,10 @@ interface PastEventsTabProps {
   expandedEvents: Set<number>;
   onToggleEvent: (id: number) => void;
   searchQuery: string;
+  onApproveHours?: (event: Event) => void;
 }
 
-function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: PastEventsTabProps) {
+function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onApproveHours }: PastEventsTabProps) {
   const formatDate = (dateString: string) => {
     // Parse UTC ISO string and format in local timezone
     const date = parseISO(dateString);
@@ -1330,6 +1348,15 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                     Completed
                   </span>
                 </div>
+                {onApproveHours && (
+                  <button
+                    onClick={() => onApproveHours(event)}
+                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                    title="Approve Hours"
+                  >
+                    Approve Hours
+                  </button>
+                )}
                 
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   {event.schedule && (

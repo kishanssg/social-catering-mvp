@@ -7,6 +7,9 @@ class Assignment < ApplicationRecord
   belongs_to :shift
   belongs_to :worker
   belongs_to :assigned_by, class_name: "User", optional: true
+  # Approval tracking
+  belongs_to :approved_by, class_name: 'User', optional: true
+  belongs_to :edited_by, class_name: 'User', optional: true
 
   validates :assigned_at_utc, :status, presence: true
   validates :assigned_by_id, presence: true, on: :update
@@ -42,6 +45,14 @@ class Assignment < ApplicationRecord
   scope :with_overtime, -> { where('overtime_hours > 0') }
   scope :rated, -> { where.not(performance_rating: nil) }
   scope :high_performance, -> { where(performance_rating: 4..5) }
+  # Approval scopes
+  scope :approved, -> { where(approved: true) }
+  scope :pending_approval, -> { where(approved: false) }
+  scope :needs_approval, -> {
+    joins(:shift)
+      .where(approved: false)
+      .where('shifts.end_time_utc < ?', Time.current)
+  }
   
   # Calculate total pay
   def total_pay
@@ -111,6 +122,9 @@ class Assignment < ApplicationRecord
   after_create :update_event_totals
   after_destroy :update_event_totals
   after_update :update_event_totals, if: :should_update_event_totals?
+
+  # Track changes to hours for auditing
+  before_update :track_hours_changes, if: :saved_change_to_hours_worked?
 
   private
 
@@ -200,6 +214,46 @@ class Assignment < ApplicationRecord
     result = Events::RecalculateTotals.new(event: event).call
     unless result[:success]
       Rails.logger.error "Assignment #{id}: Failed to update event totals: #{result[:error]}"
+    end
+  end
+
+  # Approval API
+  def approve!(approved_by_user, notes: nil)
+    update!(
+      approved: true,
+      approved_by: approved_by_user,
+      approved_at_utc: Time.current,
+      approval_notes: notes
+    )
+  end
+
+  def mark_no_show!(updated_by_user, notes: nil)
+    update!(
+      status: 'no_show',
+      hours_worked: 0,
+      edited_by: updated_by_user,
+      edited_at_utc: Time.current,
+      approval_notes: notes
+    )
+  end
+
+  def remove_from_job!(updated_by_user, notes: nil)
+    update!(
+      status: 'cancelled',
+      hours_worked: 0,
+      edited_by: updated_by_user,
+      edited_at_utc: Time.current,
+      approval_notes: notes
+    )
+  end
+
+  private
+
+  def track_hours_changes
+    if saved_change_to_hours_worked? && persisted?
+      self.original_hours_worked ||= hours_worked_before_last_save
+      self.edited_at_utc = Time.current
+      self.edited_by = Current.user if Current.user
     end
   end
 end
