@@ -532,8 +532,8 @@ export function EventsPage() {
         </div>
         
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
-          <div className="flex-1 max-w-md relative">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 sm:gap-4 mb-6">
+          <div className="w-full md:flex-1 md:max-w-md relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
@@ -547,7 +547,7 @@ export function EventsPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
           >
             <option value="date">Sort by Date</option>
             <option value="name">Sort by Name</option>
@@ -555,10 +555,10 @@ export function EventsPage() {
           </select>
           
           {activeTab === 'active' && (
-            <div className="flex gap-2">
+            <div className="w-full sm:w-auto flex flex-wrap gap-2">
               <button
                 onClick={() => handleFilterChange('all')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                className={`w-full sm:w-auto px-3 py-2 text-sm font-medium rounded-lg transition ${
                   filterStatus === 'all'
                     ? 'bg-gray-100 text-gray-700'
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
@@ -568,7 +568,7 @@ export function EventsPage() {
               </button>
               <button
                 onClick={() => handleFilterChange('needs_workers')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                className={`w-full sm:w-auto px-3 py-2 text-sm font-medium rounded-lg transition ${
                   filterStatus === 'needs_workers'
                     ? 'bg-red-100 text-red-700'
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
@@ -578,7 +578,7 @@ export function EventsPage() {
               </button>
               <button
                 onClick={() => handleFilterChange('fully_staffed')}
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition ${
+                className={`w-full sm:w-auto px-3 py-2 text-sm font-medium rounded-lg transition ${
                   filterStatus === 'fully_staffed'
                     ? 'bg-green-100 text-green-700'
                     : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-300'
@@ -975,7 +975,7 @@ function ActiveEventsTab({
             {/* Event Header */}
             <div
               onClick={() => onToggleEvent(event.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
+              className="w-full px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="flex-1 text-left">
                 <div className="flex items-start gap-3 mb-2">
