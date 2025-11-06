@@ -8,7 +8,8 @@ module PayCalculations
   # ═══════════════════════════════════════════════════════════
 
   # Minimum wage constant (single place to update)
-  DEFAULT_PAY_RATE = 12.0
+  # Uses AppConstants for centralized configuration
+  DEFAULT_PAY_RATE = AppConstants::DEFAULT_PAY_RATE
 
   # Calculate effective hourly rate for an assignment
   # Priority: assignment rate > shift rate > requirement rate > default

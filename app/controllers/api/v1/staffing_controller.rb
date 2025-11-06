@@ -372,13 +372,13 @@ module Api
           # CRITICAL FIX: Hourly rate fallback chain
           # 1. Try hourly_rate from params hash
           # 2. Fall back to shift.pay_rate
-          # 3. Fall back to Florida minimum wage ($12.00)
+          # 3. Fall back to default pay rate (AppConstants::DEFAULT_PAY_RATE)
           assignment_hourly_rate = if hourly_rates[shift.id].present? && hourly_rates[shift.id] > 0
             hourly_rates[shift.id]
           elsif shift.pay_rate.present? && shift.pay_rate > 0
             shift.pay_rate
           else
-            12.00 # Florida minimum wage
+            AppConstants::DEFAULT_PAY_RATE # Default minimum wage
             end
             
             assignment = Assignment.new(
