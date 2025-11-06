@@ -34,6 +34,15 @@ interface EditableEvent {
     break_minutes: number;
   } | null;
   shifts_by_role?: any; // Accept flexible structure
+  skill_requirements?: Array<{
+    id: number;
+    skill_name: string;
+    needed_workers: number;
+    description?: string;
+    uniform_name?: string;
+    certification_name?: string;
+    pay_rate?: number;
+  }>; // EventSkillRequirements - Single Source of Truth for pay rates
 }
 
 interface EditEventModalProps {
@@ -48,12 +57,36 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const [isEditing, setIsEditing] = useState(false);
   const [roles, setRoles] = useState<SkillRequirement[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingEvent, setLoadingEvent] = useState(false);
+  const [fullEventData, setFullEventData] = useState<EditableEvent | null>(null);
   const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({
     isVisible: false,
     message: '',
     type: 'error'
   });
+  
+  // Fetch full event details (including skill_requirements) when modal opens
+  useEffect(() => {
+    if (isOpen && event.id) {
+      loadFullEventDetails();
+    }
+  }, [isOpen, event.id]);
+  
+  const loadFullEventDetails = async () => {
+    setLoadingEvent(true);
+    try {
+      const response = await apiClient.get(`/events/${event.id}`);
+      if (response.data.status === 'success') {
+        setFullEventData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load full event details:', error);
+      setFullEventData(event); // Fallback to prop
+    } finally {
+      setLoadingEvent(false);
+    }
+  };
 
   const handleEditEventDetails = () => {
     onClose(); // Close this modal
@@ -69,18 +102,43 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   ];
 
   // Initialize roles from event
+  // Priority: skill_requirements (SSOT) > shifts_by_role > defaults
+  // Use fullEventData if available (includes skill_requirements), otherwise fallback to event prop
+  const eventData = fullEventData || event;
+  
   useEffect(() => {
-    if (event.shifts_by_role && Array.isArray(event.shifts_by_role)) {
-      const initialRoles: SkillRequirement[] = event.shifts_by_role.map((role: any) => {
-        // Count unique shifts to get the actual needed workers
+    if (!eventData) return;
+    
+    // Use skill_requirements as Single Source of Truth for pay rates
+    if (eventData.skill_requirements && Array.isArray(eventData.skill_requirements)) {
+      const initialRoles: SkillRequirement[] = eventData.skill_requirements.map((req) => {
+        // Find corresponding shift count from shifts_by_role
+        const roleGroup = eventData.shifts_by_role?.find(
+          (r: any) => (r.skill_name || r.role_name) === req.skill_name
+        );
+        const shiftCount = roleGroup?.shifts?.length || roleGroup?.total_shifts || req.needed_workers || 1;
+        
+        return {
+          skill_name: req.skill_name,
+          needed_workers: shiftCount,
+          // Use pay_rate from EventSkillRequirement - this is the SSOT
+          pay_rate: req.pay_rate || 15, // Falls back to 15 if not set
+          description: req.description || '',
+          uniform_id: undefined, // TODO: Map uniform_name to uniform_id if needed
+          cert_id: undefined // TODO: Map certification_name to cert_id if needed
+        };
+      });
+      setRoles(initialRoles);
+    } else if (eventData.shifts_by_role && Array.isArray(eventData.shifts_by_role)) {
+      // Fallback to shifts_by_role if skill_requirements not available
+      const initialRoles: SkillRequirement[] = eventData.shifts_by_role.map((role: any) => {
         const shiftCount = role.shifts ? role.shifts.length : (role.total_shifts || 1);
         
         return {
           skill_name: role.skill_name || role.role_name || '',
-          needed_workers: shiftCount, // Use actual shift count
-          // Use pay_rate from EventSkillRequirement (role-level, not shift-level)
-          // This is the Single Source of Truth for the role's default pay rate
-          pay_rate: role.pay_rate || 15, // Falls back to 15 if not set
+          needed_workers: shiftCount,
+          // Use pay_rate from role-level (from our API fix)
+          pay_rate: role.pay_rate || 15,
           description: '',
           uniform_id: undefined,
           cert_id: undefined
@@ -88,7 +146,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       });
       setRoles(initialRoles);
     }
-  }, [event]);
+  }, [eventData]);
 
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
     const newRoles = [...roles];
@@ -109,7 +167,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
   const handleRemoveRole = (index: number) => {
     if (roles[index].needed_workers > 0) {
-      const roleData = event.shifts_by_role?.[index];
+      const roleData = displayEvent?.shifts_by_role?.[index];
       const hasAssignedWorkers = roleData && 
         ((roleData as any).assigned_workers > 0 || (roleData as any).filled_shifts > 0);
       if (hasAssignedWorkers) {
@@ -137,8 +195,10 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   };
 
   const handleSave = async () => {
+    // Use displayEvent for schedule check
+    const eventToCheck = fullEventData || event;
     // Check if event has started (client-side guard)
-    if (event.schedule && new Date(event.schedule.start_time_utc) <= new Date()) {
+    if (eventToCheck.schedule && new Date(eventToCheck.schedule.start_time_utc) <= new Date()) {
       setToast({
         isVisible: true,
         message: 'Cannot edit event that has already started',
@@ -149,7 +209,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     
     setSaving(true);
     try {
-      const response = await apiClient.patch(`/events/${event.id}`, {
+      const response = await apiClient.patch(`/events/${displayEvent.id}`, {
         event: {
           roles: roles.map(role => ({
             skill_name: role.skill_name,
@@ -228,7 +288,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={`Edit Event: ${event.title}`}
+        title={`Edit Event: ${displayEvent.title}`}
         size="lg"
         footer={footerContent}
       >
@@ -248,12 +308,12 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Venue</p>
-                <p className="text-sm font-semibold text-gray-900">{event.venue.name}</p>
+                <p className="text-sm font-semibold text-gray-900">{displayEvent.venue?.name}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Date</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {new Date(event.schedule.start_time_utc).toLocaleDateString('en-US', { 
+                  {displayEvent.schedule && new Date(displayEvent.schedule.start_time_utc).toLocaleDateString('en-US', { 
                     weekday: 'short', 
                     month: 'short', 
                     day: 'numeric', 
@@ -263,20 +323,24 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </div>
               <div className="space-y-1 md:col-span-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Location</p>
-                <p className="text-sm font-semibold text-gray-900 leading-relaxed">{event.venue.formatted_address}</p>
+                <p className="text-sm font-semibold text-gray-900 leading-relaxed">{displayEvent.venue?.formatted_address}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Time</p>
                 <p className="text-sm font-semibold text-gray-900">
-                  {new Date(event.schedule.start_time_utc).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    hour12: true 
-                  })} - {new Date(event.schedule.end_time_utc).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    hour12: true 
-                  })}
+                  {displayEvent.schedule && (
+                    <>
+                      {new Date(displayEvent.schedule.start_time_utc).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true 
+                      })} - {new Date(displayEvent.schedule.end_time_utc).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </>
+                  )}
                 </p>
               </div>
               <div></div>
@@ -391,7 +455,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                 </div>
 
                 {/* Show assigned workers count */}
-                {event.shifts_by_role?.[index] && (
+                {displayEvent.shifts_by_role?.[index] && (
                   ((event.shifts_by_role[index] as any).assigned_workers > 0 || (event.shifts_by_role[index] as any).filled_shifts > 0) && (
                     <div className="text-sm text-amber-600 font-semibold bg-amber-50 px-3 py-2 rounded-lg">
                       {(event.shifts_by_role[index] as any).assigned_workers || (event.shifts_by_role[index] as any).filled_shifts} worker(s) assigned

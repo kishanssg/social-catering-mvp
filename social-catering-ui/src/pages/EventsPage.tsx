@@ -779,9 +779,16 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
               {/* Left: Event Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-3 mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                    {event.title}
-                  </h3>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {event.title}
+                      {event.schedule && (
+                        <span className="ml-2 text-sm font-normal text-gray-600">
+                          • {formatTime(event.schedule.start_time_utc)}–{formatTime(event.schedule.end_time_utc)}
+                        </span>
+                      )}
+                    </h3>
+                  </div>
                   <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
                     Draft
                   </span>
@@ -799,12 +806,6 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-gray-400 flex-shrink-0" />
                       <span>{formatDate(event.schedule.start_time_utc)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} className="text-gray-400 flex-shrink-0" />
-                      <span>
-                        {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
-                      </span>
                     </div>
                   </div>
                 )}
@@ -888,6 +889,13 @@ function ActiveEventsTab({
     return format(date, 'h:mm a');
   };
   
+  const isUrgent = (event: any) => {
+    if (!event.schedule) return false;
+    const eventDate = parseISO(event.schedule.start_time_utc);
+    const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+    return hoursUntil > 0 && hoursUntil <= 48;
+  };
+  
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'fully_staffed':
@@ -950,9 +958,16 @@ function ActiveEventsTab({
             >
               <div className="flex-1 text-left">
                 <div className="flex items-start gap-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {event.title}
-                  </h3>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {event.title}
+                      {event.schedule && (
+                        <span className="ml-2 text-sm font-normal text-gray-600">
+                          • {formatTime(event.schedule.start_time_utc)}–{formatTime(event.schedule.end_time_utc)}
+                        </span>
+                      )}
+                    </h3>
+                  </div>
                   {getStatusBadge(event.staffing_status)}
                 </div>
                 
@@ -964,16 +979,18 @@ function ActiveEventsTab({
                     </div>
                   )}
                   {event.schedule && (
-                    <>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={14} className="text-gray-400" />
-                        {formatDate(event.schedule.start_time_utc)}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={14} className="text-gray-400" />
-                        {formatTime(event.schedule.start_time_utc)}
-                      </div>
-                    </>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={14} className="text-gray-400" />
+                      <span>{formatDate(event.schedule.start_time_utc)}</span>
+                      {isUrgent(event) && (
+                        <span 
+                          className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
+                          aria-label="Urgent: starts within 48 hours"
+                        >
+                          Urgent
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 
@@ -1134,29 +1151,31 @@ function ActiveEventsTab({
                               </span>
                               
                               {shift.assignments.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  {shift.assignments.map((assignment) => (
-                                    <div key={assignment.id} className="flex items-center gap-1">
-                                      <span 
-                                        className="px-2 py-0.5 bg-teal-100 text-teal-700 text-xs rounded"
-                                      >
-                                        {assignment.worker.first_name} {assignment.worker.last_name[0]}.
-                                        <span className="ml-1 text-teal-600 font-medium">
-                                          ${Number(assignment.hourly_rate || shift.pay_rate || 0).toFixed(0)}/hr
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {shift.assignments.map((assignment) => {
+                                    const fullName = `${assignment.worker.first_name} ${assignment.worker.last_name}`;
+                                    const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
+                                    return (
+                                      <div key={assignment.id} className="flex items-center gap-1">
+                                        <span 
+                                          className="bg-white text-black border border-gray-200 rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate"
+                                          title={`${fullName} • $${rate.toFixed(0)}/hr`}
+                                        >
+                                          {fullName}
                                         </span>
-                                      </span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onUnassign(assignment.id, `${assignment.worker.first_name} ${assignment.worker.last_name}`);
-                                        }}
-                                        className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                                        title="Unassign worker"
-                                      >
-                                        <X size={12} />
-                                      </button>
-                                    </div>
-                                  ))}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onUnassign(assignment.id, fullName);
+                                          }}
+                                          className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                          title="Unassign worker"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

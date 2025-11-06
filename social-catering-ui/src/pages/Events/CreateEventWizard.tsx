@@ -1712,10 +1712,11 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                             supervisor_name: selectedSupervisor,
                             supervisor_phone: phoneNumber,
                             skill_requirements: skillRequirements,
-                            schedule: schedule,
+                            schedule: schedule, // Schedule update will trigger shift sync via EventSchedule callback
                           };
 
                           // Update event and publish in one call
+                          // The schedule update will automatically sync to all shifts via EventSchedule#sync_shift_times callback
                           await updateEvent(currentEvent.id!, eventData);
                           
                           showSuccess('Event updated and published successfully!');

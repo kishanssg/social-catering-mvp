@@ -82,7 +82,8 @@ git commit -m "feat: Sync Vite build to public/ for deployment" || echo "   (No 
 
 echo ""
 echo "🚀 Step 5: Deploying to staging..."
-git push staging dev:main
+CURRENT_BRANCH=$(git branch --show-current)
+git push staging ${CURRENT_BRANCH}:main --force
 
 # Step 6: Wait for deployment and verify
 echo ""

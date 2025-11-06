@@ -76,6 +76,10 @@ export function LoginPage() {
               src={scLogo} 
               alt="Social Catering" 
               className="mx-auto h-20 w-auto"
+              width={198}
+              height={55}
+              loading="eager"
+              decoding="async"
             />
           </div>
           

@@ -45,9 +45,12 @@ interface DayData {
     id: number;
     title: string;
     unfilled_roles_count: number;
+    hired_count: number;
+    required_count: number;
   }>;
   shifts_count: number;
   needs_workers_count: number;
+  total_hired_today: number;
 }
 
 interface UrgentEvent {
@@ -64,7 +67,7 @@ interface UrgentEvent {
   unfilled_roles_count: number;
   staffing_percentage: number;
   staffing_status: string;
-  days_until: number;
+  hours_until?: number;
 }
 
 export function DashboardPage() {
@@ -170,18 +173,25 @@ export function DashboardPage() {
                   status: 'fully_staffed',
                   events: [],
                   shifts_count: 0,
-                  needs_workers_count: 0
+                  needs_workers_count: 0,
+                  total_hired_today: 0
                 };
               }
+              
+              const hiredCount = event.assigned_workers_count || 0;
+              const requiredCount = event.total_workers_needed || 0;
               
               daysMap[dateKey].events.push({
                 id: event.id,
                 title: event.title,
-                unfilled_roles_count: event.unfilled_roles_count || 0
+                unfilled_roles_count: event.unfilled_roles_count || 0,
+                hired_count: hiredCount,
+                required_count: requiredCount
               });
               
               daysMap[dateKey].shifts_count += event.total_shifts_count || 0;
               daysMap[dateKey].needs_workers_count += event.unfilled_roles_count || 0;
+              daysMap[dateKey].total_hired_today += hiredCount;
               
               // Determine worst status for the day
               if (event.staffing_status === 'needs_workers') {
@@ -197,26 +207,29 @@ export function DashboardPage() {
           
           setCalendarData(Object.values(daysMap));
           
-          // Get urgent events (upcoming with gaps)
+          // Get urgent events (upcoming with gaps, within 48h)
           const urgent = publishedEvents
             .filter((e: any) => {
               if (!e.schedule || (e.unfilled_roles_count || 0) === 0) return false;
               const eventDate = parseISO(e.schedule.start_time_utc);
-              return eventDate >= new Date();
+              const now = new Date();
+              if (eventDate < now) return false;
+              const hoursUntil = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+              return hoursUntil > 0 && hoursUntil <= 48;
             })
             .map((e: any) => {
               const eventDate = parseISO(e.schedule.start_time_utc);
-              const daysUntil = Math.ceil((eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
               
               return {
                 ...e,
-                days_until: daysUntil
+                hours_until: hoursUntil
               };
             })
             .sort((a: any, b: any) => {
-              // Sort by urgency: days until event, then by percentage filled
-              if (a.days_until !== b.days_until) {
-                return a.days_until - b.days_until;
+              // Sort by time until event, then by percentage filled
+              if (a.hours_until !== b.hours_until) {
+                return a.hours_until - b.hours_until;
               }
               return a.staffing_percentage - b.staffing_percentage;
             })
@@ -554,10 +567,33 @@ function MonthCalendar({
                     </div>
                   )}
                   
-                  {/* Unfilled roles indicator */}
-                  {dayData.needs_workers_count > 0 && (
-                    <div className="text-xs text-center font-medium text-red-600">
-                      -{dayData.needs_workers_count} role{dayData.needs_workers_count !== 1 ? 's' : ''}
+                  {/* Staffing progress per event */}
+                  {dayData.events.length > 0 && dayData.events.length <= 2 && (
+                    <div className="space-y-0.5">
+                      {dayData.events.map((event) => (
+                        <div
+                          key={event.id}
+                          className="text-xs text-center font-medium text-gray-700 truncate"
+                          title={`${event.title}: ${event.hired_count}/${event.required_count} hired`}
+                          aria-label={`Staffing progress: ${event.hired_count} of ${event.required_count} hired`}
+                        >
+                          {event.hired_count}/{event.required_count} hired
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Summary for multiple events or single event summary */}
+                  {dayData.events.length > 2 && (
+                    <div className="text-xs text-center font-medium text-gray-700">
+                      {dayData.total_hired_today} hired today
+                    </div>
+                  )}
+                  
+                  {/* Daily total for single event days */}
+                  {dayData.events.length === 1 && dayData.total_hired_today > 0 && (
+                    <div className="text-xs text-center text-gray-500 mt-0.5">
+                      Hired today: {dayData.total_hired_today}
                     </div>
                   )}
                 </div>
@@ -593,26 +629,22 @@ interface UrgentEventsListProps {
 }
 
 function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
-  const getUrgencyBadge = (daysUntil: number, percentage: number) => {
-    if (daysUntil <= 3 || percentage === 0) {
-      return (
-        <span className="px-2.5 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
-          🔴 URGENT
-        </span>
-      );
-    } else if (daysUntil <= 7 || percentage < 50) {
-      return (
-        <span className="px-2.5 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">
-          ⚠️ HIGH
-        </span>
-      );
-    } else {
+  const isUrgent = (event: UrgentEvent) => {
+    if (!event.schedule) return false;
+    const eventDate = parseISO(event.schedule.start_time_utc);
+    const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+    return hoursUntil > 0 && hoursUntil <= 48;
+  };
+  
+  const getUrgencyBadge = () => {
     return (
-        <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
-          ⚠️ MEDIUM
-        </span>
-      );
-    }
+      <span 
+        className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full"
+        aria-label="Urgent: starts within 48 hours"
+      >
+        Urgent
+      </span>
+    );
   };
   
   const formatDate = (dateString: string) => {
@@ -662,13 +694,12 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
               {/* Left: Event Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2">
-                  {getUrgencyBadge(event.days_until, event.staffing_percentage)}
                   <span className="text-sm font-medium text-gray-600">
                     {formatDate(event.schedule.start_time_utc)}
                   </span>
-                  <span className="text-sm text-gray-500">
-                    ({getDaysUntilText(event.days_until)})
-                  </span>
+                  {isUrgent(event) && (
+                    <>{getUrgencyBadge()}</>
+                  )}
                 </div>
                 
                 <h4 className="text-base font-semibold text-gray-900 mb-1">

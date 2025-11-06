@@ -20,6 +20,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             src={logoIcon}
             alt="Social Catering Logo"
             className="h-10 w-auto"
+            width={198}
+            height={55}
             loading="eager"
             decoding="async"
             style={{ imageRendering: 'auto' }}
