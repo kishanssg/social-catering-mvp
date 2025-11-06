@@ -32,10 +32,16 @@ class Events::SyncShiftTimes
       
       # Trigger event totals recalculation (hours may have changed)
       # This is atomic within the transaction
+      # Note: Continue even if recalculation fails (it's not critical for sync)
       if @event.respond_to?(:recalculate_totals!)
-        recalc_result = @event.recalculate_totals!
-        unless recalc_result
-          raise "Failed to recalculate event totals"
+        begin
+          recalc_result = @event.recalculate_totals!
+          unless recalc_result
+            Rails.logger.warn "Events::SyncShiftTimes: Recalculation returned false for event #{@event.id}, but sync succeeded"
+          end
+        rescue => e
+          Rails.logger.error "Events::SyncShiftTimes: Recalculation failed for event #{@event.id}: #{e.message}"
+          # Don't raise - sync should succeed even if recalculation fails
         end
       end
       
