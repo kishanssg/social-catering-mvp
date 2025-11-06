@@ -6,6 +6,25 @@ export default {
   ],
   theme: {
     extend: {
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)'
+      },
+      minHeight: {
+        'touch': '44px'
+      },
+      minWidth: {
+        'touch': '44px'
+      },
+      fontSize: {
+        xs: ['0.75rem', { lineHeight: '1rem' }],
+        sm: ['0.875rem', { lineHeight: '1.25rem' }],
+        base: ['1rem', { lineHeight: '1.5rem' }],
+        lg: ['1.125rem', { lineHeight: '1.75rem' }],
+        xl: ['1.25rem', { lineHeight: '1.75rem' }]
+      },
       fontFamily: {
         'manrope': ['Manrope', '-apple-system', 'Roboto', 'Helvetica', 'sans-serif'],
       },
