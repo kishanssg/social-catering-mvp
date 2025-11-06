@@ -13,7 +13,7 @@ class Assignment < ApplicationRecord
 
   validates :assigned_at_utc, :status, presence: true
   validates :assigned_by_id, presence: true, on: :update
-  validates :status, inclusion: { in: [ "assigned", "confirmed", "completed", "cancelled" ] }
+  validates :status, inclusion: { in: [ "assigned", "confirmed", "completed", "cancelled", "no_show" ] }
   validates :hours_worked, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 24 }, allow_nil: true
   validates :hourly_rate, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :break_duration_minutes, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
@@ -245,6 +245,16 @@ class Assignment < ApplicationRecord
       edited_at_utc: Time.current,
       approval_notes: notes
     )
+  end
+
+  def can_edit_hours?
+    # Can edit if shift has ended and not yet approved
+    shift.end_time_utc < Time.current && !approved?
+  end
+
+  def can_approve?
+    # Can approve if shift has ended
+    shift.end_time_utc < Time.current
   end
 
   private

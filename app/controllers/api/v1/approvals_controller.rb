@@ -5,14 +5,15 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # GET /api/v1/events/:event_id/approvals
   def show
-    assignments = @event.shifts.includes(:assignments, :workers)
-                     .flat_map(&:assignments)
-                     .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) }
+    assignments = @event.shifts
+      .includes(assignments: :worker)
+      .flat_map(&:assignments)
+      .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) }
 
     render json: {
       status: 'success',
       data: {
-        event: { id: @event.id, title: @event.title, event_date: @event.event_schedule&.start_time_utc },
+        event: serialize_event_for_approval(@event),
         assignments: assignments.map { |a| serialize_assignment_for_approval(a) }
       }
     }
@@ -20,6 +21,13 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # PATCH /api/v1/approvals/:id/update_hours
   def update_hours
+    unless @assignment.can_edit_hours?
+      return render json: {
+        status: 'error',
+        message: 'Cannot edit hours for this assignment. Shift must be completed and not yet approved.'
+      }, status: :unprocessable_entity
+    end
+
     ActiveRecord::Base.transaction do
       @assignment.update!(
         hours_worked: params[:hours_worked],
@@ -88,26 +96,36 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # POST /api/v1/events/:event_id/approve_all
   def approve_event
-    count = 0
+    approved_count = 0
+
     ActiveRecord::Base.transaction do
-      @event.shifts.includes(:assignments).flat_map(&:assignments)
-            .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) && !a.approved? }
-            .each do |a|
-        a.approve!(Current.user)
-        count += 1
+      assignments = @event.shifts
+        .includes(:assignments)
+        .flat_map(&:assignments)
+        .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) && !a.approved? }
+
+      assignments.each do |assignment|
+        if assignment.can_approve?
+          assignment.approve!(Current.user)
+          approved_count += 1
+        end
       end
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
         entity_type: 'Event',
         entity_id: @event.id,
-        action: 'hours_approved',
-        after_json: { approved_assignments: count },
+        action: 'event_hours_approved',
+        after_json: { approved_count: approved_count },
         created_at_utc: Time.current
       )
     end
 
-    render json: { status: 'success', message: "Approved #{count} assignments" }
+    render json: {
+      status: 'success',
+      message: "Approved #{approved_count} assignments",
+      data: { approved_count: approved_count }
+    }
   rescue => e
     render json: { status: 'error', message: e.message }, status: :unprocessable_entity
   end
@@ -122,6 +140,18 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     @assignment = Assignment.find(params[:id])
   end
 
+  def serialize_event_for_approval(event)
+    {
+      id: event.id,
+      title: event.title,
+      event_date: event.event_date || event.event_schedule&.start_time_utc&.to_date,
+      venue_name: event.venue&.name,
+      status: event.status,
+      total_hours: event.total_hours_worked,
+      total_cost: event.total_pay_amount
+    }
+  end
+
   def serialize_assignment_for_approval(a)
     {
       id: a.id,
@@ -129,24 +159,39 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       worker_name: [a.worker&.first_name, a.worker&.last_name].compact.join(' '),
       shift_id: a.shift_id,
       shift_role: a.shift&.role_needed,
+      shift_date: a.shift&.start_time_utc&.to_date,
+      
+      # Scheduled times
       scheduled_start: a.shift&.start_time_utc,
       scheduled_end: a.shift&.end_time_utc,
       scheduled_hours: a.scheduled_hours,
+      
+      # Actual times
       actual_start: a.actual_start_time_utc,
       actual_end: a.actual_end_time_utc,
+      
+      # Hours and pay
       hours_worked: a.hours_worked,
       effective_hours: a.effective_hours,
       hourly_rate: a.hourly_rate,
       effective_hourly_rate: a.effective_hourly_rate,
       effective_pay: a.effective_pay,
+      
+      # Status and approval
       status: a.status,
       approved: a.approved,
-      approved_at_utc: a.approved_at_utc,
+      approved_at: a.approved_at_utc,
       approved_by_name: a.approved_by&.email,
+      
+      # Audit trail
       original_hours_worked: a.original_hours_worked,
-      edited_at_utc: a.edited_at_utc,
+      edited_at: a.edited_at_utc,
       edited_by_name: a.edited_by&.email,
-      approval_notes: a.approval_notes
+      approval_notes: a.approval_notes,
+      
+      # Permissions
+      can_edit_hours: a.can_edit_hours?,
+      can_approve: a.can_approve?
     }
   end
 end

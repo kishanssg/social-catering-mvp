@@ -75,7 +75,19 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_28_120000) do
     t.integer "break_duration_minutes", default: 0
     t.decimal "overtime_hours", precision: 5, scale: 2, default: "0.0"
     t.integer "performance_rating"
+    t.boolean "approved", default: false, null: false
+    t.integer "approved_by_id"
+    t.timestamptz "approved_at_utc"
+    t.timestamptz "actual_start_time_utc"
+    t.timestamptz "actual_end_time_utc"
+    t.decimal "original_hours_worked", precision: 8, scale: 2
+    t.timestamptz "edited_at_utc"
+    t.integer "edited_by_id"
+    t.text "approval_notes"
+    t.index ["approved"], name: "index_assignments_on_approved"
+    t.index ["approved_by_id"], name: "index_assignments_on_approved_by_id"
     t.index ["created_at"], name: "index_assignments_on_created_at"
+    t.index ["edited_by_id"], name: "index_assignments_on_edited_by_id"
     t.index ["hourly_rate"], name: "index_assignments_on_hourly_rate"
     t.index ["shift_id", "status"], name: "index_assignments_on_shift_id_and_status"
     t.index ["shift_id", "worker_id"], name: "index_assignments_on_shift_id_and_worker_id", unique: true
@@ -301,7 +313,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_28_120000) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activity_logs", "users", column: "actor_user_id", on_delete: :nullify
   add_foreign_key "assignments", "shifts", on_delete: :restrict
+  add_foreign_key "assignments", "users", column: "approved_by_id", on_delete: :nullify
   add_foreign_key "assignments", "users", column: "assigned_by_id"
+  add_foreign_key "assignments", "users", column: "edited_by_id", on_delete: :nullify
   add_foreign_key "assignments", "workers", on_delete: :restrict
   add_foreign_key "event_schedules", "events", on_delete: :cascade
   add_foreign_key "event_skill_requirements", "events", on_delete: :cascade

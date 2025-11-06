@@ -34,8 +34,6 @@ module SocialCateringMvp
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
     
-    # Add performance logging middleware (only in development/production, not test)
-    # Using string form to avoid autoloading issues during boot
-    config.middleware.use 'PerformanceLogger' unless Rails.env.test?
+    # Performance logging middleware is configured in config/initializers/performance_logger.rb
   end
 end
