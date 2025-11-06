@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { safeToFixed } from '../utils/number';
 import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
@@ -132,8 +133,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   if (!isOpen) return null;
 
   const unapprovedCount = assignments.filter(a => !a.approved && a.can_approve).length;
-  const totalHours = assignments.reduce((sum, a) => sum + a.effective_hours, 0);
-  const totalPay = assignments.reduce((sum, a) => sum + a.effective_pay, 0);
+  const totalHours = assignments.reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
+  const totalPay = assignments.reduce((sum, a) => sum + (Number(a.effective_pay) || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
@@ -288,12 +289,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Scheduled Hours</p>
-                          <p className="font-medium text-gray-900">{assignment.scheduled_hours.toFixed(2)}h</p>
+                          <p className="font-medium text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Hours Worked</p>
                           <p className="font-medium text-gray-900">
-                            {assignment.effective_hours.toFixed(2)}h
+                            {safeToFixed(assignment.effective_hours, 2, '0.00')}h
                             {assignment.edited_at && (
                               <span className="ml-1 text-xs text-orange-600" title="Edited">
                                 <Edit2 className="h-3 w-3 inline" />
@@ -303,11 +304,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Hourly Rate</p>
-                          <p className="font-medium text-gray-900">${assignment.effective_hourly_rate.toFixed(2)}/h</p>
+                          <p className="font-medium text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Total Pay</p>
-                          <p className="font-medium text-green-600">${assignment.effective_pay.toFixed(2)}</p>
+                          <p className="font-medium text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
                         </div>
                       </div>
                     )}
@@ -393,7 +394,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
           <div className="text-sm">
             <p className="font-medium text-gray-900">
-              Total: {totalHours.toFixed(2)} hours / ${totalPay.toFixed(2)}
+              Total: {safeToFixed(totalHours, 2, '0.00')} hours / ${safeToFixed(totalPay, 2, '0.00')}
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {assignments.length} worker{assignments.length !== 1 ? 's' : ''} assigned

@@ -18,6 +18,7 @@ import {
   Award
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { safeToFixed } from '../utils/number';
 import { AssignmentModal } from '../components/AssignmentModal';
 import { Toast } from '../components/common/Toast';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
@@ -1103,7 +1104,7 @@ function ActiveEventsTab({
                             });
                           });
                         });
-                        return totalCost.toFixed(0);
+                        return safeToFixed(totalCost, 0, '0');
                       })()}
                     </span>
                   </div>
@@ -1222,7 +1223,7 @@ function ActiveEventsTab({
                                       <div key={assignment.id} className="flex items-center gap-1">
                                         <span 
                                           className="bg-white text-black border border-gray-200 rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate"
-                                          title={`${fullName} • $${rate.toFixed(0)}/hr`}
+                                          title={`${fullName} • $${safeToFixed(rate, 0, '0')}/hr`}
                                         >
                                           {fullName}
                                         </span>
@@ -1446,7 +1447,7 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                     <div>
                       <p className="text-sm text-gray-600">Total Hours</p>
                       <p className="text-2xl font-semibold text-gray-900">
-                        {totalHours.toFixed(2)}
+                        {safeToFixed(totalHours, 2, '0.00')}
                       </p>
                     </div>
                     <div>
@@ -1463,7 +1464,7 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                               });
                             });
                           });
-                          return totalCost.toFixed(0);
+                          return safeToFixed(totalCost, 0, '0');
                         })()}
                       </p>
                     </div>
@@ -1501,15 +1502,15 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 {assignment.hours_worked && (
                                   <span className="font-medium">
-                                    {parseFloat(assignment.hours_worked.toString()).toFixed(2)} hrs
+                                  {safeToFixed(assignment.hours_worked, 2, '0.00')} hrs
                                   </span>
                                 )}
                                 <span className="font-medium text-green-600">
-                                  ${Number(assignment.hourly_rate || shift.pay_rate || 0).toFixed(0)}/hr
+                                  ${safeToFixed(Number(assignment.hourly_rate ?? shift.pay_rate ?? 0), 0, '0')}/hr
                                 </span>
                                 {assignment.hours_worked && (
                                   <span className="font-semibold text-blue-600">
-                                    ${(parseFloat(assignment.hours_worked.toString()) * Number(assignment.hourly_rate || shift.pay_rate || 0)).toFixed(0)}
+                                  {safeToFixed((Number(assignment.hours_worked) || 0) * Number(assignment.hourly_rate ?? shift.pay_rate ?? 0), 0, '0')}
                                   </span>
                                 )}
                                 <span className="text-xs text-gray-500">
