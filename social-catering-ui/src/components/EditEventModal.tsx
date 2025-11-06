@@ -316,14 +316,17 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
   return (
     <>
-      <Modal
-        isOpen={isOpen}
-        onClose={onClose}
-        title={`Edit Event: ${displayEvent.title}`}
-        size="lg"
-        footer={footerContent}
-      >
-        <div className="space-y-6">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+        <div className="bg-white w-full h-full sm:h-auto sm:max-w-4xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh]">
+          {/* Header */}
+          <div className="sticky top-0 bg-white px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between z-10">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">Edit Event: {displayEvent.title}</h2>
+            <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 min-h-touch min-w-touch" aria-label="Close">
+              <X className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          </div>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
           {/* Event Details (Read-only for now) */}
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-5">
@@ -576,8 +579,13 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </div>
             ))}
           </div>
+          </div>
+          {/* Footer */}
+          <div className="sticky bottom-0 bg-white px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row gap-3 sm:justify-end z-10">
+            {footerContent}
+          </div>
         </div>
-      </Modal>
+      </div>
 
       <Toast
         isVisible={toast.isVisible}
