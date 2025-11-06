@@ -20,17 +20,39 @@ export function LoginPage() {
   const { login } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState('')
+  const errorRef = useRef<string>('') // Persistent error storage
   const isMountedRef = useRef(true)
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // Get the redirect path from location state, default to dashboard
   const redirectTo = location.state?.from?.pathname || '/dashboard'
 
   useEffect(() => {
     isMountedRef.current = true
+    // Restore error from ref if component re-renders
+    if (errorRef.current && !apiError) {
+      console.log('🔄 Restoring error from ref:', errorRef.current)
+      setApiError(errorRef.current)
+    }
     return () => {
       isMountedRef.current = false
+      // Clear any pending timeouts on unmount
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current)
+      }
     }
   }, [])
+  
+  // Debug: Log when apiError changes AND track what cleared it
+  useEffect(() => {
+    if (apiError) {
+      console.log('🔴 Login error set:', apiError)
+      errorRef.current = apiError // Store in ref for persistence
+    } else {
+      console.log('🟢 Login error cleared - stack trace:', new Error().stack)
+      errorRef.current = '' // Clear ref too
+    }
+  }, [apiError])
 
   const {
     register,
@@ -48,25 +70,47 @@ export function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true)
+      console.log('🔵 Login attempt started, current error:', errorRef.current)
       // Don't clear error here - only clear on successful login or explicit dismiss
       // This allows error to persist if user tries again
 
       await login(data.email, data.password)
+      console.log('✅ Login successful')
       // Only clear error on successful login
       if (isMountedRef.current) {
+        errorRef.current = ''
         setApiError('')
         navigate(redirectTo)
       }
     } catch (err: any) {
+      console.log('❌ Login error caught:', err.message)
       if (isMountedRef.current) {
         // Set error and keep it visible - it will only be cleared by:
         // 1. User clicking dismiss button
         // 2. Successful login (handled above)
-        setApiError(err.message || 'Login failed. Please try again.')
+        const errorMessage = err.message || 'Login failed. Please try again.'
+        console.log('🔴 Setting error message:', errorMessage)
+        errorRef.current = errorMessage // Store in ref first
+        setApiError(errorMessage)
+        
+        // Verify error persists - check multiple times
+        const checkInterval = setInterval(() => {
+          if (errorRef.current && apiError !== errorRef.current) {
+            console.log('⚠️ Error mismatch detected! Ref:', errorRef.current, 'State:', apiError)
+            setApiError(errorRef.current) // Restore from ref
+          }
+        }, 100)
+        
+        // Stop checking after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval)
+          console.log('🔍 Final error check - Ref:', errorRef.current, 'State:', apiError)
+        }, 10000)
       }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false)
+        console.log('🏁 Login attempt finished, isLoading:', false)
       }
     }
   }
@@ -74,8 +118,13 @@ export function LoginPage() {
   // Only clear error when user explicitly dismisses it or successfully logs in
   // Don't auto-clear on input change - let user see the error
   const dismissError = () => {
+    console.log('👤 User dismissed error')
+    errorRef.current = ''
     setApiError('')
   }
+  
+  // Display error from ref if state is empty (defensive)
+  const displayError = apiError || errorRef.current
 
 
   return (
@@ -109,7 +158,7 @@ export function LoginPage() {
         <div className="bg-white py-8 px-6 shadow-xl rounded-lg border border-gray-200">
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
           {/* API Error - Truly persistent, only dismisses manually or on successful login */}
-          {apiError && (
+          {displayError && (
             <div className="rounded-md bg-red-50 border-2 border-red-300 p-4 relative animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -119,7 +168,7 @@ export function LoginPage() {
                     </svg>
                     <h3 className="text-sm font-semibold text-red-800">Login Failed</h3>
                   </div>
-                  <p className="text-sm text-red-700 ml-7 font-medium">{apiError}</p>
+                  <p className="text-sm text-red-700 ml-7 font-medium">{displayError}</p>
                   <p className="text-xs text-red-600 ml-7 mt-1">Please check your credentials and try again.</p>
                 </div>
                 <button
