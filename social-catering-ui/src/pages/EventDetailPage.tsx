@@ -61,6 +61,7 @@ export function EventDetailPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+  const [approvals, setApprovals] = useState<{ approved: number; total: number } | null>(null);
   
   useEffect(() => {
     loadEvent();
@@ -73,6 +74,19 @@ export function EventDetailPage() {
       
       if (response.data.status === 'success') {
         setEvent(response.data.data);
+        // Also fetch approvals summary for glance state
+        try {
+          const appr = await apiClient.get(`/events/${id}/approvals`);
+          if (appr.data?.status === 'success') {
+            const assignments = appr.data.data.assignments || [];
+            const total = assignments.length;
+            const approved = assignments.filter((a: any) => a.approved).length;
+            setApprovals({ approved, total });
+          }
+        } catch (e) {
+          // Non-blocking
+          setApprovals(null);
+        }
       }
     } catch (error) {
       console.error('Failed to load event:', error);
@@ -164,9 +178,24 @@ export function EventDetailPage() {
               </h1>
               
               {/* Status Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                Published
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                </span>
+                {approvals && (
+                  approvals.total > 0 ? (
+                    approvals.approved === approvals.total ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 text-sm font-medium rounded-full">
+                        ✓ All Hours Approved
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-medium rounded-full">
+                        Approvals {approvals.approved}/{approvals.total}
+                      </span>
+                    )
+                  ) : null
+                )}
               </div>
             </div>
             
