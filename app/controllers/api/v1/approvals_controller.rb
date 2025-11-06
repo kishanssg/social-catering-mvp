@@ -144,7 +144,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     {
       id: event.id,
       title: event.title,
-      event_date: event.event_date || event.event_schedule&.start_time_utc&.to_date,
+      event_date: event.schedule&.start_time_utc&.to_date,
       venue_name: event.venue&.name,
       status: event.status,
       total_hours: event.total_hours_worked,

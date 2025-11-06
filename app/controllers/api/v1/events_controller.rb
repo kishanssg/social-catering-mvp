@@ -107,7 +107,12 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     # Add limit for performance (prevent loading too many events)
     limit = params[:limit]&.to_i || 50
-    events = events.limit(limit)
+    events =
+      if events.is_a?(ActiveRecord::Relation)
+        events.limit(limit)
+      else
+        events.first(limit)
+      end
     
     # Use lightweight serializer for list views (faster)
     render json: {
