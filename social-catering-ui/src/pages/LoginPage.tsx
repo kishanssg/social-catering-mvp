@@ -58,6 +58,7 @@ export function LoginPage() {
   const isMountedRef = useRef(true)
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const passwordInputRef = useRef<HTMLInputElement>(null)
+  const submittingRef = useRef<boolean>(false)
   
   // Get the redirect path from location state, default to dashboard
   const redirectTo = location.state?.from?.pathname || '/dashboard'
@@ -111,6 +112,12 @@ export function LoginPage() {
   const passwordValue = watch('password')
 
   const onSubmit = async (data: LoginFormData) => {
+    // Guard against duplicate submissions
+    if (isLoading || submittingRef.current) {
+      console.log('Login submit ignored (already submitting)')
+      return
+    }
+    submittingRef.current = true
     try {
       setIsLoading(true)
       // Clear previous errors when starting new login attempt
@@ -140,6 +147,7 @@ export function LoginPage() {
       if (isMountedRef.current) {
         setIsLoading(false)
       }
+      submittingRef.current = false
     }
   }
   
@@ -186,7 +194,18 @@ export function LoginPage() {
 
         {/* Form Container */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-lg border border-gray-200">
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          <form 
+            className="space-y-6" 
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            autoComplete="off"
+            onKeyDown={(e) => {
+              if (isLoading && e.key === 'Enter') {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
+          >
           {/* Persistent Error Alert - Stays until dismissed or user types */}
           {displayError && (
             <div 
@@ -306,6 +325,12 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
+              onClick={(e) => {
+                if (isLoading || submittingRef.current) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              }}
               className="btn-primary w-full flex justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
