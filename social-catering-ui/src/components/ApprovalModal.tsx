@@ -147,13 +147,14 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+      {/* Render Toast at overlay level to avoid clipping by overflow-hidden container */}
+      <Toast
+        isVisible={toast.isVisible}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isVisible: false })}
+      />
       <div className="bg-white w-full h-full sm:h-auto sm:max-w-6xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
-        <Toast
-          isVisible={toast.isVisible}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, isVisible: false })}
-        />
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <div>
