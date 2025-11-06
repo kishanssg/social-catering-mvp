@@ -213,8 +213,9 @@ class Event < ApplicationRecord
   end
 
   # Force recalculation of totals (called by callbacks and other models)
-  # Uses centralized service for consistency
+  # Uses centralized service for consistency (Single Source of Truth)
   def recalculate_totals!
+    # Use centralized service for recalculation
     result = Events::RecalculateTotals.new(event: self).call
     unless result[:success]
       Rails.logger.error "Event #{id}: Failed to recalculate totals: #{result[:error]}"
