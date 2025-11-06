@@ -1033,10 +1033,10 @@ function ActiveEventsTab({
                         let totalCost = 0;
                         event.shifts_by_role.forEach(roleGroup => {
                           roleGroup.shifts.forEach(shift => {
-                            const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
                             shift.assignments.forEach(assignment => {
-                              const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
-                              totalCost += rate * shiftDuration;
+                              // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+                              const pay = (assignment as any).effective_pay || 0;
+                              totalCost += pay;
                             });
                           });
                         });
@@ -1297,13 +1297,13 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
         
         event.shifts_by_role?.forEach(roleGroup => {
           roleGroup.shifts.forEach(shift => {
-            const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
             shift.assignments.forEach(assignment => {
-              // Use logged hours if available; otherwise fall back to scheduled duration
-              const logged = assignment.hours_worked ? parseFloat(assignment.hours_worked.toString()) : undefined;
-              const hours = typeof logged === 'number' && !isNaN(logged) ? logged : shiftDuration;
+              // ✅ SSOT: Use backend-calculated effective_hours (Single Source of Truth)
+              const hours = (assignment as any).effective_hours || 0;
               totalHours += hours;
-              // totalPay += assignment.total_pay || 0; // Add if available
+              // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+              const pay = (assignment as any).effective_pay || 0;
+              totalPay += pay;
             });
           });
         });
@@ -1389,10 +1389,10 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery }: P
                           let totalCost = 0;
                           event.shifts_by_role.forEach(roleGroup => {
                             roleGroup.shifts.forEach(shift => {
-                              const shiftDuration = (new Date(shift.end_time_utc).getTime() - new Date(shift.start_time_utc).getTime()) / (1000 * 60 * 60);
                               shift.assignments.forEach(assignment => {
-                                const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
-                                totalCost += rate * shiftDuration;
+                                // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+                                const pay = (assignment as any).effective_pay || 0;
+                                totalCost += pay;
                               });
                             });
                           });

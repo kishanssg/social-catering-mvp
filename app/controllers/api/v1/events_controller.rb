@@ -531,7 +531,12 @@ class Api::V1::EventsController < Api::V1::BaseController
                 email: assignment.worker.email
               },
               hours_worked: assignment.hours_worked,
-              status: assignment.status
+              hourly_rate: assignment.hourly_rate,
+              status: assignment.status,
+              # ✅ SSOT: Single Source of Truth fields from Assignment model
+              effective_hours: assignment.effective_hours,
+              effective_hourly_rate: assignment.effective_hourly_rate,
+              effective_pay: assignment.effective_pay
             }
           }
         }
@@ -623,7 +628,11 @@ class Api::V1::EventsController < Api::V1::BaseController
             },
             hours_worked: a.hours_worked&.to_f,
             hourly_rate: a.hourly_rate,
-            status: a.status
+            status: a.status,
+            # ✅ SSOT: Single Source of Truth fields from Assignment model
+            effective_hours: a.effective_hours,
+            effective_hourly_rate: a.effective_hourly_rate,
+            effective_pay: a.effective_pay
           }
         }
       }
