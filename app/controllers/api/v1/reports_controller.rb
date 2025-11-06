@@ -154,15 +154,9 @@ module Api
             break_minutes = event&.event_schedule&.break_minutes || 0
             break_hours_numeric = (break_minutes / 60.0).round(2)
             
-            # ✅ FIX 3: Calculate total hours properly
-            total_hours = if staffing.hours_worked.present?
-              # Use recorded hours if available (already NET of breaks)
-              staffing.hours_worked
-            else
-              # Calculate from shift times minus event-wide break
-              shift_duration = calculate_duration(shift.start_time_utc, shift.end_time_utc)
-              [shift_duration - break_hours_numeric, 0].max # Ensure non-negative
-            end
+            # ✅ SSOT: Use effective_hours from Assignment model (Single Source of Truth)
+            # Note: Break time handling is done in effective_hours calculation
+            total_hours = staffing.effective_hours
             
             # Debug output
             Rails.logger.info "DEBUG: break_hours_numeric=#{break_hours_numeric}, formatted=#{sprintf('%.2f', break_hours_numeric)}"
@@ -216,18 +210,14 @@ module Api
             # Calculate totals for this worker
             worker_assignments.each do |assignment|
               shift = assignment.shift
-              # Scheduled hours (defensive guards)
-              sched_hours = 0.0
-              if shift&.start_time_utc.present? && shift&.end_time_utc.present? && shift.end_time_utc > shift.start_time_utc
-                sched_hours = (shift.end_time_utc - shift.start_time_utc) / 3600.0
-                sched_hours = sched_hours.positive? ? sched_hours : 0.0
-              end
-
-              effective_hours = assignment.hours_worked.present? ? assignment.hours_worked.to_f : sched_hours
-              rate = assignment.hourly_rate || shift&.pay_rate || 12.0
+              
+              # ✅ SSOT: Use methods from Assignment model (Single Source of Truth)
+              effective_hours = assignment.effective_hours
+              rate = assignment.effective_hourly_rate
+              effective_pay = assignment.effective_pay
 
               total_hours += effective_hours
-              total_pay   += (effective_hours * rate)
+              total_pay   += effective_pay
               rates << rate
 
               # Get event name
@@ -269,15 +259,10 @@ module Api
             shift = assignment.shift
             event = shift.event
 
-            # Scheduled hours (defensive)
-            sched_hours = 0.0
-            if shift&.start_time_utc.present? && shift&.end_time_utc.present? && shift.end_time_utc > shift.start_time_utc
-              sched_hours = (shift.end_time_utc - shift.start_time_utc) / 3600.0
-              sched_hours = sched_hours.positive? ? sched_hours : 0.0
-            end
-            hours = assignment.hours_worked.present? ? assignment.hours_worked.to_f : sched_hours
-            rate  = assignment.hourly_rate || shift&.pay_rate || 12.0
-            payout = (hours * rate).round(2)
+            # ✅ SSOT: Use methods from Assignment model (Single Source of Truth)
+            hours = assignment.effective_hours
+            rate  = assignment.effective_hourly_rate
+            payout = assignment.effective_pay
 
             csv << [
               assignment.worker.full_name,
@@ -290,30 +275,9 @@ module Api
             ]
           end
           
-          # Add summary row - safely handle nil values
-          total_hours = assignments.includes(:shift).sum do |a|
-            if a.hours_worked.present?
-              a.hours_worked.to_f
-            else
-              s = a.shift
-              if s&.start_time_utc.present? && s&.end_time_utc.present? && s.end_time_utc > s.start_time_utc
-                [(s.end_time_utc - s.start_time_utc) / 3600.0, 0.0].max
-              else
-                0.0
-              end
-            end
-          end
-          total_pay = assignments.includes(:shift).sum do |a|
-            s = a.shift
-            sched = if s&.start_time_utc.present? && s&.end_time_utc.present? && s.end_time_utc > s.start_time_utc
-              [(s.end_time_utc - s.start_time_utc) / 3600.0, 0.0].max
-            else
-              0.0
-            end
-            hrs = a.hours_worked.present? ? a.hours_worked.to_f : sched
-            rate = a.hourly_rate || s&.pay_rate || 12.0
-            hrs * rate
-          end
+          # Add summary row - use SSOT methods
+          total_hours = assignments.includes(:shift).sum(&:effective_hours)
+          total_pay = assignments.includes(:shift).sum(&:effective_pay)
           csv << []
           csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2)]
         end
@@ -349,18 +313,10 @@ module Api
               shifts_generated += 1
               needed += (s.capacity || 0)
 
-              # scheduled hours
-              sched = 0.0
-              if s.start_time_utc.present? && s.end_time_utc.present? && s.end_time_utc > s.start_time_utc
-                sched = (s.end_time_utc - s.start_time_utc) / 3600.0
-                sched = sched.positive? ? sched : 0.0
-              end
-
+              # ✅ SSOT: Use methods from Assignment model (Single Source of Truth)
               s.assignments.where(status: ['assigned','confirmed','completed']).each do |a|
                 assigned += 1
-                hrs = a.hours_worked.present? ? a.hours_worked.to_f : sched
-                rate = a.hourly_rate || s.pay_rate || 12.0
-                total_cost += (hrs * rate)
+                total_cost += a.effective_pay
               end
             end
 
