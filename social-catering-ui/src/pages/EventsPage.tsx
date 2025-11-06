@@ -24,6 +24,8 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { QuickFillModal } from '../components/QuickFillModal';
 import { EditEventModal } from '../components/EditEventModal';
 import ApprovalModal from '../components/ApprovalModal';
+import { EventCardSkeleton } from '../components/common/SkeletonLoader';
+import { useDebounce } from '../hooks/useDebounce';
 import { apiClient } from '../lib/api';
 
 type TabType = 'draft' | 'active' | 'past' | 'completed';
@@ -97,6 +99,7 @@ export function EventsPage() {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [filterStatus, setFilterStatus] = useState<FilterType>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500); // Debounce search by 500ms
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'staffing'>('date');
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
@@ -412,9 +415,9 @@ export function EventsPage() {
   // Filter and sort
   const filteredEvents = events
     .filter(event => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+      // Search filter (use debounced value to reduce filtering during typing)
+      if (debouncedSearchQuery) {
+        const query = debouncedSearchQuery.toLowerCase();
         const matchesSearch = (
           event.title.toLowerCase().includes(query) ||
           event.venue?.name.toLowerCase().includes(query)
@@ -590,8 +593,10 @@ export function EventsPage() {
         
         {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+          <div className="space-y-4">
+            <EventCardSkeleton />
+            <EventCardSkeleton />
+            <EventCardSkeleton />
           </div>
         ) : (
           <>
