@@ -258,7 +258,7 @@ class Assignment < ApplicationRecord
   end
 
   # Ensure controller visibility
-  public :can_edit_hours?, :can_approve?
+  public :can_edit_hours?, :can_approve?, :approve!, :mark_no_show!, :remove_from_job!
 
   private
 

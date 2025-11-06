@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2 } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { Toast } from './common/Toast';
 
 interface AssignmentForApproval {
   id: number;
@@ -43,6 +44,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
+  const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'success' });
 
   useEffect(() => {
     if (isOpen && event) {
@@ -56,10 +58,15 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     setLoading(true);
     try {
       const response = await apiClient.get(`/events/${event.id}/approvals`);
-      setAssignments(response.data.data.assignments);
+      setAssignments(response.data.data.assignments || []);
     } catch (error: any) {
       console.error('Error loading assignments:', error);
-      alert(error.response?.data?.message || 'Failed to load assignments');
+      setToast({
+        isVisible: true,
+        type: 'error',
+        message: error.response?.data?.error || error.message || 'Unable to load assignments for approval'
+      });
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -83,7 +90,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       setEditData({ hours_worked: 0 });
     } catch (error: any) {
       console.error('Error updating hours:', error);
-      alert(error.response?.data?.message || 'Failed to update hours');
+      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours' });
     }
   };
 
@@ -95,9 +102,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     try {
       await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, { notes });
       await loadAssignments();
+      setToast({ isVisible: true, type: 'success', message: 'Marked as no-show' });
     } catch (error: any) {
       console.error('Error marking no-show:', error);
-      alert(error.response?.data?.message || 'Failed to mark no-show');
+      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to mark no-show' });
     }
   };
 
@@ -109,9 +117,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     try {
       await apiClient.delete(`/approvals/${assignmentId}/remove`, { data: { notes } });
       await loadAssignments();
+      setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
     } catch (error: any) {
       console.error('Error removing assignment:', error);
-      alert(error.response?.data?.message || 'Failed to remove assignment');
+      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to remove assignment' });
     }
   };
 
@@ -139,6 +148,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
       <div className="bg-white w-full h-full sm:h-auto sm:max-w-6xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
+        <Toast
+          isVisible={toast.isVisible}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, isVisible: false })}
+        />
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <div>
