@@ -248,12 +248,29 @@ export function EventsPage() {
     // Note: loadEvents will be called by useEffect when filterStatus changes
   };
   
+  const fetchEventDetails = async (eventId: number) => {
+    try {
+      const response = await apiClient.get(`/events/${eventId}`);
+      if (response.data?.status === 'success') {
+        const detailed = response.data.data;
+        setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, ...detailed } : e)));
+      }
+    } catch (err) {
+      console.error('Failed to load event details', err);
+    }
+  };
+
   const toggleEvent = (eventId: number) => {
     const newExpanded = new Set(expandedEvents);
     if (newExpanded.has(eventId)) {
       newExpanded.delete(eventId);
     } else {
       newExpanded.add(eventId);
+      const ev = events.find(e => e.id === eventId);
+      const hasAssignments = !!ev?.shifts_by_role?.some(rg => rg.shifts?.some(s => (s.assignments || []).length > 0));
+      if (!hasAssignments) {
+        fetchEventDetails(eventId);
+      }
     }
     setExpandedEvents(newExpanded);
   };
@@ -1274,14 +1291,7 @@ function ActiveEventsTab({
                         </button>
                       )}
                       
-                      {onDelete && (
-                        <button
-                          onClick={() => onDelete(event.id)}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          Delete Event
-                        </button>
-                      )}
+                      {/* Delete button removed (trash icon already exists elsewhere) */}
                     </div>
                   </div>
                 )}
@@ -1377,15 +1387,7 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                     Completed
                   </span>
                 </div>
-                {onApproveHours && (
-                  <button
-                    onClick={() => onApproveHours(event)}
-                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
-                    title="Approve Hours"
-                  >
-                    Approve Hours
-                  </button>
-                )}
+                {/* Approve button moved to right side for cleaner alignment */}
                 
                 <div className="flex items-center gap-4 text-sm text-gray-600">
                   {event.schedule && (
@@ -1409,7 +1411,16 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                 </div>
               </div>
               
-              <div className="ml-4 flex items-center">
+              <div className="ml-4 flex items-center gap-2">
+                {onApproveHours && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onApproveHours(event); }}
+                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                    title="Approve Hours"
+                  >
+                    Approve Hours
+                  </button>
+                )}
                 <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
                   {isExpanded ? (
                     <ChevronUp size={24} className="text-gray-600 hover:text-gray-800" />
