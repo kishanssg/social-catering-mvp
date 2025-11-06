@@ -193,8 +193,8 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       approval_notes: a.approval_notes,
       
       # Permissions
-      can_edit_hours: a.can_edit_hours?,
-      can_approve: a.can_approve?
+      can_edit_hours: a.respond_to?(:can_edit_hours?) ? a.can_edit_hours? : true,
+      can_approve: a.respond_to?(:can_approve?) ? a.can_approve? : true
     }
   end
 end
