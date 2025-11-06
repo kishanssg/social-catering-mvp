@@ -106,34 +106,9 @@ export function LoginPage() {
   // Register password with ref callback
   const passwordRegister = register('password')
 
-  // Track previous values to detect when user starts typing after error
-  const prevEmailRef = useRef<string>('')
-  const prevPasswordRef = useRef<string>('')
+  // For potential future use: track values, but do not auto-clear on typing
   const emailValue = watch('email')
   const passwordValue = watch('password')
-
-  // Auto-clear error when user starts typing after an error
-  useEffect(() => {
-    if (apiError) {
-      // Check if user changed email or password (started typing)
-      const emailChanged = emailValue !== prevEmailRef.current
-      const passwordChanged = passwordValue !== prevPasswordRef.current
-      
-      if (emailChanged || passwordChanged) {
-        // User started typing - clear the error
-        errorRef.current = ''
-        setApiError('')
-      }
-      
-      // Update refs for next comparison
-      prevEmailRef.current = emailValue
-      prevPasswordRef.current = passwordValue
-    } else {
-      // Reset refs when no error
-      prevEmailRef.current = emailValue
-      prevPasswordRef.current = passwordValue
-    }
-  }, [emailValue, passwordValue, apiError])
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -280,6 +255,12 @@ export function LoginPage() {
                   hasError || errors.email ? 'border-red-400 bg-red-50' : 'border-gray-300'
                 }`}
                 placeholder="you@socialcatering.com"
+                onFocus={() => {
+                  if (displayError) {
+                    errorRef.current = ''
+                    setApiError('')
+                  }
+                }}
                 {...register('email')}
               />
               {errors.email && (
@@ -303,6 +284,12 @@ export function LoginPage() {
                 }`}
                 placeholder="Enter your password"
                 {...passwordRegister}
+                onFocus={() => {
+                  if (displayError) {
+                    errorRef.current = ''
+                    setApiError('')
+                  }
+                }}
                 ref={(e) => {
                   passwordRegister.ref(e)
                   passwordInputRef.current = e
