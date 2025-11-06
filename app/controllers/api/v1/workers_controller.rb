@@ -17,8 +17,10 @@ module Api
         if use_cache
           # Cache active workers list for 5 minutes (changes infrequently)
           workers = Rails.cache.fetch('active_workers_list', expires_in: 5.minutes) do
+            # NOTE: Worker does not have a separate :skills association; skills are in skills_json.
+            # Including a non-existent association raises and caused 500s in staging.
             Worker.where(active: true)
-              .includes(:skills, worker_certifications: :certification)
+              .includes(worker_certifications: :certification)
               .order(:last_name, :first_name)
               .to_a
           end
