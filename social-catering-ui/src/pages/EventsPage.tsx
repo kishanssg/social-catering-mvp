@@ -458,18 +458,17 @@ export function EventsPage() {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Events</h1>
-              <p className="text-gray-600 mt-1">Manage events and assign workers</p>
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Events</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage events and assign workers</p>
             </div>
-            
             <button
               onClick={() => navigate('/events/create')}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm min-h-touch"
             >
               <Plus size={20} />
               Create New Event
