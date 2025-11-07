@@ -40,19 +40,11 @@ class Assignment < ApplicationRecord
   # Only include assignments where:
   # 1. Shift exists and is not archived
   # 2. If shift has an event, the event exists and is not deleted
-  scope :with_valid_shift, -> {
-    joins(:shift)
-      .where.not(shifts: { status: 'archived' })
-  }
-  scope :with_valid_event, -> {
-    # Include assignments where:
-    # - shift has no event (standalone shifts are OK)
-    # - OR shift has an event that exists and is not deleted
-    joins("LEFT JOIN events ON events.id = shifts.event_id")
-      .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
-  }
   scope :valid, -> {
-    with_valid_shift.with_valid_event
+    joins(:shift)
+      .joins("LEFT JOIN events ON events.id = shifts.event_id")
+      .where.not(shifts: { status: 'archived' })
+      .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
   }
   
   # New scopes for reporting
