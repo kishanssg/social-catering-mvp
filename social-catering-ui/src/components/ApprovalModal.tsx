@@ -1225,44 +1225,43 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Close
+            </button>
+            
+            {/* CHANGED: Single approve button - approves selected if any, otherwise all */}
+            {pendingCount > 0 && (
               <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                onClick={() => {
+                  // If items are selected, approve selected; otherwise approve all
+                  if (selectedEligible.length > 0) {
+                    handleApproveSelected();
+                  } else {
+                    handleApproveAll();
+                  }
+                }}
+                disabled={isApproving}
+                className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
               >
-                Close
-              </button>
-              
-              {/* CHANGED: Single approve button - approves selected if any, otherwise all */}
-              {pendingCount > 0 && (
-                <button
-                  onClick={() => {
-                    // If items are selected, approve selected; otherwise approve all
-                    if (selectedEligible.length > 0) {
-                      handleApproveSelected();
-                    } else {
-                      handleApproveAll();
+                {isApproving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    {selectedEligible.length > 0 
+                      ? `Approve Selected (${selectedEligible.length})`
+                      : `Approve All (${pendingCount})`
                     }
-                  }}
-                  disabled={isApproving}
-                  className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
-                >
-                  {isApproving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Approving...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      {selectedEligible.length > 0 
-                        ? `Approve Selected (${selectedEligible.length})`
-                        : `Approve All (${pendingCount})`
-                      }
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </footer>
       </div>
