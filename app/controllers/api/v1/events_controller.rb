@@ -556,7 +556,10 @@ class Api::V1::EventsController < Api::V1::BaseController
       unfilled_roles_count: event.unfilled_roles_count,
       staffing_percentage: event.staffing_percentage,
       shifts_count: event.shifts.count,
-      created_at: event.created_at_utc
+      created_at: event.created_at_utc,
+      # ✅ SSOT: Backend-calculated totals (use as fallback if frontend calculation fails)
+      total_hours_worked: event.total_hours_worked || 0,
+      total_pay_amount: event.total_pay_amount || 0
     }
     
     # Add assignment details for active/past tabs

@@ -18,7 +18,7 @@ import {
   Award
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { safeToFixed } from '../utils/number';
+import { safeToFixed, safeNumber } from '../utils/number';
 import { AssignmentModal } from '../components/AssignmentModal';
 import { Toast } from '../components/common/Toast';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
@@ -55,6 +55,9 @@ interface Event {
   shifts_count: number;
   shifts_by_role?: ShiftsByRole[];
   created_at: string;
+  // Backend-calculated totals (SSOT - use as fallback)
+  total_hours_worked?: number;
+  total_pay_amount?: number;
   // Approval status (fetched separately for completed events)
   approval_status?: {
     total: number;
@@ -1195,21 +1198,28 @@ function ActiveEventsTab({
                 )}
                 
                 {/* Estimated Cost Summary */}
-                {event.shifts_by_role && event.shifts_by_role.length > 0 && (
+                {(event.total_pay_amount !== undefined || (event.shifts_by_role && event.shifts_by_role.length > 0)) && (
                   <div className="text-sm text-gray-600 mt-2">
                     <span className="font-medium text-gray-700">Est. Cost: </span>
                     <span className="font-semibold text-green-600">
                       ${(() => {
+                        // ✅ SSOT: Prefer backend-calculated total_pay_amount
+                        if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
+                          return safeToFixed(event.total_pay_amount, 0, '0');
+                        }
+                        
+                        // Fallback: Calculate from assignments
                         let totalCost = 0;
-                        event.shifts_by_role.forEach(roleGroup => {
-                          roleGroup.shifts.forEach(shift => {
-                            shift.assignments.forEach(assignment => {
-                              // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-                              const pay = (assignment as any).effective_pay || 0;
-                              totalCost += pay;
+                        if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                          event.shifts_by_role.forEach(roleGroup => {
+                            roleGroup.shifts?.forEach(shift => {
+                              shift.assignments?.forEach((assignment: any) => {
+                                const pay = safeNumber(assignment.effective_pay);
+                                totalCost += pay;
+                              });
                             });
                           });
-                        });
+                        }
                         return safeToFixed(totalCost, 0, '0');
                       })()}
                     </span>
@@ -1445,25 +1455,25 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
       {events.map((event) => {
         const isExpanded = expandedEvents.has(event.id);
         
-        // Calculate totals
-        let totalHours = 0;
-        let totalPay = 0;
+        // Calculate totals - prefer backend-calculated values (SSOT)
+        let totalHours = safeNumber(event.total_hours_worked);
+        let totalPay = safeNumber(event.total_pay_amount);
         
-        event.shifts_by_role?.forEach(roleGroup => {
-          roleGroup.shifts.forEach(shift => {
-            shift.assignments.forEach(assignment => {
-              // ✅ SSOT: Use backend-calculated effective_hours (Single Source of Truth)
-              const hours = (assignment as any).effective_hours || 0;
-              totalHours += hours;
-              // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-              const pay = (assignment as any).effective_pay || 0;
-              totalPay += pay;
+        // Fallback: Calculate from assignments if backend totals not available
+        if (totalHours === 0 && totalPay === 0 && event.shifts_by_role && event.shifts_by_role.length > 0) {
+          event.shifts_by_role.forEach(roleGroup => {
+            roleGroup.shifts?.forEach(shift => {
+              shift.assignments?.forEach((assignment: any) => {
+                // ✅ SSOT: Use backend-calculated effective_hours (Single Source of Truth)
+                const hours = safeNumber(assignment.effective_hours);
+                totalHours += hours;
+                // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+                const pay = safeNumber(assignment.effective_pay);
+                totalPay += pay;
+              });
             });
           });
-        });
-        
-        // Ensure totalHours is always a valid number
-        totalHours = Number(totalHours) || 0;
+        }
         
         return (
           <div 
@@ -1577,16 +1587,24 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                       <p className="text-sm text-gray-600">Total Event Cost</p>
                       <p className="text-2xl font-semibold text-green-600">
                         ${(() => {
+                          // ✅ SSOT: Prefer backend-calculated total_pay_amount (most reliable)
+                          if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
+                            return safeToFixed(event.total_pay_amount, 0, '0');
+                          }
+                          
+                          // Fallback: Calculate from assignments if backend total not available
                           let totalCost = 0;
-                          event.shifts_by_role.forEach(roleGroup => {
-                            roleGroup.shifts.forEach(shift => {
-                              shift.assignments.forEach(assignment => {
-                                // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-                                const pay = (assignment as any).effective_pay || 0;
-                                totalCost += pay;
+                          if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                            event.shifts_by_role.forEach(roleGroup => {
+                              roleGroup.shifts?.forEach(shift => {
+                                shift.assignments?.forEach((assignment: any) => {
+                                  // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+                                  const pay = safeNumber(assignment.effective_pay);
+                                  totalCost += pay;
+                                });
                               });
                             });
-                          });
+                          }
                           return safeToFixed(totalCost, 0, '0');
                         })()}
                       </p>

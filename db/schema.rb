@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_10_28_120000) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -100,7 +100,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_10_28_120000) do
     t.index ["worker_id", "status"], name: "index_assignments_on_worker_id_and_status"
     t.index ["worker_id"], name: "index_assignments_on_worker_id"
     t.check_constraint "hours_worked IS NULL OR hours_worked >= 0::numeric", name: "assignments_positive_hours"
-    t.check_constraint "status::text = ANY (ARRAY['assigned'::character varying, 'confirmed'::character varying, 'completed'::character varying, 'cancelled'::character varying]::text[])", name: "assignments_valid_status"
+    t.check_constraint "status::text = ANY (ARRAY['assigned'::character varying::text, 'confirmed'::character varying::text, 'completed'::character varying::text, 'cancelled'::character varying::text, 'no_show'::character varying::text])", name: "assignments_valid_status"
   end
 
   create_table "certifications", force: :cascade do |t|

@@ -8,9 +8,14 @@ module HoursCalculations
   # ═══════════════════════════════════════════════════════════
 
   # Calculate effective hours for a single assignment
-  # Priority: logged hours > scheduled hours > 0
+  # Priority: status check > logged hours > scheduled hours > 0
   def effective_hours
     return 0.0 unless shift.present?
+
+    # ✅ CRITICAL: No-show and cancelled assignments always return 0 hours
+    if respond_to?(:status) && status.in?(['no_show', 'cancelled'])
+      return 0.0
+    end
 
     # Use logged hours if present (after timesheet approval)
     if hours_worked.present? && hours_worked > 0
