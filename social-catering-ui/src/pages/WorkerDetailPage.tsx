@@ -170,8 +170,67 @@ export function WorkerDetailPage() {
     );
   }
   
-  const upcomingAssignments = assignments.filter(a => a.status === 'assigned' || a.status === 'confirmed');
-  const pastAssignments = assignments.filter(a => a.status === 'completed' || a.status === 'cancelled');
+  // Filter upcoming assignments: valid status, future shifts, and valid events
+  const upcomingAssignments = assignments
+    .filter(a => {
+      // Status filter
+      if (!['assigned', 'confirmed'].includes(a.status)) return false;
+      
+      // Future shift filter
+      if (!a.shift?.start_time_utc) return false;
+      const shiftStart = new Date(a.shift.start_time_utc);
+      if (shiftStart <= new Date()) return false;
+      
+      // Valid event filter (defensive - backend should already filter, but double-check)
+      const eventTitle = a.shift.event?.title || a.shift.event_title || a.shift.client_name;
+      if (!eventTitle || eventTitle === 'Unknown Event' || eventTitle.trim() === '') return false;
+      
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by shift start time
+      const timeA = new Date(a.shift?.start_time_utc || 0).getTime();
+      const timeB = new Date(b.shift?.start_time_utc || 0).getTime();
+      return timeA - timeB;
+    });
+  
+  // Group by event to avoid duplicates (one card per event)
+  const upcomingEventsMap = new Map();
+  upcomingAssignments.forEach(assignment => {
+    const eventId = assignment.shift.event?.id || assignment.shift.event_id || assignment.shift.id;
+    const eventTitle = assignment.shift.event?.title || assignment.shift.event_title || assignment.shift.client_name;
+    
+    // Use event ID as key, or shift ID if no event
+    const key = eventId;
+    
+    if (!upcomingEventsMap.has(key)) {
+      upcomingEventsMap.set(key, {
+        id: eventId,
+        event_name: eventTitle,
+        event_date: assignment.shift.start_time_utc,
+        shift_start_time: assignment.shift.start_time_utc,
+        shift_end_time: assignment.shift.end_time_utc,
+        venue_name: assignment.shift.event?.venue_name || assignment.shift.location || 'TBD',
+        role: assignment.shift.role_needed,
+        assignments: [assignment]
+      });
+    } else {
+      // If event already exists, add role if different
+      const existing = upcomingEventsMap.get(key);
+      if (!existing.roles) existing.roles = [existing.role];
+      if (!existing.roles.includes(assignment.shift.role_needed)) {
+        existing.roles.push(assignment.shift.role_needed);
+      }
+      existing.assignments.push(assignment);
+    }
+  });
+  
+  const upcomingEvents = Array.from(upcomingEventsMap.values());
+  
+  const pastAssignments = assignments.filter(a => 
+    ['completed', 'cancelled'].includes(a.status) || 
+    (a.shift?.start_time_utc && new Date(a.shift.start_time_utc) < new Date())
+  );
   
   
   return (
@@ -360,37 +419,39 @@ export function WorkerDetailPage() {
           {/* Assignment List */}
           <div className="p-6">
             {activeTab === 'upcoming' ? (
-              upcomingAssignments.length === 0 ? (
+              upcomingEvents.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Briefcase size={48} className="mx-auto mb-2 text-gray-300" />
                   <p>No upcoming assignments</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {upcomingAssignments.map((assignment) => (
+                  {upcomingEvents.map((event) => (
                     <div
-                      key={assignment.id}
+                      key={event.id}
                       className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition"
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900">{assignment.shift.event?.title || assignment.shift.event_title || 'Unknown Event'}</h3>
+                        <h3 className="font-semibold text-gray-900">{event.event_name}</h3>
                         <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                          {assignment.shift.role_needed}
+                          {event.role}
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar size={14} />
-                          {formatDate(assignment.shift.start_time_utc)}
+                          {formatDate(event.shift_start_time)}
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock size={14} />
-                          {formatTime(assignment.shift.start_time_utc)} - {formatTime(assignment.shift.end_time_utc)}
+                          {formatTime(event.shift_start_time)} - {formatTime(event.shift_end_time)}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin size={14} />
-                          {assignment.shift.event?.venue_name || (typeof assignment.shift.location === 'string' ? assignment.shift.location : null) || 'No venue'}
-                        </div>
+                        {event.venue_name && event.venue_name !== 'No venue' && (
+                          <div className="flex items-center gap-1">
+                            <MapPin size={14} />
+                            {event.venue_name}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

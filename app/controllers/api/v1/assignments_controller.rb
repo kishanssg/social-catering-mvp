@@ -4,7 +4,9 @@ module Api
       before_action :set_assignment, only: [:show, :update, :destroy]
 
       def index
-        assignments = Assignment.includes(:worker, shift: :event)
+        # Filter out orphaned assignments (deleted events, archived shifts)
+        assignments = Assignment.valid
+                                .includes(:worker, shift: [:event, :venue, :location])
                                 .order(created_at: :desc)
 
         # Filter by date range
