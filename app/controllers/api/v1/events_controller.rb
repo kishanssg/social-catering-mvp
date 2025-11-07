@@ -468,6 +468,12 @@ class Api::V1::EventsController < Api::V1::BaseController
   # Lightweight serializer for list views (faster, less data)
   # Always includes aggregates (no lazy loading)
   def serialize_event_lightweight(event, tab = nil)
+    # Auto-recalculate totals if they're NULL (fixes stale data)
+    if event.total_pay_amount.nil? || (event.total_pay_amount.zero? && event.shifts.joins(:assignments).where.not(assignments: { status: ['cancelled', 'no_show'] }).exists?)
+      event.recalculate_totals!
+      event.reload
+    end
+    
     {
       id: event.id,
       title: event.title,
