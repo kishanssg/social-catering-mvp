@@ -15,6 +15,12 @@ class ActivityLogPresenter
     when ["Assignment", "unassigned_worker"], ["Assignment", "deleted"]
       worker_name, shift_name, role = fetch_assignment_details_unassign
       build_assignment_summary("removed", worker_name, shift_name, role)
+    when ["Assignment", "marked_no_show"]
+      worker_name, event_name, role = fetch_assignment_details
+      build_no_show_summary(worker_name, event_name, role)
+    when ["Assignment", "removed_from_job"]
+      worker_name, event_name, role = fetch_assignment_details
+      build_removed_summary(worker_name, event_name, role)
     when ["Event", "created"]
       "#{actor_name} created event \"#{entity_name}\""
     when ["Event", "updated"]
@@ -62,6 +68,20 @@ class ActivityLogPresenter
       {
         worker_name: worker_name,
         event_name: shift_name,
+        role: role
+      }.compact
+    when ["Assignment", "marked_no_show"]
+      worker_name, event_name, role = fetch_assignment_details
+      {
+        worker_name: worker_name,
+        event_name: event_name,
+        role: role
+      }.compact
+    when ["Assignment", "removed_from_job"]
+      worker_name, event_name, role = fetch_assignment_details
+      {
+        worker_name: worker_name,
+        event_name: event_name,
         role: role
       }.compact
     when ["Worker", "created"]
@@ -159,6 +179,22 @@ class ActivityLogPresenter
     "#{actor_name} #{verb} #{worker_display} to #{event_display}#{role_display}"
   end
 
+  def build_no_show_summary(worker, event, role)
+    # Use full worker name for no-show
+    worker_display = worker || 'a worker'
+    event_display = event || 'an event'
+    
+    "#{actor_name} marked #{worker_display} as no show for #{event_display}"
+  end
+
+  def build_removed_summary(worker, event, role)
+    # Use full worker name for removed
+    worker_display = worker || 'a worker'
+    event_display = event || 'an event'
+    
+    "#{actor_name} removed #{worker_display} from #{event_display}"
+  end
+
   def format_entity_type
     case log.entity_type.downcase
     when "assignment" then "an assignment"
@@ -246,16 +282,20 @@ class ActivityLogPresenter
   def fetch_assignment_details
     # Try to get from after_json first
     worker_name = dj(:worker_name)
-    shift_name = dj(:shift_name) || dj(:event_name)
+    event_name = dj(:event_name) || dj(:shift_name)
     role = dj(:role)
     
     # If not available, fetch from database
-    if !worker_name || !shift_name
+    if !worker_name || !event_name
       begin
         assignment = Assignment.find_by(id: log.entity_id)
         if assignment
           worker_name ||= "#{assignment.worker.first_name} #{assignment.worker.last_name}" if assignment.worker
-          shift_name ||= assignment.shift.client_name if assignment.shift
+          # Try to get event title first, then fall back to shift client_name
+          if assignment.shift
+            event_name ||= assignment.shift.event&.title if assignment.shift.event
+            event_name ||= assignment.shift.client_name
+          end
           role ||= assignment.shift.role_needed if assignment.shift
         end
       rescue
@@ -263,7 +303,7 @@ class ActivityLogPresenter
       end
     end
     
-    [worker_name, shift_name, role]
+    [worker_name, event_name, role]
   end
   
   def fetch_assignment_details_unassign

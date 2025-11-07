@@ -90,12 +90,23 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     ActiveRecord::Base.transaction do
       @assignment.mark_no_show!(Current.user, notes: params[:notes])
 
+      # Get worker and event names for activity log
+      worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
+      event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
+      role = @assignment.shift&.role_needed || nil
+
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
         entity_type: 'Assignment',
         entity_id: @assignment.id,
         action: 'marked_no_show',
-        after_json: { status: 'no_show', notes: params[:notes] },
+        after_json: { 
+          status: 'no_show', 
+          notes: params[:notes],
+          worker_name: worker_name,
+          event_name: event_name,
+          role: role
+        },
         created_at_utc: Time.current
       )
     end
@@ -110,12 +121,23 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     ActiveRecord::Base.transaction do
       @assignment.remove_from_job!(Current.user, notes: params[:notes])
 
+      # Get worker and event names for activity log
+      worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
+      event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
+      role = @assignment.shift&.role_needed || nil
+
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
         entity_type: 'Assignment',
         entity_id: @assignment.id,
         action: 'removed_from_job',
-        after_json: { status: 'cancelled', notes: params[:notes] },
+        after_json: { 
+          status: 'cancelled', 
+          notes: params[:notes],
+          worker_name: worker_name,
+          event_name: event_name,
+          role: role
+        },
         created_at_utc: Time.current
       )
     end

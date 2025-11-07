@@ -409,3 +409,4 @@ Final Cost: $1,000.00  Budget: $1,000.00  ✅ On budget
 - Modal opens normally but shows all assignments as approved
 - Footer shows "Final Approved Cost" instead of breakdown
 
+remove 
