@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2 } from 'lucide-react';
+import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { format, parseISO } from 'date-fns';
@@ -96,7 +96,89 @@ function WorkerRow({
     }
   };
 
+  /**
+   * Get avatar color based on name
+   */
+  const getAvatarColor = (name: string): string => {
+    const colors = [
+      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
+      'bg-orange-500', 'bg-teal-500', 'bg-indigo-500', 'bg-cyan-500'
+    ];
+    if (!name) return colors[0];
+    const charCode = name.charCodeAt(0) || 0;
+    return colors[charCode % colors.length];
+  };
+
+  /**
+   * Get initials from name
+   */
+  const getInitials = (name: string): string => {
+    if (!name) return '??';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  /**
+   * Format time for display
+   */
+  const formatTime = (datetime?: string): string => {
+    if (!datetime) return '';
+    try {
+      const date = parseISO(datetime);
+      return format(date, 'h:mm a');
+    } catch {
+      return new Date(datetime).toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  };
+
+  /**
+   * Get shift time display
+   */
+  const getShiftTime = (): string => {
+    const start = assignment.actual_start || assignment.scheduled_start;
+    const end = assignment.actual_end || assignment.scheduled_end;
+    if (!start || !end) return 'Not set';
+    return `${formatTime(start)} - ${formatTime(end)}`;
+  };
+
+  /**
+   * Calculate shift duration in hours
+   */
+  const getShiftDuration = (): number => {
+    const start = assignment.actual_start || assignment.scheduled_start;
+    const end = assignment.actual_end || assignment.scheduled_end;
+    if (!start || !end) return 0;
+    
+    try {
+      const startDate = parseISO(start);
+      const endDate = parseISO(end);
+      const diffMs = endDate.getTime() - startDate.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      return Math.round(diffHours * 10) / 10; // Round to 1 decimal
+    } catch {
+      return 0;
+    }
+  };
+
+  /**
+   * Quick adjust hours
+   */
+  const adjustHours = (delta: number) => {
+    const current = parseFloat(editHours) || 0;
+    const newValue = Math.max(0, Math.min(24, current + delta));
+    onEditHoursChange(newValue.toFixed(2));
+  };
+
   const isApproved = assignment.approved;
+  const initials = getInitials(assignment.worker_name);
+  const avatarColor = getAvatarColor(assignment.worker_name);
+  const shiftTime = getShiftTime();
+  const shiftDuration = getShiftDuration();
 
   return (
     <>
@@ -114,11 +196,16 @@ function WorkerRow({
         onMouseLeave={() => setShowActions(false)}
       >
       {/* Worker Info */}
-      <td className="py-4">
+      <td className="py-4 px-3">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <User className="h-4 w-4 text-gray-600" />
+          {/* Colored Avatar */}
+          <div className={cn(
+            "h-9 w-9 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0",
+            avatarColor
+          )}>
+            {initials}
           </div>
+          {/* Info */}
           <div className="min-w-0">
             <div className="font-medium text-gray-900 truncate">
               {assignment.worker_name}
@@ -126,44 +213,48 @@ function WorkerRow({
             <div className="text-xs text-gray-500">
               Scheduled: {safeToFixed(assignment.scheduled_hours, 2, '0.00')}h
             </div>
+            {/* Approval metadata - only if approved */}
+            {isApproved && !isEditing && assignment.approved_by_name && (
+              <div className="mt-1 text-xs text-green-700 font-medium">
+                Approved by {assignment.approved_by_name.split('@')[0]} on{' '}
+                {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
+              </div>
+            )}
           </div>
         </div>
-        
-        {/* Approval metadata - only if approved */}
-        {isApproved && !isEditing && assignment.approved_by_name && (
-          <div className="mt-2 text-xs text-green-700 ml-11">
-            Approved by {assignment.approved_by_name} on {formatDateTime(assignment.approved_at)}
-          </div>
-        )}
       </td>
 
       {/* Role */}
-      <td className="py-4 text-sm text-gray-700">
+      <td className="py-4 px-3 text-sm text-gray-700">
         {assignment.shift_role || 'N/A'}
       </td>
 
+      {/* Time Worked */}
+      <td className="py-4 px-3">
+        <div className="flex items-center gap-1.5 text-sm text-gray-700">
+          <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <span className="whitespace-nowrap">{shiftTime}</span>
+        </div>
+      </td>
+
       {/* Hours */}
-      <td className="py-4 text-right">
-        <span className="text-sm font-medium text-gray-900">
-          {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-          {assignment.edited_at && (
-            <span className="ml-1 text-xs text-orange-600" title="Edited">
-              <Edit2 className="h-3 w-3 inline" />
-            </span>
-          )}
-        </span>
+      <td className="py-4 px-3 text-sm font-medium text-gray-900 text-right">
+        {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+        {assignment.edited_at && (
+          <span className="ml-1 text-xs text-orange-600" title="Edited">
+            <Edit2 className="h-3 w-3 inline" />
+          </span>
+        )}
       </td>
 
       {/* Rate */}
-      <td className="py-4 text-right text-sm text-gray-700">
+      <td className="py-4 px-3 text-sm text-gray-700 text-right">
         ${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h
       </td>
 
       {/* Total Pay */}
-      <td className="py-4 text-right">
-        <span className="text-sm font-semibold text-gray-900">
-          ${safeToFixed(assignment.effective_pay, 2, '0.00')}
-        </span>
+      <td className="py-4 px-3 text-sm font-semibold text-gray-900 text-right">
+        ${safeToFixed(assignment.effective_pay, 2, '0.00')}
       </td>
 
       {/* Status & Actions */}
@@ -191,50 +282,48 @@ function WorkerRow({
                   Cancelled
                 </span>
               </>
-            ) : isApproved ? (
-              <>
-                {/* Approved badge */}
-                <div className="flex items-center justify-end gap-2">
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+            ) : (
+              <div className="flex items-center justify-end gap-3">
+                {/* Status Badge */}
+                {isApproved ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded flex-shrink-0">
                     <Check className="h-3.5 w-3.5" />
                     Approved
                   </span>
-                  {/* Re-edit button - only visible on hover */}
-                  {assignment.can_edit_hours && (
-                    <button
-                      onClick={() => onReEdit(assignment)}
-                      className={`text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-white transition-all duration-200 ease-in-out ${
-                        showActions ? 'opacity-100' : 'opacity-0'
-                      }`}
-                      title="Re-edit approved hours"
-                    >
-                      Re-edit
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Pending badge */}
-                <div className="flex items-center justify-end gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-100 rounded">
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-100 rounded flex-shrink-0">
                     <Clock className="h-3.5 w-3.5" />
                     Pending
                   </span>
-                  {/* Edit button - only visible on hover */}
-                  {assignment.can_edit_hours && (
+                )}
+
+                {/* Action Buttons (on hover) */}
+                {assignment.can_edit_hours && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => onStartEdit(assignment)}
-                      className={`text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100 transition-all duration-200 ease-in-out ${
-                        showActions ? 'opacity-100' : 'opacity-0'
-                      }`}
-                      title="Edit hours"
+                      onClick={() => isApproved ? onReEdit(assignment) : onStartEdit(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title={isApproved ? "Re-edit" : "Edit"}
                     >
-                      Edit
+                      <Edit2 className="h-4 w-4" />
                     </button>
-                  )}
-                </div>
-              </>
+                    <button
+                      onClick={() => onNoShow(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                      title="No-Show"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onRemove(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -244,7 +333,7 @@ function WorkerRow({
     {/* Expanded Edit Panel - Below Row */}
     {isEditing && (
       <tr className="bg-blue-50">
-        <td colSpan={6} className="px-3 py-0">
+        <td colSpan={7} className="px-3 py-0">
           <div className="overflow-hidden transition-all duration-300 ease-in-out">
             <div className="py-4">
               <div className="bg-white border-2 border-blue-400 rounded-lg p-4 shadow-sm">
@@ -258,12 +347,34 @@ function WorkerRow({
 
                 {/* Form */}
                 <div className="space-y-4">
-                  {/* Hours Input */}
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Hours Worked
-                      </label>
+                  {/* Shift Context */}
+                  <div className="p-3 bg-gray-50 rounded-lg flex items-center gap-2 text-sm">
+                    <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <span className="text-gray-700">
+                      <strong>Shift:</strong> {shiftTime}
+                    </span>
+                    {shiftDuration > 0 && (
+                      <span className="text-gray-500">
+                        ({shiftDuration} hour shift)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Hours Input with Controls */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                      Hours Worked
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => adjustHours(-1)}
+                        disabled={isSavingEdit}
+                        className="p-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        type="button"
+                        title="Decrease by 1 hour"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
                       <input
                         type="number"
                         step="0.25"
@@ -273,16 +384,60 @@ function WorkerRow({
                         onChange={(e) => onEditHoursChange(e.target.value)}
                         onKeyDown={onEditKeyDown}
                         disabled={isSavingEdit}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                         placeholder="0.0"
                         autoFocus
                       />
+                      <button
+                        onClick={() => adjustHours(1)}
+                        disabled={isSavingEdit}
+                        className="p-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        type="button"
+                        title="Increase by 1 hour"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-gray-500 mb-1">Updated Total</div>
-                      <div className="text-lg font-bold text-blue-600">
-                        ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
-                      </div>
+                  </div>
+
+                  {/* Quick Adjust Buttons */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">Quick adjust:</span>
+                    <button
+                      onClick={() => adjustHours(-1)}
+                      disabled={isSavingEdit}
+                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      -1h
+                    </button>
+                    <button
+                      onClick={() => adjustHours(-0.5)}
+                      disabled={isSavingEdit}
+                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      -0.5h
+                    </button>
+                    <button
+                      onClick={() => adjustHours(0.5)}
+                      disabled={isSavingEdit}
+                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      +0.5h
+                    </button>
+                    <button
+                      onClick={() => adjustHours(1)}
+                      disabled={isSavingEdit}
+                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    >
+                      +1h
+                    </button>
+                  </div>
+
+                  {/* Updated Total Display */}
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500 mb-1">Updated Total</div>
+                    <div className="text-lg font-bold text-blue-600">
+                      ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
                     </div>
                   </div>
 
@@ -296,32 +451,61 @@ function WorkerRow({
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                    <button
-                      onClick={onCancelEdit}
-                      disabled={isSavingEdit}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={onSaveEdit}
-                      disabled={isSavingEdit}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 disabled:bg-blue-400"
-                    >
-                      {isSavingEdit ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="h-4 w-4" />
-                          Save Changes
-                        </>
-                      )}
-                    </button>
+                  {/* Actions Row */}
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    {/* Destructive actions */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          onNoShow(assignment);
+                          onCancelEdit();
+                        }}
+                        disabled={isSavingEdit}
+                        className="px-3 py-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                      >
+                        <AlertCircle className="h-4 w-4" />
+                        No-Show
+                      </button>
+                      <button
+                        onClick={() => {
+                          onRemove(assignment);
+                          onCancelEdit();
+                        }}
+                        disabled={isSavingEdit}
+                        className="px-3 py-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </button>
+                    </div>
+
+                    {/* Save/Cancel */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={onCancelEdit}
+                        disabled={isSavingEdit}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={onSaveEdit}
+                        disabled={isSavingEdit}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 disabled:bg-blue-400 transition-colors"
+                      >
+                        {isSavingEdit ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Save Changes
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -333,7 +517,7 @@ function WorkerRow({
 
     {/* Mobile View (below sm) */}
     <tr className="sm:hidden">
-      <td colSpan={6} className="py-3 px-3">
+      <td colSpan={7} className="py-3 px-3">
         <div className={cn(
           "p-3 rounded-lg space-y-2 transition-all duration-150",
           isEditing && "bg-blue-50 border-2 border-blue-500",
@@ -345,11 +529,28 @@ function WorkerRow({
           {/* Worker name & role */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="font-medium text-gray-900">{assignment.worker_name}</div>
-              <div className="text-xs text-gray-500">{assignment.shift_role || 'N/A'}</div>
+              <div className="flex items-center gap-2">
+                {/* Avatar */}
+                <div className={cn(
+                  "h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0",
+                  avatarColor
+                )}>
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">{assignment.worker_name}</div>
+                  <div className="text-xs text-gray-500">{assignment.shift_role || 'N/A'}</div>
+                </div>
+              </div>
+              {/* Shift Time */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-600 mt-1 ml-10">
+                <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                <span>{shiftTime}</span>
+              </div>
               {isApproved && !isEditing && assignment.approved_by_name && (
-                <div className="text-xs text-green-700 mt-1">
-                  Approved by {assignment.approved_by_name} on {formatDateTime(assignment.approved_at)}
+                <div className="text-xs text-green-700 mt-1 ml-10 font-medium">
+                  Approved by {assignment.approved_by_name.split('@')[0]} on{' '}
+                  {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                 </div>
               )}
             </div>
@@ -827,22 +1028,25 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             <table className="w-full">
               <thead className="border-b border-gray-200 hidden sm:table-header-group">
                 <tr className="text-left">
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[25%]">
                     Worker
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
                     Role
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[18%]">
+                    Time Worked
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
                     Hours
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
                     Rate
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[12%]">
                     Total
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
                     Status
                   </th>
                 </tr>
