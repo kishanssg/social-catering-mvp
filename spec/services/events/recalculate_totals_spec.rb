@@ -29,11 +29,15 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       end
 
       it 'excludes cancelled and no_show assignments' do
+        # Create a no_show assignment
+        no_show_assignment = create(:assignment, shift: shift, worker: create(:worker), status: 'no_show', hours_worked: 5.0, hourly_rate: 15.0)
+        
         result = described_class.new(event: event).call
         event.reload
 
-        # Cancelled assignment should not contribute to totals
-        expect(event.total_hours_worked).not_to eq(assignment1.hours_worked + assignment3.hours_worked)
+        # Cancelled and no_show assignments should not contribute to totals
+        expect(event.total_hours_worked).not_to eq(assignment1.hours_worked + assignment3.hours_worked + no_show_assignment.hours_worked)
+        expect(event.total_pay_amount).not_to eq((assignment1.hours_worked * assignment1.hourly_rate) + (assignment3.hours_worked * assignment3.hourly_rate) + (no_show_assignment.hours_worked * no_show_assignment.hourly_rate))
       end
 
       it 'uses effective_hours for assignments with nil hours_worked' do
