@@ -7,6 +7,8 @@ class Api::V1::EventsController < Api::V1::BaseController
   def index
     # For staging compatibility - map shifts to events
     begin
+      # Eager load all associations to avoid N+1 queries
+      # Includes aggregates via denormalized columns (total_hours_worked, total_pay_amount)
       events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
                               shifts: { assignments: :worker })
     rescue ActiveRecord::StatementInvalid => e
@@ -464,6 +466,7 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
 
   # Lightweight serializer for list views (faster, less data)
+  # Always includes aggregates (no lazy loading)
   def serialize_event_lightweight(event, tab = nil)
     {
       id: event.id,
@@ -473,13 +476,23 @@ class Api::V1::EventsController < Api::V1::BaseController
       venue_id: event.venue_id,
       venue_name: event.venue&.name,
       
-      # Pre-calculated counts (don't calculate on the fly)
+      # Pre-calculated counts (use denormalized columns, fallback to computed)
       total_shifts: event.total_shifts_count || event.shifts.count,
-      assigned_shifts: event.assigned_shifts_count || event.shifts.joins(:assignments).count,
+      assigned_shifts: event.assigned_shifts_count || event.shifts.joins(:assignments).where.not(assignments: { status: ['cancelled', 'no_show'] }).distinct.count,
       
-      # Use denormalized totals (already calculated)
-      total_hours: event.total_hours_worked,
-      total_cost: event.total_pay_amount,
+      # Aggregates (SSOT - always include, never lazy)
+      # Use denormalized totals (recalculated via Events::RecalculateTotals)
+      total_hours: event.total_hours_worked || 0,
+      total_cost: event.total_pay_amount || 0,
+      estimated_cost: event.total_pay_amount || 0,  # Alias for frontend consistency
+      
+      # Staffing aggregates (always include)
+      total_workers_needed: event.total_workers_needed || 0,
+      assigned_workers_count: event.assigned_workers_count || 0,
+      hired_count: event.assigned_workers_count || 0,  # Alias for frontend
+      required_count: event.total_workers_needed || 0,  # Alias for frontend
+      unfilled_roles_count: event.unfilled_roles_count || 0,
+      staffing_percentage: event.staffing_percentage || 0,
       
       # Schedule data (already loaded via includes)
       schedule: event.event_schedule ? {
@@ -487,12 +500,6 @@ class Api::V1::EventsController < Api::V1::BaseController
         end_time_utc: event.event_schedule.end_time_utc,
         break_minutes: event.event_schedule.break_minutes
       } : nil,
-      
-      # Staffing summary (use cached values)
-      total_workers_needed: event.total_workers_needed,
-      assigned_workers_count: event.assigned_workers_count,
-      unfilled_roles_count: event.unfilled_roles_count,
-      staffing_percentage: event.staffing_percentage,
       
       created_at: event.created_at_utc
       
@@ -518,10 +525,16 @@ class Api::V1::EventsController < Api::V1::BaseController
         end_time_utc: event.event_schedule.end_time_utc,
         break_minutes: event.event_schedule.break_minutes
       } : nil,
-      total_workers_needed: event.total_workers_needed,
-      assigned_workers_count: event.assigned_workers_count,
-      unfilled_roles_count: event.unfilled_roles_count,
-      staffing_percentage: event.staffing_percentage,
+      # Aggregates (SSOT - always include)
+      total_hours_worked: event.total_hours_worked || 0,
+      total_pay_amount: event.total_pay_amount || 0,
+      estimated_cost: event.total_pay_amount || 0,
+      total_workers_needed: event.total_workers_needed || 0,
+      assigned_workers_count: event.assigned_workers_count || 0,
+      hired_count: event.assigned_workers_count || 0,
+      required_count: event.total_workers_needed || 0,
+      unfilled_roles_count: event.unfilled_roles_count || 0,
+      staffing_percentage: event.staffing_percentage || 0,
       staffing_summary: event.staffing_summary,
       shifts_count: event.shifts.count,
       created_at: event.created_at_utc
