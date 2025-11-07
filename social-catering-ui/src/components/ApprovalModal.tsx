@@ -54,11 +54,14 @@ interface CostSummary {
 interface WorkerRowProps {
   assignment: AssignmentForApproval;
   isEditing: boolean;
-  editData: any;
-  onEdit: (assignment: AssignmentForApproval) => void;
-  onSave: (assignmentId: number) => void;
-  onCancel: () => void;
-  onEditDataChange: (data: any) => void;
+  editHours: string;
+  isSavingEdit: boolean;
+  onStartEdit: (assignment: AssignmentForApproval) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onEditHoursChange: (hours: string) => void;
+  onEditKeyDown: (e: React.KeyboardEvent) => void;
+  calculateLiveTotal: (hours: string, rate: number) => string;
   onNoShow: (assignment: AssignmentForApproval) => void;
   onRemove: (assignment: AssignmentForApproval) => void;
   onReEdit: (assignment: AssignmentForApproval) => void;
@@ -67,11 +70,14 @@ interface WorkerRowProps {
 function WorkerRow({ 
   assignment, 
   isEditing, 
-  editData, 
-  onEdit, 
-  onSave, 
-  onCancel, 
-  onEditDataChange,
+  editHours,
+  isSavingEdit,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onEditHoursChange,
+  onEditKeyDown,
+  calculateLiveTotal,
   onNoShow, 
   onRemove, 
   onReEdit 
@@ -88,82 +94,20 @@ function WorkerRow({
     }
   };
 
-  if (isEditing) {
-    return (
-      <tr className="bg-blue-50">
-        <td colSpan={6} className="py-4 px-6">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-blue-900">Edit Hours Worked</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Hours Worked
-                </label>
-                <input
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  value={editData.hours_worked || ''}
-                  onChange={(e) => onEditDataChange({ ...editData, hours_worked: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Actual Start Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editData.actual_start_time_utc ? new Date(editData.actual_start_time_utc).toISOString().slice(0, 16) : ''}
-                  onChange={(e) => onEditDataChange({ ...editData, actual_start_time_utc: new Date(e.target.value).toISOString() })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Actual End Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editData.actual_end_time_utc ? new Date(editData.actual_end_time_utc).toISOString().slice(0, 16) : ''}
-                  onChange={(e) => onEditDataChange({ ...editData, actual_end_time_utc: new Date(e.target.value).toISOString() })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onSave(assignment.id)}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Save Changes
-              </button>
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </td>
-      </tr>
-    );
-  }
+  const isApproved = assignment.approved;
 
   return (
     <>
       {/* Desktop View (sm and up) */}
       <tr
-        className={`hidden sm:table-row group transition-all duration-150 ease-in-out ${
-          assignment.approved 
-            ? 'bg-green-50/30' 
-            : assignment.status === 'no_show'
-            ? 'bg-red-50/30'
-            : assignment.status === 'cancelled'
-            ? 'bg-gray-50/30'
-            : 'hover:bg-gray-50'
-        }`}
+        className={cn(
+          "hidden sm:table-row group transition-all duration-150 ease-in-out",
+          isApproved && "bg-green-50/30",
+          !isApproved && !isEditing && assignment.status === 'no_show' && "bg-red-50/30",
+          !isApproved && !isEditing && assignment.status === 'cancelled' && "bg-gray-50/30",
+          !isApproved && !isEditing && "hover:bg-gray-50",
+          isEditing && "bg-blue-50 ring-2 ring-blue-500 ring-offset-2"
+        )}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -196,16 +140,35 @@ function WorkerRow({
         {assignment.shift_role || 'N/A'}
       </td>
 
-      {/* Hours */}
+      {/* Hours - EDITABLE */}
       <td className="py-4 text-right">
-        <span className="text-sm font-medium text-gray-900">
-          {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-          {assignment.edited_at && (
-            <span className="ml-1 text-xs text-orange-600" title="Edited">
-              <Edit2 className="h-3 w-3 inline" />
-            </span>
-          )}
-        </span>
+        {isEditing ? (
+          <div className="flex items-center justify-end gap-1">
+            <input
+              type="number"
+              step="0.25"
+              min="0"
+              max="24"
+              value={editHours}
+              onChange={(e) => onEditHoursChange(e.target.value)}
+              onKeyDown={onEditKeyDown}
+              disabled={isSavingEdit}
+              className="w-20 px-2 py-1 border-2 border-blue-500 rounded text-sm font-medium text-gray-900 text-right focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              autoFocus
+              placeholder="0.0"
+            />
+            <span className="text-xs text-gray-500">h</span>
+          </div>
+        ) : (
+          <span className="text-sm font-medium text-gray-900">
+            {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+            {assignment.edited_at && (
+              <span className="ml-1 text-xs text-orange-600" title="Edited">
+                <Edit2 className="h-3 w-3 inline" />
+              </span>
+            )}
+          </span>
+        )}
       </td>
 
       {/* Rate */}
@@ -213,90 +176,126 @@ function WorkerRow({
         ${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h
       </td>
 
-      {/* Total Pay */}
+      {/* Total Pay - LIVE UPDATE WHEN EDITING */}
       <td className="py-4 text-right">
-        <span className="text-sm font-semibold text-gray-900">
-          ${safeToFixed(assignment.effective_pay, 2, '0.00')}
+        <span className={cn(
+          "text-sm font-semibold",
+          isEditing ? "text-blue-600" : "text-gray-900"
+        )}>
+          ${isEditing 
+            ? calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)
+            : safeToFixed(assignment.effective_pay, 2, '0.00')
+          }
         </span>
+        {isEditing && (
+          <div className="text-xs text-blue-600 mt-0.5">live preview</div>
+        )}
       </td>
 
       {/* Status & Actions */}
       <td className="py-4 text-right">
-        <div className="flex items-center justify-end gap-2">
-          {assignment.status === 'no_show' ? (
-            <>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
-                <Ban className="h-3.5 w-3.5" />
-                No-Show
-              </span>
-            </>
-          ) : assignment.status === 'cancelled' ? (
-            <>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
-                <X className="h-3.5 w-3.5" />
-                Cancelled
-              </span>
-            </>
-          ) : assignment.approved ? (
-            <>
-              {/* Approved badge */}
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                <Check className="h-3.5 w-3.5" />
-                Approved
-              </span>
-              {/* Re-edit button - only visible on hover */}
-              {assignment.can_edit_hours && (
-                <button
-                  onClick={() => onReEdit(assignment)}
-                  className={`text-xs text-gray-600 hover:text-gray-900 transition-all duration-200 ease-in-out ${
-                    showActions ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  title="Re-edit approved hours"
-                >
-                  Re-edit
-                </button>
+        {isEditing ? (
+          // EDIT MODE - Save/Cancel buttons
+          <div className="flex items-center justify-end gap-1">
+            <button
+              onClick={onSaveEdit}
+              disabled={isSavingEdit}
+              className="p-1.5 text-white bg-green-600 hover:bg-green-700 disabled:bg-green-400 rounded transition-colors"
+              title="Save changes (Enter)"
+            >
+              {isSavingEdit ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
               )}
-            </>
-          ) : (
-            <>
-              {/* Pending badge */}
-              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
-                <Clock className="h-3.5 w-3.5" />
-                Pending
-              </span>
-              {/* Action buttons - only visible on hover */}
-              {assignment.can_edit_hours && (
-                <div
-                  className={`flex items-center gap-1 transition-all duration-200 ease-in-out ${
-                    showActions ? 'opacity-100' : 'opacity-0'
-                  }`}
-                >
+            </button>
+            <button
+              onClick={onCancelEdit}
+              disabled={isSavingEdit}
+              className="p-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-50 rounded transition-colors"
+              title="Cancel (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          // VIEW MODE - Status badge + action buttons
+          <div className="flex items-center justify-end gap-2">
+            {assignment.status === 'no_show' ? (
+              <>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
+                  <Ban className="h-3.5 w-3.5" />
+                  No-Show
+                </span>
+              </>
+            ) : assignment.status === 'cancelled' ? (
+              <>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+                  <X className="h-3.5 w-3.5" />
+                  Cancelled
+                </span>
+              </>
+            ) : isApproved ? (
+              <>
+                {/* Approved badge */}
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                  <Check className="h-3.5 w-3.5" />
+                  Approved
+                </span>
+                {/* Re-edit button - only visible on hover */}
+                {assignment.can_edit_hours && (
                   <button
-                    onClick={() => onEdit(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 ease-in-out"
-                    title="Edit hours"
+                    onClick={() => onReEdit(assignment)}
+                    className={`text-xs text-gray-600 hover:text-gray-900 transition-all duration-200 ease-in-out ${
+                      showActions ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    title="Re-edit approved hours"
                   >
-                    <Edit2 className="h-4 w-4" />
+                    Re-edit
                   </button>
-                  <button
-                    onClick={() => onNoShow(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 ease-in-out"
-                    title="Mark no-show"
+                )}
+              </>
+            ) : (
+              <>
+                {/* Pending badge */}
+                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
+                  <Clock className="h-3.5 w-3.5" />
+                  Pending
+                </span>
+                {/* Action buttons - only visible on hover */}
+                {assignment.can_edit_hours && (
+                  <div
+                    className={`flex items-center gap-1 transition-all duration-200 ease-in-out ${
+                      showActions ? 'opacity-100' : 'opacity-0'
+                    }`}
                   >
-                    <AlertCircle className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => onRemove(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-all duration-200 ease-in-out"
-                    title="Remove worker"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                    <button
+                      onClick={() => onStartEdit(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 ease-in-out"
+                      title="Edit hours"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onNoShow(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 ease-in-out"
+                      title="Mark no-show"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onRemove(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-all duration-200 ease-in-out"
+                      title="Remove worker"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </td>
     </tr>
 
@@ -305,10 +304,11 @@ function WorkerRow({
       <td colSpan={6} className="py-3 px-3">
         <div className={cn(
           "p-3 rounded-lg space-y-2 transition-all duration-150",
-          assignment.approved ? "bg-green-50 border border-green-200" : 
-          assignment.status === 'no_show' ? "bg-red-50 border border-red-200" :
-          assignment.status === 'cancelled' ? "bg-gray-50 border border-gray-200" :
-          "bg-white border border-gray-200"
+          isEditing && "bg-blue-50 border-2 border-blue-500",
+          !isEditing && isApproved && "bg-green-50 border border-green-200",
+          !isEditing && assignment.status === 'no_show' && "bg-red-50 border border-red-200",
+          !isEditing && assignment.status === 'cancelled' && "bg-gray-50 border border-gray-200",
+          !isEditing && "bg-white border border-gray-200"
         )}>
           {/* Worker name & role */}
           <div className="flex items-start justify-between">
@@ -344,62 +344,127 @@ function WorkerRow({
             )}
           </div>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t border-gray-200">
-            <div>
-              <div className="text-xs text-gray-500">Hours</div>
-              <div className="font-medium">
-                {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-                {assignment.edited_at && (
-                  <span className="ml-1 text-xs text-orange-600" title="Edited">
-                    <Edit2 className="h-3 w-3 inline" />
+          {/* Stats Grid or Edit Input */}
+          {isEditing ? (
+            // EDIT MODE
+            <div className="space-y-2 pt-2 border-t border-gray-200">
+              <div>
+                <label className="text-xs text-gray-600 block mb-1">Hours Worked</label>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  max="24"
+                  value={editHours}
+                  onChange={(e) => onEditHoursChange(e.target.value)}
+                  onKeyDown={onEditKeyDown}
+                  disabled={isSavingEdit}
+                  className="w-full px-3 py-2 border-2 border-blue-500 rounded text-sm font-medium focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-xs text-gray-500">Rate:</span>
+                  <span className="ml-1 font-medium">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-500">Total:</span>
+                  <span className="ml-1 font-semibold text-blue-600">
+                    ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
                   </span>
-                )}
+                </div>
+              </div>
+              {/* Save/Cancel buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={onSaveEdit}
+                  disabled={isSavingEdit}
+                  className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded flex items-center justify-center gap-2 transition-colors"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Save
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={onCancelEdit}
+                  disabled={isSavingEdit}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-sm font-medium rounded transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">Rate</div>
-              <div className="font-medium">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Total</div>
-              <div className="font-semibold">${safeToFixed(assignment.effective_pay, 2, '0.00')}</div>
-            </div>
-          </div>
+          ) : (
+            // VIEW MODE
+            <>
+              <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t border-gray-200">
+                <div>
+                  <div className="text-xs text-gray-500">Hours</div>
+                  <div className="font-medium">
+                    {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+                    {assignment.edited_at && (
+                      <span className="ml-1 text-xs text-orange-600" title="Edited">
+                        <Edit2 className="h-3 w-3 inline" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Rate</div>
+                  <div className="font-medium">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">Total</div>
+                  <div className="font-semibold">${safeToFixed(assignment.effective_pay, 2, '0.00')}</div>
+                </div>
+              </div>
 
-          {/* Actions */}
-          {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
-            <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
-              {assignment.approved ? (
-                <button
-                  onClick={() => onReEdit(assignment)}
-                  className="w-full px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-                >
-                  Re-edit
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => onEdit(assignment)}
-                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => onNoShow(assignment)}
-                    className="flex-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded hover:bg-orange-100 transition-colors"
-                  >
-                    No-Show
-                  </button>
-                  <button
-                    onClick={() => onRemove(assignment)}
-                    className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
-                  >
-                    Remove
-                  </button>
-                </>
+              {/* Action buttons */}
+              {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
+                <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                  {assignment.approved ? (
+                    <button
+                      onClick={() => onReEdit(assignment)}
+                      className="w-full px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                    >
+                      Re-edit
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onStartEdit(assignment)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => onNoShow(assignment)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded hover:bg-orange-100 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        No-Show
+                      </button>
+                      <button
+                        onClick={() => onRemove(assignment)}
+                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </td>
@@ -412,8 +477,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const [assignments, setAssignments] = useState<AssignmentForApproval[]>([]);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState<any>({});
+  // Inline editing state (replaces old editingId/editData)
+  const [editingAssignmentId, setEditingAssignmentId] = useState<number | null>(null);
+  const [editHours, setEditHours] = useState<string>('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -454,35 +521,54 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     }
   };
 
-  const handleEditHours = (assignment: AssignmentForApproval) => {
-    setEditingId(assignment.id);
-    setEditData({
-      hours_worked: assignment.hours_worked || assignment.scheduled_hours,
-      actual_start_time_utc: assignment.actual_start || assignment.scheduled_start,
-      actual_end_time_utc: assignment.actual_end || assignment.scheduled_end,
-      hourly_rate: assignment.hourly_rate
-    });
+  /**
+   * Start editing a worker's hours inline
+   */
+  const handleStartEdit = (assignment: AssignmentForApproval) => {
+    setEditingAssignmentId(assignment.id);
+    setEditHours(String(assignment.effective_hours || assignment.hours_worked || assignment.scheduled_hours || '0'));
   };
 
-  const handleReEdit = (assignment: AssignmentForApproval) => {
-    setConfirmDialog({
-      open: true,
-      title: 'Re-Edit Approved Hours',
-      message: `Re-editing will un-approve this assignment. The assignment will need to be re-approved after you make changes. Continue?`,
-      variant: 'warning',
-      onConfirm: async () => {
-        setConfirmDialog({ open: false, title: '' });
-        handleEditHours(assignment);
-      }
-    });
+  /**
+   * Cancel editing and reset state
+   */
+  const handleCancelEdit = () => {
+    setEditingAssignmentId(null);
+    setEditHours('');
   };
 
-  const handleSaveHours = async (assignmentId: number) => {
+  /**
+   * Save edited hours and update assignment
+   */
+  const handleSaveEdit = async () => {
+    if (!editingAssignmentId) return;
+    
+    const hoursValue = parseFloat(editHours);
+    
+    // Validation
+    if (isNaN(hoursValue) || hoursValue < 0) {
+      setToast({ isVisible: true, type: 'error', message: 'Please enter a valid number of hours' });
+      return;
+    }
+    
+    if (hoursValue > 24) {
+      setToast({ isVisible: true, type: 'error', message: 'Hours cannot exceed 24 per shift' });
+      return;
+    }
+    
+    setIsSavingEdit(true);
+    
     try {
-      const response = await apiClient.patch(`/approvals/${assignmentId}/update_hours`, editData);
+      const response = await apiClient.patch(`/approvals/${editingAssignmentId}/update_hours`, {
+        hours_worked: hoursValue
+      });
+      
+      // Refresh assignments data
       await loadAssignments();
-      setEditingId(null);
-      setEditData({});
+      
+      // Exit edit mode
+      handleCancelEdit();
+      
       if (response.data?.message) {
         setToast({ isVisible: true, type: 'success', message: response.data.message });
       } else {
@@ -490,8 +576,51 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       }
     } catch (error: any) {
       console.error('Error updating hours:', error);
-      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours' });
+      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours. Please try again.' });
+    } finally {
+      setIsSavingEdit(false);
     }
+  };
+
+  /**
+   * Handle keyboard shortcuts in edit mode
+   */
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  };
+
+  /**
+   * Calculate live total pay while editing
+   */
+  const calculateLiveTotal = (hours: string, rate: number): string => {
+    const hoursValue = parseFloat(hours);
+    if (isNaN(hoursValue)) return '0.00';
+    return (hoursValue * rate).toFixed(2);
+  };
+
+  /**
+   * Handle re-editing an approved assignment
+   * Shows confirmation, then enters inline edit mode
+   */
+  const handleReEdit = (assignment: AssignmentForApproval) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Re-Edit Approved Hours',
+      message: `Re-editing will un-approve ${assignment.worker_name}'s hours. The assignment will need to be re-approved after you make changes. Continue?`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog({ open: false, title: '' });
+        // Enter inline edit mode
+        handleStartEdit(assignment);
+        setToast({ isVisible: true, type: 'success', message: 'Hours un-approved. Make your changes and save.' });
+      }
+    });
   };
 
   const handleMarkNoShow = async (assignment: AssignmentForApproval) => {
@@ -675,15 +804,15 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   <WorkerRow
                     key={assignment.id}
                     assignment={assignment}
-                    isEditing={editingId === assignment.id}
-                    editData={editData}
-                    onEdit={handleEditHours}
-                    onSave={handleSaveHours}
-                    onCancel={() => {
-                      setEditingId(null);
-                      setEditData({});
-                    }}
-                    onEditDataChange={setEditData}
+                    isEditing={editingAssignmentId === assignment.id}
+                    editHours={editHours}
+                    isSavingEdit={isSavingEdit}
+                    onStartEdit={handleStartEdit}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onEditHoursChange={setEditHours}
+                    onEditKeyDown={handleEditKeyDown}
+                    calculateLiveTotal={calculateLiveTotal}
                     onNoShow={handleMarkNoShow}
                     onRemove={handleRemove}
                     onReEdit={handleReEdit}
