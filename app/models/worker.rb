@@ -112,4 +112,52 @@ class Worker < ApplicationRecord
       self.skills_tsvector = nil
     end
   end
+
+  # Unassign worker from all active events when deactivated
+  def unassign_from_active_events_if_deactivated
+    # Only run if active status changed from true to false
+    return unless saved_change_to_active? && !active?
+
+    ActiveRecord::Base.transaction do
+      # Find all assignments to shifts in active (published) events
+      active_assignments = assignments
+        .joins(shift: :event)
+        .where(events: { status: 'published' })
+        .where.not(status: ['cancelled', 'no_show', 'completed'])
+
+      unassigned_count = 0
+      active_assignments.each do |assignment|
+        # Use the unassign service to properly handle the unassignment
+        # Only unassign if status is 'assigned' or 'confirmed' (not completed)
+        if assignment.status.in?(['assigned', 'confirmed'])
+          result = UnassignWorkerFromShift.call(assignment, Current.user || User.first)
+          unassigned_count += 1 if result[:success]
+        else
+          # For other statuses, just cancel the assignment
+          assignment.update!(status: 'cancelled', notes: (assignment.notes.to_s + "\nWorker deactivated on #{Time.current.strftime('%Y-%m-%d')}").strip)
+          unassigned_count += 1
+        end
+      end
+
+      if unassigned_count > 0
+        Rails.logger.info "Unassigned #{unassigned_count} assignments for deactivated worker #{id} (#{full_name})"
+        
+        # Log activity
+        ActivityLog.create!(
+          actor_user_id: Current.user&.id,
+          entity_type: 'Worker',
+          entity_id: id,
+          action: 'deactivated_unassigned',
+          after_json: {
+            unassigned_count: unassigned_count,
+            reason: 'Worker deactivated - automatically unassigned from active events'
+          },
+          created_at_utc: Time.current
+        )
+      end
+    end
+  rescue => e
+    Rails.logger.error "Failed to unassign worker #{id} from active events: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+    # Don't raise - allow worker deactivation to succeed even if unassignment fails
+  end
 end

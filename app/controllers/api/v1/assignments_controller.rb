@@ -48,6 +48,14 @@ module Api
         shift = Shift.includes(:event).find(assignment_params[:shift_id])
         worker = Worker.find(assignment_params[:worker_id])
         
+        # Prevent assigning inactive workers
+        unless worker.active?
+          return render json: {
+            status: 'error',
+            message: 'Cannot assign inactive worker. Please activate the worker first.'
+          }, status: :unprocessable_entity
+        end
+        
         # Fast conflict check (scoped to time window)
         conflicts = check_conflicts_optimized(shift, worker)
         
@@ -95,6 +103,15 @@ module Api
         end
 
         worker = Worker.find(worker_id)
+        
+        # Prevent assigning inactive workers
+        unless worker.active?
+          return render json: {
+            status: 'error',
+            message: 'Cannot assign inactive worker. Please activate the worker first.'
+          }, status: :unprocessable_entity
+        end
+        
         results = { successful: [], failed: [] }
 
         shift_ids.each do |shift_id|

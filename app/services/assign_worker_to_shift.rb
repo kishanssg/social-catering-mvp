@@ -9,6 +9,11 @@ class AssignWorkerToShift < ApplicationService
     # Set current user for activity logging
     Current.user = @assigned_by
 
+    # Prevent assigning inactive workers
+    unless @worker.active?
+      return failure("Cannot assign inactive worker. Please activate the worker first.", status: :unprocessable_entity)
+    end
+
     Assignment.transaction do
       acquire_lock!
 
