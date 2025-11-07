@@ -1,357 +1,674 @@
-Here you go — a clean **`.cursorrules.md`** for **Rails 7** + Postgres + Heroku:
-
-````markdown
-# Social Catering MVP – Cursor AI Rules
-
-## Project Overview
-**Name:** Social Catering MVP  
-**Description:** Workforce scheduling tool for Social Catering. 3 admins manage ~25–30 workers. Create/edit shifts, search workers, assign with conflict detection, and maintain audit logs.  
-**Timeline:** 21 days (Days 1–9: Backend, Days 10–17: UI, Days 18–21: QA)  
-**Budget:** $5,000 fixed price — avoid scope creep.
+# Social Catering MVP - Cursor AI Rules
+# Tailored to existing codebase (analyzed 2025-11-07)
+# Ruby 3.4.5 | Rails 7.2.0 | React 18 | TypeScript 5 | PostgreSQL 14+ | Heroku
 
 ---
 
-## Tech Stack
-- **Backend:** Ruby on Rails **7.x**
-- **Frontend:** React 18 + TypeScript
-- **Database:** PostgreSQL 14+
-- **CSS:** Tailwind CSS v4
-- **Auth:** Devise
-- **Hosting:** Heroku (Eco/Basic dynos) + Heroku Postgres
-- **Monitoring:** Sentry + `/healthz` endpoint
+## 🎯 Project Context
+
+**Purpose:** Workforce scheduling tool for Social Catering (3 admins, ~30 workers, 100+ shifts/month)  
+**Status:** MVP in production (Heroku staging + production)  
+**Team:** Solo developer (Kishan) → handoff to GravyWork team  
+**Timeline:** 21-day MVP (feature-complete, now in maintenance/polish)  
+**Budget:** $5,000 fixed price (avoid scope creep)
 
 ---
 
-## Core Database Rules
+## 🏗️ Core Principles (Non-Negotiable)
 
-### Datetime Conventions
-- All datetime columns MUST be named `*_utc` (e.g., `start_time_utc`, `expires_at_utc`, `created_at_utc`).
-- Use **TIMESTAMPTZ** in PostgreSQL migrations.
-- Always store UTC; convert to local time **in UI only**.
-- Never use timezone-naive datetimes.
+### 1. **DRY (Don't Repeat Yourself)**
+- ❌ Never copy-paste code
+- ✅ Extract to service, concern, or component
+- ✅ Reuse existing patterns (ApplicationService, Auditable, etc.)
 
-### Data Types
-- Use **JSONB** for flexible columns: `skills_json`, `before_json`, `after_json`.
-- Add **tsvector** column(s) for full-text search (e.g., `skills_tsvector`).
-- Use **CHECK** constraints for status/enum fields instead of Rails enums:
-  ```sql
-  CHECK (status IN ('draft', 'published', 'assigned', 'completed'))
-````
+### 2. **SSOT (Single Source of Truth)**
+- ✅ Cost calculations: `Assignment#total_pay` (model method)
+- ✅ Activity logging: `Auditable` concern (not manual logs)
+- ✅ Conflict detection: `CheckShiftConflicts` service (not inline)
+- ✅ API responses: Presenters (not controller serialization)
+- ✅ Constants: `config/constants.rb` (not magic strings)
 
-### Foreign Keys & Deletes
-
-* Specify `on_delete` explicitly:
-
-  * `on_delete: :cascade` for owned children.
-  * `on_delete: :restrict` for references.
-
-  ```ruby
-  add_foreign_key :assignments, :workers, on_delete: :restrict
-  add_foreign_key :assignments, :shifts, on_delete: :cascade
-  ```
-* **Never hard-delete** historical data. Use `active: false` for workers with history.
+### 3. **Fail Fast, Fail Loud**
+- ✅ Raise exceptions immediately (don't return `nil`)
+- ✅ Validate at database, model, and controller layers
+- ✅ Use guard clauses (early returns)
 
 ---
 
-## Indexing Strategy
+## 📂 File Organization (Existing Structure)
 
-* Index **all** foreign keys.
-* Compound indexes for common queries:
+### Backend
+app/ ├── controllers/api/v1/ # All API controllers │ └── base_controller.rb # render_success, render_error, render_validation_errors ├── models/ │ ├── concerns/ │ │ ├── auditable.rb # Activity logging (SSOT) │ │ ├── hours_calculations.rb │ │ └── pay_calculations.rb │ ├── worker.rb │ ├── shift.rb │ ├── assignment.rb │ └── [15 other models] ├── services/ # Business logic (18 services) │ ├── application_service.rb # Base class (success/failure) │ ├── assign_worker_to_shift.rb │ ├── check_shift_conflicts.rb │ ├── search_workers.rb │ └── [15 other services] ├── presenters/ │ └── activity_log_presenter.rb └── views/ # Minimal (React handles UI)
 
-  ```ruby
-  add_index :shifts, [:start_time_utc, :status]
-  add_index :shifts, [:start_time_utc, :end_time_utc]
-  ```
-* GIN indexes for JSONB and tsvector:
+lib/tasks/ # Rake tasks only
 
-  ```ruby
-  add_index :workers, :skills_json, using: :gin
-  execute "CREATE INDEX idx_workers_search ON workers USING gin(skills_tsvector);"
-  ```
-* Partial unique index for nullable fields:
+Code
 
-  ```ruby
-  add_index :workers, :email, unique: true, where: "email IS NOT NULL"
-  ```
+### Frontend
+social-catering-ui/src/ ├── components/ │ ├── common/ # Reusable UI (SSOT) │ │ ├── LoadingSpinner.tsx │ │ ├── Toast.tsx │ │ ├── Modal.tsx │ │ └── EmptyState.tsx │ ├── Dashboard/ │ ├── Shifts/ │ ├── Assignments/ │ └── [feature folders] ├── hooks/ │ ├── useWorkers.ts │ ├── useShifts.ts │ └── [custom hooks] ├── services/ │ ├── workersApi.ts │ ├── shiftsApi.ts │ └── [API services] ├── lib/ │ ├── api.ts # Axios instance (SSOT) │ ├── utils.ts # Helper functions │ └── normalize.ts └── types/ ├── worker.ts ├── shift.ts └── [TypeScript types]
+
+Code
 
 ---
 
-## Search Implementation
+## 🔧 Existing Patterns (Must Follow)
 
-### Full-Text Search (Workers)
+### 1. **Service Objects Pattern**
 
-* **≥ 3 chars:** use tsvector
-
-  ```ruby
-  Worker.where("skills_tsvector @@ to_tsquery(?)", "#{query}:*")
-  ```
-* **< 3 chars:** fallback to ILIKE
-
-  ```ruby
-  Worker.where("first_name ILIKE ? OR last_name ILIKE ?", "#{query}%", "#{query}%")
-  ```
-
-### Sync tsvector
-
+**Base Class:**
 ```ruby
-class Worker < ApplicationRecord
-  before_save :sync_skills_tsvector
+# app/services/application_service.rb
+class ApplicationService
+  def self.call(*args, **kwargs)
+    new(*args, **kwargs).call
+  end
 
-  private
+  def success(data = {})
+    { success: true, data: data }
+  end
 
-  def sync_skills_tsvector
-    skills_array =
-      case skills_json
-      when String then JSON.parse(skills_json) rescue []
-      when Array  then skills_json
-      else []
-      end
-
-    text = skills_array.compact.map(&:to_s).map(&:strip).reject(&:blank?).uniq.join(" ")
-    self.skills_text = text
-    self.skills_tsvector = ActiveRecord::Base.sanitize_sql_for_conditions(
-      ["to_tsvector('simple', ?)", text]
-    )
+  def failure(error, status: :unprocessable_entity)
+    { success: false, error: error, status: status }
   end
 end
-```
+Implementation Pattern:
 
----
-
-## Concurrency & Race Conditions
-
-### Advisory Locks (Postgres)
-
-Use advisory locks to serialize per-worker assignments:
-
-```ruby
-Assignment.transaction do
-  conn = ActiveRecord::Base.connection
-  conn.execute("SELECT pg_advisory_lock(#{worker.id})")
-  begin
-    # Overlap
-    conflicts = Assignment.joins(:shift)
-      .where(worker_id: worker.id, status: 'assigned')
-      .where("shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
-             new_shift.end_time_utc, new_shift.start_time_utc)
-      .lock("FOR UPDATE")
-    raise OverlapError, "Worker has overlapping shift" if conflicts.exists?
-
-    # Capacity
-    assigned = Assignment.where(shift_id: new_shift.id, status: 'assigned').count
-    raise CapacityError, "Shift is full" if assigned >= new_shift.capacity
-
-    # Cert expiration (if required)
-    if new_shift.required_cert_id
-      cert_ok = worker.worker_certifications
-        .where(cert_id: new_shift.required_cert_id)
-        .where("expires_at_utc >= ?", new_shift.end_time_utc)
-        .exists?
-      raise CertExpiredError, "Certification expired or missing" unless cert_ok
-    end
-
-    Assignment.create!(
-      shift: new_shift, worker: worker, assigned_by: current_user,
-      assigned_at_utc: Time.current, status: 'assigned'
-    )
-  ensure
-    conn.execute("SELECT pg_advisory_unlock(#{worker.id})")
-  end
-end
-```
-
-Return **HTTP 409** for lock timeout to signal a safe retry.
-
----
-
-## Conflict Detection (3 Hard Rules)
-
-1. **Time Overlap**
-
-   ```ruby
-   new.start_time_utc < existing.end_time_utc &&
-   new.end_time_utc   > existing.start_time_utc
-   ```
-2. **Capacity**
-
-   ```ruby
-   Assignment.where(shift_id: shift.id, status: 'assigned').count < shift.capacity
-   ```
-3. **Certification Expiration**
-
-   ```ruby
-   worker_cert.expires_at_utc >= shift.end_time_utc
-   ```
-
----
-
-## Code Conventions
-
-### Models
-
-* Explicit `belongs_to/has_many` associations.
-* Validations for presence/uniqueness; custom `end_time_after_start_time`.
-* Scopes: `scope :active, -> { where(active: true) }`.
-* Callbacks: `before_save :sync_skills_tsvector`; `after_* :log_activity`.
-
-**Example associations:**
-
-```ruby
-class Worker < ApplicationRecord
-  has_many :worker_certifications, dependent: :destroy
-  has_many :certifications, through: :worker_certifications
-  has_many :assignments, dependent: :restrict_with_error
-  has_many :shifts, through: :assignments
-end
-```
-
-### Controllers
-
-* Keep thin; extract business logic to services.
-* `before_action :authenticate_user!` for protected routes.
-* Strong params everywhere.
-* Rescue and return **clear, user-friendly** JSON.
-
-### Services
-
-* Location: `app/services/`
-* Verb-based names: `AssignWorkerToShift`, `CheckShiftConflicts`
-* Single `call` method; return `{ success:, data:, error: }`
-
-```ruby
-class AssignWorkerToShift
-  def initialize(shift:, worker:, assigned_by:)
-    @shift, @worker, @assigned_by = shift, worker, assigned_by
+Ruby
+# ✅ CORRECT: Follow this exact pattern
+class AssignWorkerToShift < ApplicationService
+  def initialize(shift, worker, assigned_by)
+    @shift = shift
+    @worker = worker
+    @assigned_by = assigned_by
   end
 
   def call
-    # transaction + conflict checks + assignment
-    { success: true, assignment: assignment }
-  rescue => e
-    { success: false, error: e.message }
+    # Set Current.user for Auditable concern
+    Current.user = @assigned_by
+    
+    # Guard clauses (fail fast)
+    raise ArgumentError, "Shift is required" if @shift.nil?
+    raise ArgumentError, "Worker is required" if @worker.nil?
+    
+    # Business logic
+    check_conflicts!
+    create_assignment
+    
+    success(assignment: @assignment)
+  rescue ConflictError => e
+    failure(e.message, status: :conflict)
+  rescue StandardError => e
+    Rails.logger.error("Assignment failed: #{e.message}")
+    Sentry.capture_exception(e) if defined?(Sentry)
+    failure("Internal error: #{e.message}", status: :internal_server_error)
+  end
+
+  private
+
+  def check_conflicts!
+    conflicts = CheckShiftConflicts.call(@shift, @worker)
+    raise ConflictError, format_conflicts(conflicts) if conflicts.any?
+  end
+
+  def create_assignment
+    @assignment = Assignment.create!(
+      shift: @shift,
+      worker: @worker,
+      assigned_by: @assigned_by,
+      status: 'assigned',
+      hourly_rate: @worker.hourly_rate
+    )
   end
 end
-```
 
-### API Response Format
+# ❌ WRONG: Don't mix patterns
+class MyService
+  def call
+    if some_condition
+      { success: true }  # ← Using hash
+    else
+      raise SomeError    # ← AND raising? Pick one!
+    end
+  end
+end
+Service Naming Convention:
 
-```json
-// Success
-{ "data": { "id": 1, ... }, "status": "success" }
-// Error
-{ "error": "Worker has overlapping shift", "status": "error" }
-// Validation
-{ "errors": { "email": ["has already been taken"] }, "status": "validation_error" }
-```
+AssignWorkerToShift (verb + object, no Service suffix)
+CheckShiftConflicts (verb + object)
+SearchWorkers (verb + object)
+UpdateWorkerCertifications (verb + object)
+2. Auditable Concern (Activity Logging)
+Location: app/models/concerns/auditable.rb
 
----
+Usage:
 
-## Anti-Patterns (Never Do)
+Ruby
+# ✅ CORRECT: Just include the concern
+class Worker < ApplicationRecord
+  include Auditable  # Automatically logs create/update/destroy
+end
 
-* ❌ MySQL syntax (`MATCH`, `AUTO_INCREMENT`, `GET_LOCK`)
-* ❌ Timezone-naive datetimes / columns not named `*_utc`
-* ❌ Raw SQL with string interpolation
-* ❌ `dependent: :delete_all` (use `:destroy` for callbacks)
-* ❌ Hard deletes on workers with history
-* ❌ Rails enums for persisted statuses (prefer DB CHECK)
-* ❌ Logging secrets/tokens
-* ❌ N+1 queries (use `includes`/`joins`)
+# ❌ WRONG: Manual activity logs
+class Worker < ApplicationRecord
+  after_save do
+    ActivityLog.create!(...)  # ← Don't! Use Auditable concern
+  end
+end
+How to set actor:
 
----
+Ruby
+# In service or controller
+Current.user = @assigned_by  # Auditable reads this
+@worker.save  # Automatically logs with Current.user as actor
+3. Controller Pattern
+Base Controller:
 
-## Performance Targets
+Ruby
+# app/controllers/api/v1/base_controller.rb
+class Api::V1::BaseController < ApplicationController
+  before_action :authenticate_user!
+  
+  rescue_from ActiveRecord::RecordNotFound, with: :record_not_found
+  rescue_from ActiveRecord::RecordInvalid, with: :unprocessable_entity
+  
+  def render_success(data, status: :ok)
+    render json: { success: true, data: data }, status: status
+  end
 
-* Dashboard: **< 2s** with 100+ shifts
-* Search: **< 300ms** (p95)
-* Assignment API: **< 500ms** (p95)
-* Detect N+1 in dev with **bullet** gem.
+  def render_error(error, status: :unprocessable_entity)
+    render json: { success: false, error: error }, status: status
+  end
 
----
+  def render_validation_errors(record)
+    render json: { success: false, errors: record.errors.full_messages }, status: :unprocessable_entity
+  end
+end
+Implementation Pattern:
 
-## File Organization
+Ruby
+# ✅ CORRECT: Use base controller methods
+class Api::V1::WorkersController < Api::V1::BaseController
+  def create
+    @worker = Worker.new(worker_params)
+    if @worker.save
+      render_success(serialize_worker(@worker), status: :created)
+    else
+      render_validation_errors(@worker)
+    end
+  end
 
-```
-app/
-├─ controllers/
-│  └─ api/v1/
-├─ models/
-│  └─ concerns/   # Auditable, Searchable
-├─ services/
-├─ validators/
-└─ views/
-```
+  private
 
----
+  def worker_params
+    params.require(:worker).permit(:first_name, :last_name, :phone, :email, :hourly_rate)
+  end
 
-## Testing Strategy
+  def serialize_worker(worker)
+    # TODO: Extract to presenter/serializer
+    {
+      id: worker.id,
+      first_name: worker.first_name,
+      last_name: worker.last_name,
+      full_name: worker.full_name,
+      phone: worker.phone,
+      email: worker.email,
+      hourly_rate: worker.hourly_rate,
+      active: worker.active,
+      skills: worker.skills_json || []
+    }
+  end
+end
 
-**Framework:** Minitest (Rails default)
-**Locations:** `test/models`, `test/services`, `test/controllers`
+# ❌ WRONG: Don't reinvent base methods
+class SomeController < Api::V1::BaseController
+  def create
+    render json: { success: true, data: {} }  # ← Use render_success!
+  end
+end
+4. Error Handling Standard
+Pattern: Raise in services, catch in controllers
 
-**Must-test:**
+Ruby
+# ✅ CORRECT: Service raises, controller catches
+class AssignWorkerToShift < ApplicationService
+  def call
+    raise ConflictError, "Worker has overlapping shift" if conflicts.any?
+    success(assignment: @assignment)
+  rescue ConflictError => e
+    failure(e.message, status: :conflict)
+  end
+end
 
-* All 3 conflict rules
-* Concurrent assignment (advisory lock)
-* Search behavior (<3 vs ≥3 chars)
-* Activity logging on every write
-* Edge cases (nil/empty/boundaries)
-* DST edge (create shift on DST transition; stored correctly as UTC)
+class Api::V1::AssignmentsController < Api::V1::BaseController
+  def create
+    result = AssignWorkerToShift.call(shift, worker, current_user)
+    if result[:success]
+      render_success(result[:data][:assignment])
+    else
+      render_error(result[:error], status: result[:status])
+    end
+  end
+end
 
----
+# ❌ WRONG: Don't mix patterns
+class SomeService
+  def call
+    return nil if error  # ← Don't return nil, raise!
+  end
+end
+5. Frontend Component Pattern
+Reusable Components (SSOT):
 
-## Security Checklist
+TSX
+// ✅ CORRECT: Use existing components from common/
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { Toast } from '@/components/common/Toast';
+import { Modal } from '@/components/common/Modal';
 
-* ✅ CSRF protection (Rails default)
-* ✅ Strong params in all controllers
-* ✅ `authenticate_user!` for protected actions
-* ✅ No sensitive data in logs
-* ✅ Parameterized queries only
-* ✅ Admin-only access for MVP
-* ✅ SSL enforced (Heroku)
-* ✅ Secrets via env vars (no secrets in git)
+// ❌ WRONG: Don't create duplicate components
+// Don't create: components/MyLoadingSpinner.tsx
+// Don't create: components/MyModal.tsx
+Component Naming:
 
----
+TSX
+// ✅ CORRECT: PascalCase, descriptive
+WorkerCard.tsx
+ShiftList.tsx
+AssignmentRow.tsx
+ApprovalModal.tsx
 
-## Deployment (Heroku)
+// ❌ WRONG: Generic names, wrong case
+Card.tsx           // Too generic
+worker-card.tsx    // Wrong case
+WorkerComponent.tsx // Redundant "Component"
+Hook Naming:
 
-### Env Vars (Required)
+TSX
+// ✅ CORRECT: use prefix, descriptive
+useWorkers.ts
+useShifts.ts
+useDebounce.ts
+useConfirm.ts
 
-```bash
-DATABASE_URL=postgres://...   # Heroku sets automatically
-SECRET_KEY_BASE=...           # rails secret
+// ❌ WRONG: Missing "use", unclear
+workers.ts         // Missing "use"
+useData.ts         // Too generic
+6. TypeScript Type Safety
+Pattern:
+
+TSX
+// ✅ CORRECT: Define types in types/ directory
+// types/worker.ts
+export interface Worker {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  phone: string;
+  email?: string;
+  hourly_rate: number;
+  active: boolean;
+  skills: string[];
+}
+
+// Use everywhere
+function WorkerCard({ worker }: { worker: Worker }) {
+  return <div>{worker.full_name}</div>;
+}
+
+// ❌ WRONG: Inline types, any
+function WorkerCard({ worker }: { worker: any }) {  // ← Don't use any!
+  return <div>{worker.name}</div>;
+}
+🚨 Anti-Patterns (Never Do)
+Backend
+❌ Manual Activity Logs
+
+Ruby
+# DON'T DO THIS
+ActivityLog.create!(entity: @worker, action: 'created')
+
+# DO THIS
+class Worker < ApplicationRecord
+  include Auditable  # Handles it automatically
+end
+❌ Duplicate Serialization
+
+Ruby
+# DON'T DO THIS in every controller
+def serialize_worker(worker)
+  { id: worker.id, name: worker.full_name }
+end
+
+# DO THIS: Extract to presenter
+class WorkerPresenter
+  def self.serialize(worker)
+    # Single source of truth
+  end
+end
+❌ Inline Business Logic
+
+Ruby
+# DON'T DO THIS
+class WorkersController
+  def create
+    @worker = Worker.new(worker_params)
+    # 50 lines of validation, conflict checking, etc.
+    if @worker.save
+      # ...
+    end
+  end
+end
+
+# DO THIS: Extract to service
+class WorkersController
+  def create
+    result = CreateWorker.call(worker_params, current_user)
+    if result[:success]
+      render_success(result[:data])
+    else
+      render_error(result[:error])
+    end
+  end
+end
+❌ Magic Strings
+
+Ruby
+# DON'T DO THIS
+if shift.status == 'assigned'  # ← Hard-coded string
+
+# DO THIS: Use constants
+if shift.status == Constants::SHIFT_STATUS_ASSIGNED
+❌ Hard Deletes (Workers with History)
+
+Ruby
+# DON'T DO THIS
+@worker.destroy  # ← Worker has assignments!
+
+# DO THIS
+@worker.update!(active: false)  # Soft delete
+Frontend
+❌ Duplicate Components
+
+TSX
+// DON'T CREATE: components/MyLoadingSpinner.tsx
+// DON'T CREATE: components/ui/LoadingSpinner.tsx
+// DON'T CREATE: components/Spinner.tsx
+
+// USE EXISTING: components/common/LoadingSpinner.tsx
+❌ Inline API Calls
+
+TSX
+// DON'T DO THIS
+function WorkerList() {
+  const [workers, setWorkers] = useState([]);
+  useEffect(() => {
+    fetch('/api/v1/workers')  // ← Inline API call
+      .then(res => res.json())
+      .then(data => setWorkers(data));
+  }, []);
+}
+
+// DO THIS: Use custom hook
+function WorkerList() {
+  const { workers, loading } = useWorkers();  // ← Reusable hook
+}
+❌ Any Type
+
+TSX
+// DON'T DO THIS
+function handleWorker(worker: any) {  // ← No type safety!
+  console.log(worker.name);
+}
+
+// DO THIS
+function handleWorker(worker: Worker) {
+  console.log(worker.full_name);
+}
+📏 Code Quality Standards
+1. Naming Conventions
+Backend:
+
+Ruby
+# Services: VerbObject (no Service suffix)
+AssignWorkerToShift        ✅
+CheckShiftConflicts        ✅
+CreateWorkerService        ❌
+
+# Concerns: Adjective
+Auditable                  ✅
+HoursCalculations          ✅
+Loggable                   ❌ (use Auditable)
+
+# Models: Noun
+Worker, Shift, Assignment  ✅
+
+# Methods: verb_object
+def calculate_total_pay    ✅
+def get_worker             ❌ (use find_worker)
+Frontend:
+
+TSX
+// Components: PascalCase noun
+WorkerCard                 ✅
+ShiftList                  ✅
+workerCard                 ❌
+
+// Hooks: camelCase with "use"
+useWorkers                 ✅
+useDebounce                ✅
+workers                    ❌
+
+// Utils: camelCase verb
+formatDate                 ✅
+normalizeWorker            ✅
+DateFormatter              ❌
+2. Function Length
+Target: < 20 lines per method
+
+Ruby
+# ✅ GOOD: Short, focused
+def check_conflicts!
+  conflicts = CheckShiftConflicts.call(@shift, @worker)
+  raise ConflictError, format_conflicts(conflicts) if conflicts.any?
+end
+
+# ❌ BAD: Too long (> 50 lines)
+def assign_worker
+  # 50+ lines of validation, checking, assigning...
+  # Extract to smaller methods!
+end
+3. Error Messages (User-Friendly)
+Ruby
+# ✅ GOOD: Actionable, specific
+"Worker Sarah Johnson has an overlapping shift on Nov 7 from 2:00 PM - 6:00 PM. Please choose a different worker or time."
+"Shift capacity is full (5/5 workers assigned). Remove a worker or increase capacity."
+"Food Handler certification expires Nov 15 (required for this shift). Update certification or choose another worker."
+
+# ❌ BAD: Vague, technical
+"Validation failed"
+"Conflict detected"
+"Error 500"
+4. Guard Clauses (Preferred)
+Ruby
+# ✅ GOOD: Guard clauses (early exit)
+def assign_worker
+  return failure("Worker required") if worker.nil?
+  return failure("Shift required") if shift.nil?
+  return failure("Shift full") if shift.full?
+  
+  create_assignment
+  success(assignment: @assignment)
+end
+
+# ❌ AVOID: Nested if/else
+def assign_worker
+  if worker
+    if shift
+      if !shift.full?
+        create_assignment
+      else
+        failure("Full")
+      end
+    else
+      failure("No shift")
+    end
+  else
+    failure("No worker")
+  end
+end
+🗂️ Database Conventions
+1. UTC Datetimes (Enforced)
+Ruby
+# ✅ CORRECT: All datetime columns end with _utc
+create_table :shifts do |t|
+  t.timestamptz :start_time_utc, null: false
+  t.timestamptz :end_time_utc, null: false
+  t.timestamptz :created_at_utc
+end
+
+# ❌ WRONG: Timezone-naive
+create_table :shifts do |t|
+  t.timestamp :start_time      # ← Missing _utc suffix!
+end
+2. Foreign Keys (Explicit)
+Ruby
+# ✅ CORRECT: Explicit on_delete
+add_foreign_key :assignments, :workers, on_delete: :restrict
+add_foreign_key :assignments, :shifts, on_delete: :cascade
+
+# ❌ WRONG: No on_delete specified
+add_foreign_key :assignments, :workers  # Default behavior unclear
+3. Indexing
+Ruby
+# ✅ CORRECT: Index all foreign keys
+add_index :assignments, :worker_id
+add_index :assignments, :shift_id
+
+# ✅ CORRECT: Compound indexes for queries
+add_index :shifts, [:start_time_utc, :status]
+
+# ✅ CORRECT: GIN for JSONB
+add_index :workers, :skills_json, using: :gin
+🧪 Testing Standards
+1. Test Location
+Code
+test/                        # Minitest (primary)
+├── models/
+├── services/
+└── controllers/
+
+spec/                        # RSpec (secondary, being phased out)
+Preference: Use Minitest for new tests (Rails default)
+
+2. Test Structure
+Ruby
+# test/services/assign_worker_to_shift_test.rb
+class AssignWorkerToShiftTest < ActiveSupport::TestCase
+  setup do
+    @worker = workers(:sarah)  # Fixture
+    @shift = shifts(:morning_shift)
+  end
+
+  test "assigns worker successfully when no conflicts" do
+    result = AssignWorkerToShift.call(@shift, @worker, users(:admin))
+    
+    assert result[:success]
+    assert_equal @shift, result[:data][:assignment].shift
+    assert_equal @worker, result[:data][:assignment].worker
+  end
+
+  test "fails when worker has overlapping shift" do
+    # Create overlapping assignment
+    Assignment.create!(
+      worker: @worker,
+      shift: shifts(:overlapping_shift),
+      status: 'assigned'
+    )
+    
+    result = AssignWorkerToShift.call(@shift, @worker, users(:admin))
+    
+    assert_not result[:success]
+    assert_match /overlap/i, result[:error]
+  end
+
+  test "fails when shift is at capacity" do
+    # Fill shift to capacity
+    @shift.capacity.times do
+      Assignment.create!(
+        worker: workers(:available),
+        shift: @shift,
+        status: 'assigned'
+      )
+    end
+    
+    result = AssignWorkerToShift.call(@shift, @worker, users(:admin))
+    
+    assert_not result[:success]
+    assert_match /capacity/i, result[:error]
+  end
+end
+3. Test Coverage Requirements
+Services: 100% (all branches, edge cases)
+Models: 100% (validations, associations, methods)
+Controllers: 80%+ (happy path + common errors)
+🔒 Security Standards
+1. Strong Params (Always)
+Ruby
+# ✅ CORRECT
+def worker_params
+  params.require(:worker).permit(:first_name, :last_name, :phone, :email, :hourly_rate)
+end
+
+# ❌ WRONG
+def worker_params
+  params[:worker]  # ← Mass assignment vulnerability!
+end
+2. SQL Injection Prevention
+Ruby
+# ✅ CORRECT: Parameterized
+Worker.where("first_name ILIKE ?", "%#{query}%")
+
+# ❌ WRONG: String interpolation
+Worker.where("first_name ILIKE '%#{query}%'")  # ← SQL injection risk!
+3. Authentication
+Ruby
+# ✅ CORRECT: All API endpoints require auth
+class Api::V1::BaseController < ApplicationController
+  before_action :authenticate_user!  # Devise
+end
+
+# ❌ WRONG: Unauthenticated endpoints
+class SomeController < ApplicationController
+  # No authentication!
+end
+📊 Performance Guidelines
+1. N+1 Prevention
+Ruby
+# ✅ CORRECT: Eager load
+@shifts = Shift.includes(:assignments, :worker).all
+
+# ❌ WRONG: N+1 query
+@shifts = Shift.all
+@shifts.each { |s| puts s.assignments.count }  # ← N+1!
+2. Pagination (Always)
+Ruby
+# ✅ CORRECT: Use Kaminari
+@workers = Worker.active.page(params[:page]).per(25)
+
+# ❌ WRONG: Load all records
+@workers = Worker.all  # ← Memory issue with large datasets!
+🚀 Deployment Standards
+1. Environment Variables (Required)
+bash
+# Production
+DATABASE_URL=postgres://...
+SECRET_KEY_BASE=...
 RAILS_ENV=production
-RAILS_MASTER_KEY=...          # from config/master.key
-```
-
-**Optional:**
-
-```bash
-SENTRY_DSN=...
-SMTP_ADDRESS=...
-SMTP_USERNAME=...
-SMTP_PASSWORD=...
-```
-
-### Commands
-
-```bash
-# Staging
-git push staging main
-heroku run rails db:migrate -a <staging-app>
-heroku run rails db:seed    -a <staging-app>
-curl https://<staging-app>.herokuapp.com/healthz
-```
-
-### Heroku Config
-
-* Dyno: **Eco** ($5) or **Basic** ($7)
-* Postgres: **Mini** ($5, 10k rows)
-* Backups: daily, 7-day retention (automatic)
-* Logs: `heroku logs --tail -a <app>`
-
-### Health Check Endpoint
-
-```ruby
+RAILS_MASTER_KEY=...
+SENTRY_DSN=...  # Error tracking
+2. Health Check
+Ruby
 # GET /healthz (unauthenticated)
 class HealthController < ApplicationController
   skip_before_action :verify_authenticity_token
@@ -359,87 +676,143 @@ class HealthController < ApplicationController
 
   def check
     ActiveRecord::Base.connection.execute('SELECT 1')
-    render json: { status: 'healthy', database: 'connected', timestamp: Time.current.utc.iso8601 }
+    render json: {
+      status: 'healthy',
+      database: 'connected',
+      timestamp: Time.current.utc.iso8601
+    }
   rescue => e
-    render json: { status: 'unhealthy', error: e.message }, status: 503
+    render json: {
+      status: 'unhealthy',
+      error: e.message
+    }, status: 503
   end
 end
-```
+🎯 MVP Scope (Prevent Creep)
+✅ In Scope
+Worker CRUD + search
+Shift CRUD + assignment
+Conflict detection (3 rules only)
+Activity logging
+Approval workflow
+Basic reports
+❌ Out of Scope
+Worker self-service portal
+SMS notifications
+CSV import/export
+Advanced analytics
+Mobile app
+Public API
+Rule: Any new feature requires approval from Bobby/Rav + timeline adjustment
 
----
-
-## Project-Specific Rules
-
-### Business Rules
-
-1. Workers with assignment history **cannot be deleted** — set `active=false`.
-2. Every data modification **must** create an `ActivityLog` record.
-3. MVP is **admin-only** (no worker/client portal).
-4. Seed 3 admins: **Natalie, Madison, Sarah**.
-
-### Status Workflows
-
-* **Shifts:** `draft → published → assigned → completed`
-* **Assignments:** `assigned → completed | no_show | cancelled`
-
-### Activity Logging (Pattern)
-
-```ruby
-# app/models/concerns/auditable.rb
-module Auditable
-  extend ActiveSupport::Concern
-
-  included do
-    after_create :log_create
-    after_update :log_update
-    after_destroy :log_destroy
-  end
-
-  def log_create
-    ActivityLog.create!(
-      actor_user_id: Current.user&.id,
-      entity_type: self.class.name,
-      entity_id: id,
-      action: 'created',
-      after_json: attributes,
-      created_at_utc: Time.current
-    )
-  end
-
-  def log_update
-    return unless saved_changes.any?
-    ActivityLog.create!(
-      actor_user_id: Current.user&.id,
-      entity_type: self.class.name,
-      entity_id: id,
-      action: 'updated',
-      before_json: saved_changes.transform_values(&:first),
-      after_json: saved_changes.transform_values(&:last),
-      created_at_utc: Time.current
-    )
-  end
+📝 Documentation Standards
+1. Minimal Comments (Preferred)
+Ruby
+# ✅ GOOD: Only when non-obvious
+# Calculate overtime for non-exempt workers
+# Overtime = hours worked - 40 hours/week
+def calculate_overtime(hours)
+  [hours - 40, 0].max
 end
-```
+
+# ❌ BAD: Obvious comments
+# Set name to name parameter
+self.name = name  # ← Adds no value
+2. README Format
+Setup instructions
+Environment variables
+Running tests
+Deployment process
+Known issues
+🔄 Code Review Checklist
+Before committing, verify:
+
+ Follows existing patterns (ApplicationService, Auditable, etc.)
+ No duplicate code (check for similar methods/components)
+ Uses SSOT (calculations in models, not controllers)
+ Has tests (at least happy path)
+ No N+1 queries (use includes)
+ Strong params used
+ Error messages are user-friendly
+ Guard clauses (early returns)
+ UTC datetime columns end with _utc
+ No any types in TypeScript
+ Reuses existing components (no new LoadingSpinner!)
+🚨 Critical Reminders
+Service Pattern: Use ApplicationService base, return { success:, data:, error: }
+Activity Logging: Use Auditable concern (not manual logs)
+Serialization: Extract to presenters (not controller methods)
+Component Reuse: Check components/common/ before creating new
+UTC Everywhere: All datetime columns must end with _utc
+Soft Deletes: Workers with assignments use active: false (not destroy)
+Guard Clauses: Fail fast with early returns
+Error Messages: User-friendly, actionable, specific
+Constants: Use config/constants.rb (no magic strings)
+Scope Control: No new features without approval
+🎓 Project-Specific Context
+Main Models:
+
+Worker (first_name, last_name, email, phone, skills_json, active, hourly_rate)
+Shift (start_time_utc, end_time_utc, role_needed, capacity, status, pay_rate, event_id)
+Assignment (worker_id, shift_id, status, hours_worked, hourly_rate, approved, approved_by_id)
+Event (title, status, venue_id, total_shifts_count, assigned_shifts_count)
+ActivityLog (actor_user_id, entity_type, entity_id, action, before_json, after_json)
+Conflict Rules (Only 3):
+
+Time overlap (start < existing.end AND end > existing.start)
+Capacity (assigned_count < shift.capacity)
+Certification expiration (cert.expires_at_utc >= shift.end_time_utc)
+Tech Stack:
+
+Ruby 3.4.5, Rails 7.2.0, PostgreSQL 14+
+React 18, TypeScript 5, Tailwind CSS 3.4
+Heroku (staging: sc-mvp-staging, production: sc-mvp-production)
+Sentry (error tracking)
+Remember: This is production code for professional use, not a prototype. Optimize for clarity, maintainability, and reliability.
+
+Code
 
 ---
 
-## Generation Guidelines
+## ✅ What This `.cursorrules` File Does
 
-1. Add friendly, actionable validation messages.
-2. Use comments only for non-obvious business logic.
-3. Consider nil/empty/boundary/concurrent cases.
-4. Generate tests alongside core logic.
-5. Prefer “Rails way” solutions; avoid over-engineering.
-6. Eager load associations to avoid N+1s.
+### 1. **Enforces Your Existing Patterns**
+- ApplicationService base class
+- Auditable concern
+- BaseController methods
+- Component structure
+
+### 2. **Prevents Specific Problems Found**
+- ❌ No inconsistent error handling
+- ❌ No duplicate serialization in controllers
+- ❌ No duplicate frontend components
+- ❌ No manual activity logs
+
+### 3. **Maintains Code Quality**
+- Guard clauses (early returns)
+- User-friendly error messages
+- SSOT for calculations
+- Type safety (TypeScript)
+
+### 4. **Scales Properly**
+- Service objects for business logic
+- Eager loading (no N+1)
+- Indexing guidelines
+- Pagination
 
 ---
 
-## Critical Reminders
+## 🚀 How to Use
 
-* **21-day MVP** — hold the line on scope.
-* **Rails 7 + Postgres** (not MySQL).
-* **Heroku** hosting on GravyWork’s account.
-* **UTC everywhere** (`*_utc` + TIMESTAMPTZ).
-* **Advisory locks** on assignments.
-* **Three** conflict rules only: overlap, capacity, cert expiration.
-* **Soft deletes** for workers with history.
+1. **Save this file** as `.cursorrules` in your project root (same level as `Gemfile`)
+
+2. **Test it:**
+   - Open Cursor
+   - Ask: "Create a new service to bulk assign workers to shifts"
+   - Cursor should follow the ApplicationService pattern
+
+3. **Iterate:**
+   - If Cursor generates bad code, add specific rules
+   - Reference this file in prompts: "Follow the .cursorrules pattern"
+
+---

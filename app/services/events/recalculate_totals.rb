@@ -11,37 +11,46 @@ class Events::RecalculateTotals
     return failure("Event is required") unless @event.present?
     
     ActiveRecord::Base.transaction do
+      valid_assignments = fetch_valid_assignments
+      
       @event.update_columns(
-        total_hours_worked: calculate_total_hours,
-        total_pay_amount: calculate_total_pay,
+        total_hours_worked: calculate_total_hours(valid_assignments),
+        total_pay_amount: calculate_total_pay(valid_assignments),
         assigned_shifts_count: calculate_assigned_shifts,
         total_shifts_count: @event.shifts.count,
         updated_at: Time.current
       )
       
+      # Log activity for audit trail
+      log_recalculation_activity
+      
       success(@event)
     end
   rescue => e
-    Rails.logger.error "Events::RecalculateTotals failed for event #{@event.id}: #{e.message}"
+    Rails.logger.error "Events::RecalculateTotals failed for event #{@event.id}: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
     failure("Failed to recalculate totals: #{e.message}")
   end
 
   private
 
-  def calculate_total_hours
+  # Fetch all valid assignments (excludes cancelled and no_show)
+  # This is the SSOT for which assignments count toward totals
+  def fetch_valid_assignments
     @event.shifts.includes(:assignments)
       .flat_map(&:assignments)
       .reject { |a| a.status.in?(['cancelled', 'no_show']) }
-      .sum(&:effective_hours)
-      .round(2)
   end
 
-  def calculate_total_pay
-    @event.shifts.includes(:assignments)
-      .flat_map(&:assignments)
-      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
-      .sum(&:effective_pay)
-      .round(2)
+  # Calculate total hours worked using effective_hours (SSOT)
+  def calculate_total_hours(valid_assignments = nil)
+    assignments = valid_assignments || fetch_valid_assignments
+    assignments.sum(&:effective_hours).round(2)
+  end
+
+  # Calculate total pay (estimated cost) using effective_pay (SSOT)
+  def calculate_total_pay(valid_assignments = nil)
+    assignments = valid_assignments || fetch_valid_assignments
+    assignments.sum(&:effective_pay).round(2)
   end
 
   def calculate_assigned_shifts
@@ -49,6 +58,28 @@ class Events::RecalculateTotals
       .where.not(assignments: { status: ['cancelled', 'no_show'] })
       .distinct
       .count
+  end
+
+  # Log recalculation activity for audit trail
+  def log_recalculation_activity
+    return unless Current.user
+    
+    ActivityLog.create!(
+      actor_user_id: Current.user.id,
+      entity_type: 'Event',
+      entity_id: @event.id,
+      action: 'totals_recalculated',
+      after_json: {
+        total_hours_worked: @event.total_hours_worked,
+        total_pay_amount: @event.total_pay_amount,
+        assigned_shifts_count: @event.assigned_shifts_count,
+        total_shifts_count: @event.total_shifts_count
+      },
+      created_at_utc: Time.current
+    )
+  rescue => e
+    # Don't fail recalculation if logging fails
+    Rails.logger.warn "Failed to log recalculation activity: #{e.message}"
   end
 
   def success(event)

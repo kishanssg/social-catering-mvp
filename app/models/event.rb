@@ -268,6 +268,8 @@ class Event < ApplicationRecord
 
   # Force recalculation of totals (called by callbacks and other models)
   # Uses centralized service for consistency (Single Source of Truth)
+  # Public method to recalculate totals using SSOT service
+  # Delegates to Events::RecalculateTotals for consistency
   def recalculate_totals!
     # Use centralized service for recalculation
     result = Events::RecalculateTotals.new(event: self).call
