@@ -211,6 +211,19 @@ function WorkerRow({
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
+      {/* Checkbox */}
+      <td className="py-4 px-3 w-12">
+        {canSelect && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(assignment.id)}
+            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
+      </td>
+      
       {/* Worker Info */}
       <td className="py-4 px-3">
         <div className="flex items-center gap-3">
@@ -349,7 +362,7 @@ function WorkerRow({
     {/* Expanded Edit Panel - Below Row */}
     {isEditing && (
       <tr className="bg-slate-50">
-        <td colSpan={7} className="px-3 py-0">
+        <td colSpan={8} className="px-3 py-0">
           <div className="overflow-hidden transition-all duration-300 ease-in-out">
             <div className="py-3">
               {/* CHANGED: Softer border (slate-300), less padding (p-3) */}
@@ -526,7 +539,7 @@ function WorkerRow({
 
     {/* Mobile View (below sm) */}
     <tr className="sm:hidden">
-      <td colSpan={7} className="py-3 px-3">
+      <td colSpan={8} className="py-3 px-3">
         <div className={cn(
           "p-3 rounded-lg space-y-2 transition-all duration-150",
           isEditing && "bg-blue-50 border-2 border-blue-500",
@@ -1104,6 +1117,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             <table className="w-full">
               <thead className="border-b border-gray-200 hidden sm:table-header-group">
                 <tr className="text-left">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-12 px-3">
+                    {eligibleAssignments.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={selectedEligible.length === eligibleAssignments.length && eligibleAssignments.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                        title={selectedEligible.length === eligibleAssignments.length ? "Deselect all" : "Select all"}
+                      />
+                    )}
+                  </th>
                   <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[25%]">
                     Worker
                   </th>
@@ -1223,10 +1247,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 Close
               </button>
               
-              {/* CHANGED: Only show Approve All when pending > 0 */}
+              {/* CHANGED: Single approve button - approves selected if any, otherwise all */}
               {pendingCount > 0 && (
                 <button
-                  onClick={handleApproveAll}
+                  onClick={() => {
+                    // If items are selected, approve selected; otherwise approve all
+                    if (selectedEligible.length > 0) {
+                      handleApproveSelected();
+                    } else {
+                      handleApproveAll();
+                    }
+                  }}
                   disabled={isApproving}
                   className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
                 >
@@ -1238,7 +1269,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   ) : (
                     <>
                       <Check className="h-4 w-4" />
-                      Approve All ({pendingCount})
+                      {selectedEligible.length > 0 
+                        ? `Approve Selected (${selectedEligible.length})`
+                        : `Approve All (${pendingCount})`
+                      }
                     </>
                   )}
                 </button>
