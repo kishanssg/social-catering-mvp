@@ -61,6 +61,8 @@ interface Event {
     approved: number;
     pending: number;
   };
+  // Full event details (loaded when expanded)
+  full_details?: any;
 }
 
 interface ShiftsByRole {
@@ -277,7 +279,36 @@ export function EventsPage() {
           );
           setEvents(eventsWithApprovals);
         } else {
-          setEvents(loadedEvents);
+          // ✅ CRITICAL FIX: Preserve detailed data temporarily, then refresh for expanded events
+          // This prevents assignments from disappearing after assignment/unassignment operations
+          const expandedIds = Array.from(expandedEvents);
+          
+          setEvents(prevEvents => {
+            const eventMap = new Map(prevEvents.map(e => [e.id, e]));
+            return loadedEvents.map((newEvent: Event) => {
+              const existingEvent = eventMap.get(newEvent.id);
+              // If this event is expanded and has detailed data, preserve it temporarily
+              // We'll refresh it immediately after, but this prevents a flash of "no assignments"
+              if (expandedIds.includes(newEvent.id) && existingEvent?.shifts_by_role && existingEvent.shifts_by_role.length > 0) {
+                return {
+                  ...newEvent,
+                  shifts_by_role: existingEvent.shifts_by_role,
+                  full_details: existingEvent.full_details || existingEvent
+                };
+              }
+              return newEvent;
+            });
+          });
+          
+          // Immediately re-fetch full details for expanded events to get fresh data
+          if (expandedIds.length > 0) {
+            // Re-fetch details for all expanded events in parallel (non-blocking)
+            Promise.all(
+              expandedIds.map(eventId => fetchEventDetails(eventId))
+            ).catch(err => {
+              console.error('Failed to refresh expanded event details:', err);
+            });
+          }
         }
       }
     } catch (error) {
