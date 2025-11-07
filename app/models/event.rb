@@ -161,9 +161,9 @@ class Event < ApplicationRecord
       .round(2)
   end
   
-  # Total cost (approved + pending) - alias for calculate_total_pay_amount
+  # Total cost (approved + pending) - use denormalized column (SSOT)
   def total_labor_cost
-    calculate_total_pay_amount
+    total_pay_amount || 0
   end
   
   # Check if all hours are approved
@@ -312,11 +312,8 @@ class Event < ApplicationRecord
   end
 
   def update_completion_metrics
-    # Recalculate totals (works for both completed and active events now)
-    update_columns(
-      total_hours_worked: calculate_total_hours_worked,
-      total_pay_amount: calculate_total_pay_amount,
-      updated_at: Time.current
-    )
+    # Use SSOT service for recalculation (works for both completed and active events)
+    # This ensures consistency and proper activity logging
+    recalculate_totals!
   end
 end
