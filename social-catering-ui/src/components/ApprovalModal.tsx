@@ -87,12 +87,22 @@ function WorkerRow({
   const [showActions, setShowActions] = useState(false);
 
   const formatDateTime = (dateString?: string) => {
-    if (!dateString) return '';
+    if (!dateString) return 'N/A';
     try {
       const date = parseISO(dateString);
       return format(date, 'MMM d, yyyy h:mm a');
     } catch {
-      return new Date(dateString).toLocaleString();
+      try {
+        return new Date(dateString).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit'
+        });
+      } catch {
+        return 'N/A';
+      }
     }
   };
 
