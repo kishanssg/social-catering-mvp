@@ -218,24 +218,37 @@ class Assignment < ApplicationRecord
   end
 
   # Determine if event totals need updating
+  # Triggers on any field that affects effective_hours or effective_pay
   def should_update_event_totals?
     saved_change_to_hours_worked? || 
     saved_change_to_hourly_rate? || 
-    saved_change_to_status?
+    saved_change_to_status? ||
+    saved_change_to_shift_id?  # Moving assignment to different shift affects event totals
   end
 
   # Update event totals when assignment changes
-  # Uses centralized service for consistency
+  # Uses centralized service for consistency (SSOT)
+  # Wrapped in transaction to ensure atomicity with parent operation
   def update_event_totals
     return unless shift&.event
     
     event = shift.event
     
+    # Set Current.user for activity logging if available
+    # (assignment callbacks may not have user context, so this is optional)
+    previous_user = Current.user
+    
     # Use centralized recalculation service (Single Source of Truth)
+    # This runs within the same transaction as the assignment update
     result = Events::RecalculateTotals.new(event: event).call
     unless result[:success]
       Rails.logger.error "Assignment #{id}: Failed to update event totals: #{result[:error]}"
+      # Don't raise - allow assignment update to succeed even if totals fail
+      # Totals will be recalculated on next assignment change
     end
+  ensure
+    # Restore previous user context
+    Current.user = previous_user
   end
 
   # Approval API

@@ -15,6 +15,9 @@ class Shift < ApplicationRecord
   has_many :assignments, dependent: :destroy
   has_many :workers, through: :assignments
 
+  # Recalculate event totals when shift pay_rate changes (affects assignment effective_pay)
+  after_update :recalculate_event_totals_if_pay_rate_changed, if: :saved_change_to_pay_rate?
+
   validates :client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, presence: true
   validates :capacity, numericality: { greater_than: 0 }
   validates :status, inclusion: { in: %w[draft published archived] }
@@ -179,6 +182,19 @@ class Shift < ApplicationRecord
   end
 
   private
+
+  # Recalculate event totals when shift pay_rate changes
+  # This ensures assignments using shift.pay_rate have correct effective_pay
+  def recalculate_event_totals_if_pay_rate_changed
+    return unless event.present?
+    
+    # Use centralized recalculation service (SSOT)
+    result = Events::RecalculateTotals.new(event: event).call
+    unless result[:success]
+      Rails.logger.error "Shift #{id}: Failed to update event totals after pay_rate change: #{result[:error]}"
+      # Don't raise - allow shift update to succeed
+    end
+  end
 
   def end_time_after_start_time
     if end_time_utc && start_time_utc && end_time_utc <= start_time_utc
