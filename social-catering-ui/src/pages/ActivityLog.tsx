@@ -229,7 +229,7 @@ export const ActivityLog: React.FC = () => {
   const getDetailChips = (details: Record<string, any>) => {
     if (!details || Object.keys(details).length === 0) return null;
     
-    const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'email', 'phone'];
+    const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'notes', 'email', 'phone'];
     const items = Object.entries(details)
       .filter(([k, v]) => {
         // Filter out technical fields and empty values

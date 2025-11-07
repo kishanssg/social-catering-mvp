@@ -892,16 +892,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       requireNote: true,
       note: '',
       variant: 'warning',
-      onConfirm: async () => {
+      onConfirm: async (note?: string) => {
+        // Note is passed from the confirm button click handler
+        const noteToSend = note || confirmDialog.note || '';
+        setConfirmDialog({ open: false, title: '' });
         try {
-          await apiClient.post(`/approvals/${assignment.id}/mark_no_show`, { notes: confirmDialog.note });
+          await apiClient.post(`/approvals/${assignment.id}/mark_no_show`, { notes: noteToSend });
           await loadAssignments();
           setToast({ isVisible: true, type: 'success', message: 'Marked as no-show' });
         } catch (error: any) {
           console.error('Error marking no-show:', error);
           setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to mark no-show' });
-        } finally {
-          setConfirmDialog({ open: false, title: '' });
         }
       }
     });
@@ -915,16 +916,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       requireNote: true,
       note: '',
       variant: 'danger',
-      onConfirm: async () => {
+      onConfirm: async (note?: string) => {
+        // Note is passed from the confirm button click handler
+        const noteToSend = note || confirmDialog.note || '';
+        setConfirmDialog({ open: false, title: '' });
         try {
-          await apiClient.delete(`/approvals/${assignment.id}/remove`, { data: { notes: confirmDialog.note } });
+          await apiClient.delete(`/approvals/${assignment.id}/remove`, { data: { notes: noteToSend } });
           await loadAssignments();
           setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
         } catch (error: any) {
           console.error('Error removing assignment:', error);
           setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to remove assignment' });
-        } finally {
-          setConfirmDialog({ open: false, title: '' });
         }
       }
     });
@@ -1274,7 +1276,13 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 Cancel
               </button>
               <button
-                onClick={async () => { await confirmDialog.onConfirm?.(); }}
+                onClick={async () => {
+                  // Capture note from current dialog state before calling onConfirm
+                  const currentNote = confirmDialog.note || '';
+                  if (confirmDialog.onConfirm) {
+                    await confirmDialog.onConfirm(currentNote);
+                  }
+                }}
                 className={
                   `px-4 py-2 text-white text-sm font-medium rounded-md ` +
                   (confirmDialog.variant === 'danger'

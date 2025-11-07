@@ -75,14 +75,16 @@ class ActivityLogPresenter
       {
         worker_name: worker_name,
         event_name: event_name,
-        role: role
+        role: role,
+        notes: dj(:notes)
       }.compact
     when ["Assignment", "removed_from_job"]
       worker_name, event_name, role = fetch_assignment_details
       {
         worker_name: worker_name,
         event_name: event_name,
-        role: role
+        role: role,
+        notes: dj(:notes)
       }.compact
     when ["Worker", "created"]
       {
@@ -183,16 +185,22 @@ class ActivityLogPresenter
     # Use full worker name for no-show
     worker_display = worker || 'a worker'
     event_display = event || 'an event'
+    notes = dj(:notes)
     
-    "#{actor_name} marked #{worker_display} as no show for #{event_display}"
+    summary = "#{actor_name} marked #{worker_display} as no show for #{event_display}"
+    summary += " (#{notes})" if notes.present?
+    summary
   end
 
   def build_removed_summary(worker, event, role)
     # Use full worker name for removed
     worker_display = worker || 'a worker'
     event_display = event || 'an event'
+    notes = dj(:notes)
     
-    "#{actor_name} removed #{worker_display} from #{event_display}"
+    summary = "#{actor_name} removed #{worker_display} from #{event_display}"
+    summary += " (#{notes})" if notes.present?
+    summary
   end
 
   def format_entity_type
