@@ -55,6 +55,12 @@ interface Event {
   shifts_count: number;
   shifts_by_role?: ShiftsByRole[];
   created_at: string;
+  // Approval status (fetched separately for completed events)
+  approval_status?: {
+    total: number;
+    approved: number;
+    pending: number;
+  };
 }
 
 interface ShiftsByRole {
@@ -88,6 +94,12 @@ interface Assignment {
   hours_worked?: number;
   hourly_rate?: number;
   status: string;
+  approved?: boolean;
+  approved_by_name?: string;
+  approved_at?: string;
+  scheduled_hours?: number;
+  effective_hours?: number;
+  effective_pay?: number;
 }
 
 export function EventsPage() {
@@ -235,7 +247,38 @@ export function EventsPage() {
       
       if (response.data.status === 'success') {
         console.log('Received events:', response.data.data.length);
-        setEvents(response.data.data);
+        const loadedEvents = response.data.data;
+        
+        // For completed events, fetch approval status
+        if (activeTab === 'completed') {
+          const eventsWithApprovals = await Promise.all(
+            loadedEvents.map(async (event: Event) => {
+              try {
+                const apprResponse = await apiClient.get(`/events/${event.id}/approvals`);
+                if (apprResponse.data?.status === 'success') {
+                  const assignments = apprResponse.data.data.assignments || [];
+                  const total = assignments.length;
+                  const approved = assignments.filter((a: any) => a.approved).length;
+                  return {
+                    ...event,
+                    approval_status: {
+                      total,
+                      approved,
+                      pending: total - approved
+                    }
+                  };
+                }
+              } catch (e) {
+                // Non-blocking - just skip approval status
+                console.warn(`Failed to load approval status for event ${event.id}:`, e);
+              }
+              return event;
+            })
+          );
+          setEvents(eventsWithApprovals);
+        } else {
+          setEvents(loadedEvents);
+        }
       }
     } catch (error) {
       console.error('Failed to load events:', error);
@@ -265,9 +308,37 @@ export function EventsPage() {
   
   const fetchEventDetails = async (eventId: number) => {
     try {
-      const response = await apiClient.get(`/events/${eventId}`);
-      if (response.data?.status === 'success') {
-        const detailed = response.data.data;
+      const [eventResponse, approvalsResponse] = await Promise.all([
+        apiClient.get(`/events/${eventId}`),
+        apiClient.get(`/events/${eventId}/approvals`).catch(() => null) // Non-blocking
+      ]);
+      
+      if (eventResponse.data?.status === 'success') {
+        const detailed = eventResponse.data.data;
+        
+        // Merge approval status into assignments if available
+        if (approvalsResponse?.data?.status === 'success') {
+          const approvalAssignments = approvalsResponse.data.data.assignments || [];
+          const approvalMap = new Map(approvalAssignments.map((a: any) => [a.id, a]));
+          
+          // Update assignments in shifts_by_role with approval data
+          if (detailed.shifts_by_role) {
+            detailed.shifts_by_role = detailed.shifts_by_role.map((roleGroup: any) => ({
+              ...roleGroup,
+              shifts: roleGroup.shifts.map((shift: any) => ({
+                ...shift,
+                assignments: shift.assignments.map((assignment: any) => {
+                  const approvalData = approvalMap.get(assignment.id);
+                  if (approvalData && typeof approvalData === 'object') {
+                    return { ...assignment, ...approvalData };
+                  }
+                  return assignment;
+                })
+              }))
+            }));
+          }
+        }
+        
         setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, ...detailed } : e)));
       }
     } catch (err) {
@@ -762,9 +833,12 @@ export function EventsPage() {
         <ApprovalModal
           event={approvalModal.event}
           isOpen={approvalModal.isOpen}
-          onClose={() => setApprovalModal({ isOpen: false })}
+          onClose={() => {
+            setApprovalModal({ isOpen: false });
+            loadEvents(); // Refresh to update approval badges
+          }}
           onSuccess={() => {
-            loadEvents();
+            loadEvents(); // Refresh to update approval badges
             setApprovalModal({ isOpen: false });
           }}
         />
@@ -1371,13 +1445,27 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="flex-1 text-left">
-                <div className="flex items-start gap-3 mb-2">
+                <div className="flex items-start gap-3 mb-2 flex-wrap">
                   <h3 className="text-lg font-semibold text-gray-900">
                     {event.title}
                   </h3>
                   <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
                     Completed
                   </span>
+                  {/* Approval Status Badge */}
+                  {event.approval_status && event.approval_status.total > 0 && (
+                    event.approval_status.approved === event.approval_status.total ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
+                        <Check size={12} />
+                        All Hours Approved
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                        <AlertCircle size={12} />
+                        {event.approval_status.pending} Pending Approval
+                      </span>
+                    )
+                  )}
                 </div>
                 {/* Approve button moved to right side for cleaner alignment */}
                 
@@ -1405,13 +1493,26 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
               
               <div className="ml-4 flex items-center gap-2">
                 {onApproveHours && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onApproveHours(event); }}
-                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
-                    title="Approve Hours"
-                  >
-                    Approve Hours
-                  </button>
+                  event.approval_status && event.approval_status.approved === event.approval_status.total ? (
+                    <span className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-md flex items-center gap-1 font-medium">
+                      <Check size={14} />
+                      Approved
+                    </span>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onApproveHours(event); }}
+                      className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-1 ${
+                        event.approval_status && event.approval_status.pending > 0
+                          ? 'bg-amber-600 text-white hover:bg-amber-700'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                      title="Approve Hours"
+                    >
+                      {event.approval_status && event.approval_status.pending > 0
+                        ? `Approve Hours (${event.approval_status.pending})`
+                        : 'Approve Hours'}
+                    </button>
+                  )
                 )}
                 <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
                   {isExpanded ? (
@@ -1485,25 +1586,43 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                               <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-medium">
                                 {(assignment.worker?.first_name?.[0]) || ''}{(assignment.worker?.last_name?.[0]) || ''}
                               </div>
-                                <span className="text-sm font-medium text-gray-900">
-                                {assignment.worker?.first_name || 'Unknown'} {assignment.worker?.last_name || 'Worker'}
-                                </span>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {assignment.worker?.first_name || 'Unknown'} {assignment.worker?.last_name || 'Worker'}
+                                  </span>
+                                  {/* Approval Status */}
+                                  {assignment.approved ? (
+                                    <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                                      <Check size={10} />
+                                      Approved{assignment.approved_by_name ? ` by ${assignment.approved_by_name.split('@')[0]}` : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-amber-600 font-medium">Pending Approval</span>
+                                  )}
+                                </div>
                               </div>
                               
                               <div className="flex items-center gap-4 text-sm text-gray-600">
-                                {assignment.hours_worked && (
+                                {/* Scheduled vs Actual Hours */}
+                                {assignment.scheduled_hours !== undefined && (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-xs text-gray-500">Scheduled: {safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</span>
+                                    <span className="font-medium">
+                                      {safeToFixed(assignment.effective_hours || assignment.hours_worked || 0, 2, '0.00')} hrs
+                                    </span>
+                                  </div>
+                                )}
+                                {!assignment.scheduled_hours && assignment.hours_worked && (
                                   <span className="font-medium">
-                                  {safeToFixed(assignment.hours_worked, 2, '0.00')} hrs
+                                    {safeToFixed(assignment.hours_worked, 2, '0.00')} hrs
                                   </span>
                                 )}
                                 <span className="font-medium text-green-600">
                                   ${safeToFixed(Number(assignment.hourly_rate ?? shift.pay_rate ?? 0), 0, '0')}/hr
                                 </span>
-                                {assignment.hours_worked && (
-                                  <span className="font-semibold text-blue-600">
-                                  {safeToFixed((Number(assignment.hours_worked) || 0) * Number(assignment.hourly_rate ?? shift.pay_rate ?? 0), 0, '0')}
-                                  </span>
-                                )}
+                                <span className="font-semibold text-blue-600">
+                                  ${safeToFixed(assignment.effective_pay || (Number(assignment.hours_worked || 0) * Number(assignment.hourly_rate ?? shift.pay_rate ?? 0)), 0, '0')}
+                                </span>
                                 <span className="text-xs text-gray-500">
                                   {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
                                 </span>
