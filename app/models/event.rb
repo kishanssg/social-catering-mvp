@@ -96,13 +96,18 @@ class Event < ApplicationRecord
   def complete!(notes: nil)
     return false unless can_be_completed?
     
-    update!(
-      status: 'completed',
-      completed_at_utc: Time.current,
-      completion_notes: notes,
-      total_hours_worked: calculate_total_hours_worked,
-      total_pay_amount: calculate_total_pay_amount
-    )
+    ActiveRecord::Base.transaction do
+      # Use SSOT service to recalculate totals before completing
+      # This ensures totals are accurate and persisted
+      recalculate_totals!
+      
+      update!(
+        status: 'completed',
+        completed_at_utc: Time.current,
+        completion_notes: notes
+        # total_hours_worked and total_pay_amount already updated by recalculate_totals!
+      )
+    end
   end
 
   def calculate_total_hours_worked
