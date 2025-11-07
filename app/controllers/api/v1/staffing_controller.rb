@@ -7,7 +7,9 @@ module Api
       # GET /api/v1/staffing
       # Query params: event_id, worker_id, status, start_date, end_date
       def index
-        assignments = Assignment.includes(worker: [], shift: [:event, :skill_requirement])
+        # Filter out orphaned assignments (deleted events, archived shifts)
+        assignments = Assignment.valid
+                           .includes(worker: [], shift: [:event, :skill_requirement])
                            .order(created_at: :desc)
         
         # Filter by event

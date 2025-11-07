@@ -36,6 +36,25 @@ class Assignment < ApplicationRecord
   scope :active, -> { where(status: "assigned") }
   scope :completed, -> { where(status: "completed") }
   
+  # Filter out orphaned assignments (where shift or event is deleted/nil)
+  # Only include assignments where:
+  # 1. Shift exists and is not archived
+  # 2. If shift has an event, the event exists and is not deleted
+  scope :with_valid_shift, -> {
+    joins(:shift).where.not(shifts: { id: nil })
+      .where.not(shifts: { status: 'archived' })
+  }
+  scope :with_valid_event, -> {
+    # Include assignments where:
+    # - shift has no event (standalone shifts are OK)
+    # - OR shift has an event that exists and is not deleted
+    left_joins(shift: :event)
+      .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
+  }
+  scope :valid, -> {
+    with_valid_shift.with_valid_event
+  }
+  
   # New scopes for reporting
   scope :with_hours, -> { where.not(hours_worked: nil) }
   scope :for_date_range, ->(start_date, end_date) {
