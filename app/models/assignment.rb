@@ -61,6 +61,14 @@ class Assignment < ApplicationRecord
     joins(:shift)
     .where(shifts: { start_time_utc: start_date..end_date })
   }
+  scope :for_event, ->(event_id) {
+    joins(shift: :event).where(events: { id: event_id })
+  }
+  scope :upcoming, -> {
+    joins(:shift)
+      .where('shifts.start_time_utc > ?', Time.current)
+      .where.not(status: ['cancelled', 'no_show'])
+  }
   scope :clocked_in, -> { where.not(clock_in_time: nil) }
   scope :clocked_out, -> { where.not(clock_out_time: nil) }
   scope :with_overtime, -> { where('overtime_hours > 0') }
