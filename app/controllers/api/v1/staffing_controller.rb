@@ -60,6 +60,15 @@ module Api
       # POST /api/v1/staffing
       def create
         @assignment = Assignment.new(assignment_params)
+        
+        # Prevent assigning inactive workers
+        unless @assignment.worker&.active?
+          return render json: {
+            status: 'error',
+            message: 'Cannot assign inactive worker. Please activate the worker first.'
+          }, status: :unprocessable_entity
+        end
+        
         @assignment.assigned_by_id = current_user.id
         @assignment.assigned_at_utc ||= Time.current
         @assignment.status ||= 'assigned'
