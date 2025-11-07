@@ -57,9 +57,14 @@ interface Event {
   shifts_count: number;
   shifts_by_role?: ShiftsByRole[];
   created_at: string;
-  // Backend-calculated totals (SSOT - use as fallback)
-  total_hours_worked?: number;
-  total_pay_amount?: number;
+  // Aggregates (SSOT - always included from API, never lazy)
+  total_hours?: number;  // From lightweight serializer
+  total_hours_worked?: number;  // From detailed serializer
+  total_cost?: number;  // From lightweight serializer
+  total_pay_amount?: number;  // From detailed serializer
+  estimated_cost?: number;  // Alias for total_pay_amount/total_cost
+  hired_count?: number;  // Alias for assigned_workers_count
+  required_count?: number;  // Alias for total_workers_needed
   // Approval status (fetched separately for completed events)
   approval_status?: {
     total: number;
@@ -1239,23 +1244,11 @@ function ActiveEventsTab({
                 const percentage = total > 0 ? Math.round((assigned / total) * 100) : 0;
                 const unfilledCount = event.unfilled_roles_count || 0;
                 
-                // Calculate estimated cost
+                // Use aggregates from API (SSOT - no lazy calculation)
                 const estimatedCost = (() => {
-                  if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                    return safeToFixed(event.total_pay_amount, 2, '0.00');
-                  }
-                  let totalCost = 0;
-                  if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                    event.shifts_by_role.forEach(roleGroup => {
-                      roleGroup.shifts?.forEach(shift => {
-                        shift.assignments?.forEach((assignment: any) => {
-                          const pay = safeNumber(assignment.effective_pay);
-                          totalCost += pay;
-                        });
-                      });
-                    });
-                  }
-                  return safeToFixed(totalCost, 2, '0.00');
+                  // Prefer lightweight serializer fields, fallback to detailed serializer
+                  const cost = event.estimated_cost ?? event.total_cost ?? event.total_pay_amount ?? 0;
+                  return safeToFixed(cost, 2, '0.00');
                 })();
 
                 // Progress bar color based on percentage
@@ -1501,20 +1494,9 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
   return (
     <div className="space-y-4">
       {events.map((event) => {
-        // Calculate totals - prefer backend-calculated values (SSOT)
-        let totalHours = safeNumber(event.total_hours_worked);
-        
-        // Fallback: Calculate from assignments if backend totals not available
-        if (totalHours === 0 && event.shifts_by_role && event.shifts_by_role.length > 0) {
-          event.shifts_by_role.forEach(roleGroup => {
-            roleGroup.shifts?.forEach(shift => {
-              shift.assignments?.forEach((assignment: any) => {
-                const hours = safeNumber(assignment.effective_hours);
-              totalHours += hours;
-            });
-          });
-        });
-        }
+        // Use aggregates from API (SSOT - no lazy calculation)
+        // Prefer lightweight serializer fields, fallback to detailed serializer
+        const totalHours = safeNumber(event.total_hours ?? event.total_hours_worked ?? 0);
         
         return (
           <div 
