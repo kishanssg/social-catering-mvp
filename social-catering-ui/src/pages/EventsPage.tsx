@@ -986,31 +986,6 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
   
   return (
     <div className="space-y-4">
-      {/* Daily Staffing Summary */}
-      {events.length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-gray-600" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {events.length} Event{events.length !== 1 ? 's' : ''} Today
-                </p>
-                <p className="text-xs text-gray-700">
-                  {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}/
-                  {events.reduce((sum, e) => sum + (e.total_workers_needed || 0), 0)} workers hired
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900">
-                {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}
-              </p>
-              <p className="text-xs text-gray-700">hired</p>
-            </div>
-          </div>
-        </div>
-      )}
       {events.map((event) => (
         <div key={event.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
           <div className="p-6">
