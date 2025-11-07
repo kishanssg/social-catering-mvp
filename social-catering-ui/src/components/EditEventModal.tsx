@@ -361,7 +361,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Location</p>
                 <p className="text-sm font-semibold text-gray-900 leading-relaxed">{displayEvent.venue?.formatted_address}</p>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 md:col-start-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Time</p>
                 <p className="text-sm font-semibold text-gray-900">
                   {displayEvent.schedule && (
