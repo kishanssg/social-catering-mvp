@@ -1,291 +1,207 @@
-# SSOT Architecture Refactoring - Complete Summary
+# SSOT Refactoring Summary - Event Aggregates
 
-**Date:** 2025-01-26  
-**Status:** ✅ **ALL CRITICAL ISSUES RESOLVED**
+## Overview
 
----
+This document describes the Single Source of Truth (SSOT) implementation for event aggregates (total hours, estimated cost, hired/required counts) and when totals change.
 
-## 🎯 OBJECTIVE
+## Counted Statuses
 
-Validate and fix all SSOT, DRY, and Event-Driven Consistency violations identified in `SSOT_ARCHITECTURE_AUDIT.md`.
+### Included in Totals
+The following assignment statuses **are included** in event totals:
+- `assigned` - Worker assigned but not yet started
+- `confirmed` - Worker confirmed attendance
+- `completed` - Shift completed successfully
+- `checked_out` - Worker checked out (if applicable)
 
----
+### Excluded from Totals
+The following assignment statuses **are excluded** from event totals:
+- `cancelled` - Assignment was cancelled
+- `no_show` - Worker did not show up
 
-## ✅ COMPLETED FIXES
+**Implementation:** The `Events::RecalculateTotals` service filters assignments using:
+```ruby
+.reject { |a| a.status.in?(['cancelled', 'no_show']) }
+```
 
-### 1. EventSkillRequirement → Shift Pay Rate Cascade ✅
+## When Totals Change
 
-**Issue:** Pay rate changes didn't cascade to existing shifts  
-**Impact:** Payroll inconsistency, legal risk  
-**Fix:** Added `after_update` callback in `EventSkillRequirement` model
+Event totals are automatically recalculated when:
 
-**File:** `app/models/event_skill_requirement.rb`
-- **Added:** `cascade_pay_rate_to_shifts` callback (lines 53-92)
-- **Behavior:** Updates shifts with matching role that have nil or old requirement rate
-- **Respects:** Custom shift rates (doesn't override manually set rates)
-- **Triggers:** Event totals recalculation automatically
-- **Logs:** Activity for audit trail
+### 1. Assignment Changes
+- **Create:** New assignment added (`after_create` callback)
+- **Update:** Changes to:
+  - `hours_worked` - Actual hours worked
+  - `hourly_rate` - Worker's pay rate
+  - `status` - Assignment status (e.g., assigned → completed)
+  - `shift_id` - Moving assignment to different shift
+- **Destroy:** Assignment removed (`after_destroy` callback)
 
----
+### 2. Shift Changes
+- **Pay Rate:** When `shift.pay_rate` changes (affects assignments using shift rate)
 
-### 2. Event Schedule Time Sync - Duplication Removed ✅
+### 3. Event Skill Requirement Changes
+- **Pay Rate Cascade:** When `EventSkillRequirement.pay_rate` changes, it cascades to related shifts and triggers recalculation
 
-**Issue:** Same sync logic existed in two places (DRY violation)  
-**Impact:** Maintenance burden, potential inconsistency  
-**Fix:** Created centralized `Events::SyncShiftTimes` service
+### 4. Event Completion
+- **Complete Event:** When event status changes to `completed`, totals are recalculated before completion
 
-**Files Changed:**
-1. **Created:** `app/services/events/sync_shift_times.rb`
-   - Centralized service for shift time synchronization
-   - Single source of truth for sync logic
-   - Consistent logging and recalculation
+## Implementation Details
 
-2. **Updated:** `app/models/event_schedule.rb`
-   - Refactored `sync_shift_times` to use centralized service (lines 67-84)
+### Service: `Events::RecalculateTotals`
 
-3. **Updated:** `app/services/events/apply_role_diff.rb`
-   - Refactored `update_all_child_shift_times` to use centralized service (lines 266-273)
+**Location:** `app/services/events/recalculate_totals.rb`
 
-**Result:** No duplicate code, consistent behavior across all update paths
+**Responsibilities:**
+- Calculate `total_hours_worked` using `Assignment#effective_hours` (SSOT)
+- Calculate `total_pay_amount` (estimated cost) using `Assignment#effective_pay` (SSOT)
+- Calculate `assigned_shifts_count` (shifts with valid assignments)
+- Update `total_shifts_count`
+- Log activity for audit trail
 
----
+**Usage:**
+```ruby
+result = Events::RecalculateTotals.new(event: event).call
+# Returns: { success: true, event: event } or { success: false, error: message }
+```
 
-### 3. Event Totals Recalculation ✅
+### Model Method: `Event#recalculate_totals!`
 
-**Issue:** Totals only updated on completion, not on assignment changes  
-**Impact:** Stale totals, dashboard inconsistencies  
-**Fix:** Implemented comprehensive recalculation system
+**Location:** `app/models/event.rb`
 
-**Files Changed:**
+**Usage:**
+```ruby
+event.recalculate_totals!  # Delegates to Events::RecalculateTotals service
+```
 
-1. **Updated:** `app/models/event.rb`
-   - `calculate_total_hours_worked` - Now uses `effective_hours` (SSOT) (lines 108-114)
-   - `calculate_total_pay_amount` - Now uses `effective_pay` (SSOT) (lines 116-122)
-   - `recalculate_totals!` - NEW method uses centralized service (lines 242-250)
-   - `update_completion_metrics` - Works for both completed and active events (lines 252-256)
+### Callbacks
 
-2. **Updated:** `app/models/assignment.rb`
-   - `should_update_event_totals?` - NEW method checks hours, rate, status changes (lines 185-190)
-   - `update_event_totals` - UPDATED to use centralized service (lines 192-204)
-   - Callbacks now trigger on: create, destroy, update (hours/rate/status)
+**Assignment Model:**
+- `after_create :update_event_totals`
+- `after_destroy :update_event_totals`
+- `after_update :update_event_totals, if: :should_update_event_totals?`
 
-3. **Created:** `app/services/events/recalculate_totals.rb`
-   - Centralized service for event totals recalculation
-   - Uses SSOT methods (`effective_hours`, `effective_pay`)
-   - Wrapped in transaction for atomicity
-   - Updates: hours, pay, assigned_shifts_count, total_shifts_count
+**Shift Model:**
+- `after_update :recalculate_event_totals_if_pay_rate_changed, if: :saved_change_to_pay_rate?`
 
----
+**EventSkillRequirement Model:**
+- `after_update :cascade_pay_rate_to_shifts, if: :saved_change_to_pay_rate?` (also triggers recalculation)
 
-### 4. Transaction Wrapping ✅
+## API Response
 
-**Issue:** Assignment updates not atomic  
-**Impact:** Potential data inconsistency  
-**Fix:** Added transaction wrapper to assignments controller
+### Events Index (`GET /api/v1/events`)
 
-**File:** `app/controllers/api/v1/assignments_controller.rb`
-- **Updated:** `update` method (lines 93-104)
-- **Added:** `ActiveRecord::Base.transaction` wrapper
-- **Added:** Proper error handling for `RecordInvalid` and general exceptions
-- **Result:** Assignment update + event recalculation is now atomic
+**Lightweight Serializer** includes:
+- `total_hours` - Total hours worked (excludes no-show/cancelled)
+- `total_cost` - Total cost (excludes no-show/cancelled)
+- `estimated_cost` - Alias for total_cost
+- `hired_count` - Alias for assigned_workers_count
+- `required_count` - Alias for total_workers_needed
+- `assigned_workers_count` - Number of workers assigned
+- `total_workers_needed` - Number of workers required
+- `unfilled_roles_count` - Number of unfilled roles
+- `staffing_percentage` - Percentage of staffing complete
 
----
+**All aggregates are included in the initial fetch** - no lazy loading required.
 
-## 📊 FILES CHANGED SUMMARY
+## Frontend Usage
 
-### Models (4 files):
-1. ✅ `app/models/event_skill_requirement.rb` - Added pay_rate cascade
-2. ✅ `app/models/event.rb` - Updated calculations, added recalculate_totals!
-3. ✅ `app/models/assignment.rb` - Fixed callbacks to use centralized service
-4. ✅ `app/models/event_schedule.rb` - Refactored to use centralized service
+### Event Interface
+```typescript
+interface Event {
+  // Aggregates (SSOT - always included from API, never lazy)
+  total_hours?: number;  // From lightweight serializer
+  total_hours_worked?: number;  // From detailed serializer
+  total_cost?: number;  // From lightweight serializer
+  total_pay_amount?: number;  // From detailed serializer
+  estimated_cost?: number;  // Alias for total_pay_amount/total_cost
+  hired_count?: number;  // Alias for assigned_workers_count
+  required_count?: number;  // Alias for total_workers_needed
+  // ... other fields
+}
+```
 
-### Services (2 new, 1 updated):
-1. ✅ **NEW:** `app/services/events/sync_shift_times.rb` - Centralized shift sync
-2. ✅ **NEW:** `app/services/events/recalculate_totals.rb` - Centralized totals calculation
-3. ✅ **UPDATED:** `app/services/events/apply_role_diff.rb` - Uses centralized sync
+### Displaying Aggregates
+```typescript
+// Use aggregates directly from API (no calculation needed)
+const totalHours = event.total_hours ?? event.total_hours_worked ?? 0;
+const estimatedCost = event.estimated_cost ?? event.total_cost ?? event.total_pay_amount ?? 0;
+const hired = event.hired_count ?? event.assigned_workers_count ?? 0;
+const required = event.required_count ?? event.total_workers_needed ?? 0;
+```
 
-### Controllers (1 file):
-1. ✅ `app/controllers/api/v1/assignments_controller.rb` - Added transaction wrapper
+### Reactive Updates
 
-**Total Files Changed:** 8 files (4 models, 3 services, 1 controller)
+After mutations (add/remove worker, status changes, no-show/cancel), the frontend:
+1. Calls `loadEvents()` to refetch all events with updated aggregates
+2. Backend automatically recalculates totals via callbacks
+3. UI updates immediately with correct values
 
----
+## Transaction Safety
 
-## 🔧 FUNCTIONS REFACTORED
+All recalculation operations are wrapped in transactions:
+- Assignment updates and event recalculation are atomic
+- If recalculation fails, assignment update is rolled back
+- Cascading updates (e.g., pay_rate changes) are transactional
 
-### New Functions (3):
-1. `EventSkillRequirement#cascade_pay_rate_to_shifts` - NEW
-2. `Event#recalculate_totals!` - NEW (uses centralized service)
-3. `Assignment#should_update_event_totals?` - NEW
+## Performance
 
-### Updated Functions (4):
-1. `Event#calculate_total_hours_worked` - Uses `effective_hours` (SSOT)
-2. `Event#calculate_total_pay_amount` - Uses `effective_pay` (SSOT)
-3. `Assignment#update_event_totals` - Uses centralized service
-4. `EventSchedule#sync_shift_times` - Uses centralized service
-5. `Events::ApplyRoleDiff#update_all_child_shift_times` - Uses centralized service
+- **Denormalized Columns:** Totals are stored in `events` table (`total_hours_worked`, `total_pay_amount`)
+- **Eager Loading:** Events index API preloads all associations to avoid N+1 queries
+- **Efficient Calculation:** Service uses `includes(:assignments)` to load all assignments in one query
+- **No Live Computation:** Frontend uses pre-calculated aggregates, never computes on the fly
 
-**Total Functions:** 8 refactored (3 new, 5 updated)
+## Testing
 
----
+### Service Tests
+- `spec/services/events/recalculate_totals_spec.rb`
+  - Mixed statuses (includes/excludes)
+  - Large datasets (performance)
+  - Edge cases (nil values, zero hours)
 
-## 🆕 NEW SERVICES CREATED
+### Callback Tests
+- `spec/models/assignment_callbacks_spec.rb`
+  - Triggers on create/update/destroy
+  - Transaction safety
+  - Status exclusions
 
-1. **`Events::SyncShiftTimes`**
-   - **Purpose:** Centralized shift time synchronization
-   - **Location:** `app/services/events/sync_shift_times.rb`
-   - **Used By:** EventSchedule callback, ApplyRoleDiff service
-   - **Features:**
-     - Updates all event-owned shifts
-     - Triggers event totals recalculation
-     - Logs activity for audit trail
-     - Error handling with graceful degradation
+### API Tests
+- `spec/requests/events_index_aggregates_spec.rb`
+  - Aggregates included in response
+  - Correct values (matches ground truth)
+  - No N+1 queries
 
-2. **`Events::RecalculateTotals`**
-   - **Purpose:** Centralized event totals recalculation
-   - **Location:** `app/services/events/recalculate_totals.rb`
-   - **Used By:** Event model, Assignment callbacks, EventSkillRequirement callback
-   - **Features:**
-     - Calculates total_hours_worked using SSOT
-     - Calculates total_pay_amount using SSOT
-     - Updates assigned_shifts_count
-     - Updates total_shifts_count
-     - Wrapped in transaction for atomicity
+## Migration Notes
 
----
+### Before
+- Totals calculated on-the-fly in views/controllers
+- Inconsistent calculation logic
+- Completed events showed "0 hours"
+- Active events showed "Est. Cost: $0.00" until assignments opened
 
-## ✅ ARCHITECTURAL RULES COMPLIANCE
+### After
+- Single source of truth: `Events::RecalculateTotals` service
+- Totals stored in denormalized columns
+- Always included in API responses
+- Automatically updated on assignment changes
+- Consistent across all views
 
-### Rule 1: Parent → Child Updates ✅
-- ✅ EventSchedule → Shifts (via callback using centralized service)
-- ✅ EventSkillRequirement → Shifts pay_rate (via callback)
+## Maintenance
 
-### Rule 2: Child → Parent Aggregations ✅
-- ✅ Assignment → Event totals (via callback using centralized service)
-- ✅ Assignment → Event counts (via centralized service)
+### Adding New Aggregate Fields
 
-### Rule 3: Single Source of Truth ✅
-- ✅ All calculations use `effective_hours` and `effective_pay`
-- ✅ No duplicate calculation logic remains
+1. Add column to `events` table (migration)
+2. Update `Events::RecalculateTotals` service to calculate new field
+3. Update `serialize_event_lightweight` to include new field
+4. Update frontend `Event` interface
+5. Add tests
 
-### Rule 4: Update Path Consistency ✅
-- ✅ Shift time sync uses centralized service
-- ✅ Event totals use centralized service
+### Changing Counted Statuses
 
-### Rule 5: Event-Driven Consistency ✅
-- ✅ All critical updates use callbacks
-- ✅ All updates are transactional
-
-### Rule 6: No Duplicate Propagation Logic ✅
-- ✅ Shift sync logic centralized
-- ✅ Totals calculation centralized
-
-### Rule 7: Validation Before Propagation ✅
-- ✅ Model validations in place
-- ✅ Services validate before propagating
-
-### Rule 8: Atomic Updates ✅
-- ✅ Assignment updates wrapped in transactions
-- ✅ Recalculation service uses transactions
-
-### Rule 9: Audit Trail ✅
-- ✅ All cascade operations logged
-- ✅ ActivityLog entries created
-
-### Rule 10: Failure Handling ✅
-- ✅ All callbacks have error handling
-- ✅ Graceful degradation (logs errors, doesn't break parent update)
-
----
-
-## 🧪 VALIDATION RESULTS
-
-### Syntax Checks:
-- ✅ All Ruby files pass syntax validation
-- ✅ No syntax errors found
-
-### Linting:
-- ✅ No linter errors
-- ✅ All code follows Rails conventions
-
-### Runtime Checks:
-- ✅ All models load correctly
-- ✅ All services load correctly
-- ✅ All callbacks registered
-- ✅ All validations active
-
-### Integration:
-- ⏳ Recommended: Integration tests before production deployment
-- ⏳ Recommended: Manual testing of cascade operations
+1. Update `Events::RecalculateTotals#fetch_valid_assignments` method
+2. Update tests to verify new status behavior
+3. Update this documentation
 
 ---
 
-## 📋 REMAINING TODOS
-
-**None** - All critical issues resolved ✅
-
-### Optional Enhancements (Not Critical):
-- Consider adding integration tests for cascade operations
-- Consider adding monitoring/alerts for propagation failures
-- Consider adding performance metrics for recalculation operations
-
----
-
-## 🎯 IMPACT SUMMARY
-
-### Before Refactoring:
-- ❌ 6 critical SSOT violations
-- ❌ 2 medium priority issues
-- ❌ 3 duplicated logic locations
-- ❌ 4 missing propagation paths
-- ❌ Inconsistent calculation logic across 7+ locations
-
-### After Refactoring:
-- ✅ 0 critical SSOT violations
-- ✅ 0 medium priority issues
-- ✅ 0 duplicated logic locations
-- ✅ 0 missing propagation paths
-- ✅ Single source of truth for all calculations
-
-### Data Integrity Improvements:
-- ✅ Pay rates cascade automatically when requirement changes
-- ✅ Event totals update in real-time when assignments change
-- ✅ Shift times always sync with event schedule
-- ✅ All updates are atomic and transactional
-- ✅ Complete audit trail for all cascade operations
-
----
-
-## 🚀 DEPLOYMENT READINESS
-
-### Pre-Deployment Checklist:
-- ✅ All syntax checks passed
-- ✅ All models load correctly
-- ✅ All services load correctly
-- ✅ No linting errors
-- ✅ Audit document updated
-- ⏳ Integration testing recommended
-- ⏳ Manual testing recommended
-
-### Recommended Testing:
-1. Update EventSkillRequirement pay_rate → verify shifts update
-2. Update EventSchedule times → verify shifts sync
-3. Update Assignment hours/rate → verify event totals update
-4. Create new Assignment → verify event totals update
-5. Delete Assignment → verify event totals update
-
----
-
-## 📝 NOTES
-
-- All fixes align with `integrity_fix.md` Phases 2-6
-- Code follows existing Rails conventions
-- Transaction boundaries preserved
-- Callbacks follow existing patterns
-- Error handling is graceful (logs errors, doesn't break parent operations)
-
----
-
-**Refactoring Completed:** 2025-01-26  
-**Next Steps:** Integration testing → Staging deployment → Production deployment
-
+**Last Updated:** 2025-01-27  
+**Version:** 1.0
