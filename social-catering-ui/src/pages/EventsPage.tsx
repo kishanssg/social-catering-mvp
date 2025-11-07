@@ -134,6 +134,7 @@ export function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
+  const [loadingEventDetails, setLoadingEventDetails] = useState<Set<number>>(new Set());
   // Approval modal
   const [approvalModal, setApprovalModal] = useState<{ isOpen: boolean; event?: any }>({ isOpen: false });
   
@@ -356,6 +357,7 @@ export function EventsPage() {
   };
   
   const fetchEventDetails = async (eventId: number) => {
+    setLoadingEventDetails(prev => new Set(prev).add(eventId));
     try {
       const [eventResponse, approvalsResponse] = await Promise.all([
         apiClient.get(`/events/${eventId}`),
@@ -392,18 +394,33 @@ export function EventsPage() {
       }
     } catch (err) {
       console.error('Failed to load event details', err);
+    } finally {
+      setLoadingEventDetails(prev => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
     }
   };
-
+  
   const toggleEvent = (eventId: number) => {
     const newExpanded = new Set(expandedEvents);
     if (newExpanded.has(eventId)) {
       newExpanded.delete(eventId);
+      // Remove from loading state when collapsing
+      setLoadingEventDetails(prev => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
     } else {
       newExpanded.add(eventId);
       const ev = events.find(e => e.id === eventId);
-      const hasAssignments = !!ev?.shifts_by_role?.some(rg => rg.shifts?.some(s => (s.assignments || []).length > 0));
-      if (!hasAssignments) {
+      // Always fetch details when expanding to ensure fresh data
+      // Only skip if we're already loading or if we have complete data
+      const isAlreadyLoading = loadingEventDetails.has(eventId);
+      const hasCompleteDetails = ev?.shifts_by_role && ev.shifts_by_role.length > 0;
+      if (!isAlreadyLoading && !hasCompleteDetails) {
         fetchEventDetails(eventId);
       }
     }
@@ -765,6 +782,7 @@ export function EventsPage() {
               <ActiveEventsTab
                 events={filteredEvents}
                 expandedEvents={expandedEvents}
+                loadingEventDetails={loadingEventDetails}
                 onToggleEvent={toggleEvent}
                 onAssignWorker={openAssignmentModal}
                 onUnassign={handleUnassignOpen}
@@ -776,13 +794,13 @@ export function EventsPage() {
               />
             )}
             
-              {activeTab === 'completed' && (
-                <PastEventsTab
-                  events={filteredEvents}
-                  searchQuery={searchQuery}
+            {activeTab === 'completed' && (
+              <PastEventsTab
+                events={filteredEvents}
+                searchQuery={searchQuery}
                   onApproveHours={(event) => setApprovalModal({ isOpen: true, event })}
-                />
-              )}
+              />
+            )}
           </>
         )}
       </div>
@@ -1041,6 +1059,7 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
 interface ActiveEventsTabProps {
   events: Event[];
   expandedEvents: Set<number>;
+  loadingEventDetails: Set<number>;
   onToggleEvent: (id: number) => void;
   onAssignWorker: (shiftId: number) => void;
   onUnassign: (assignmentId: number, workerName?: string) => void;
@@ -1053,7 +1072,8 @@ interface ActiveEventsTabProps {
 
 function ActiveEventsTab({ 
   events, 
-  expandedEvents, 
+  expandedEvents,
+  loadingEventDetails,
   onToggleEvent, 
   onAssignWorker,
   onUnassign,
@@ -1141,8 +1161,8 @@ function ActiveEventsTab({
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
-                  {event.title}
-                </h3>
+                      {event.title}
+                    </h3>
                 <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                   {event.schedule && (
                     <>
@@ -1153,15 +1173,15 @@ function ActiveEventsTab({
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4 flex-shrink-0" />
                         {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
-                        {isUrgent(event) && (
-                          <span 
-                            className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
-                            aria-label="Urgent: starts within 48 hours"
-                          >
-                            Urgent
-                          </span>
-                        )}
-                      </span>
+                      {isUrgent(event) && (
+                        <span 
+                          className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
+                          aria-label="Urgent: starts within 48 hours"
+                        >
+                          Urgent
+                        </span>
+                      )}
+                    </span>
                     </>
                   )}
                   {event.venue && (
@@ -1169,10 +1189,10 @@ function ActiveEventsTab({
                       <MapPin className="h-4 w-4 flex-shrink-0" />
                       {event.venue.name}
                     </span>
-                  )}
+                )}
                 </div>
               </div>
-
+              
               {/* Status Badges */}
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 {getStatusBadge(event.staffing_status)}
@@ -1207,8 +1227,8 @@ function ActiveEventsTab({
                     <ChevronDown size={20} className="text-gray-600" />
                   )}
                 </button>
+                </div>
               </div>
-            </div>
 
             {/* Staffing Progress Section */}
             <div className="py-3 border-y border-gray-100 space-y-2">
@@ -1292,7 +1312,14 @@ function ActiveEventsTab({
             {/* Expanded Content - Shifts by Role */}
             {isExpanded && (
               <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-                {event.shifts_by_role && event.shifts_by_role.length > 0 ? (
+                {loadingEventDetails.has(event.id) ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-4 border-teal-600 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-sm text-gray-600">Loading assignments...</p>
+                    </div>
+                  </div>
+                ) : event.shifts_by_role && event.shifts_by_role.length > 0 ? (
                   <div className="space-y-4">
                     {event.shifts_by_role.map((roleGroup) => (
                       <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
@@ -1483,14 +1510,14 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
             roleGroup.shifts?.forEach(shift => {
               shift.assignments?.forEach((assignment: any) => {
                 const hours = safeNumber(assignment.effective_hours);
-                totalHours += hours;
-              });
+              totalHours += hours;
             });
           });
+        });
         }
         
         return (
-          <div
+          <div 
             key={event.id}
             className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 hover:shadow-sm transition-all"
           >
@@ -1498,8 +1525,8 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
-                  {event.title}
-                </h3>
+                    {event.title}
+                  </h3>
                 <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                   {event.schedule && (
                     <>
@@ -1521,7 +1548,7 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   )}
                 </div>
               </div>
-
+              
               {/* Status Badges */}
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
@@ -1534,22 +1561,22 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                 )}
               </div>
             </div>
-
+            
             {/* Stats Grid - Clean & Minimal */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
-              <div>
+                    <div>
                 <div className="text-xs text-gray-500 mb-1">Workers</div>
                 <div className="text-lg font-semibold text-gray-900">
                   {event.assigned_workers_count || 0}
-                </div>
-              </div>
-              <div>
+                    </div>
+                    </div>
+                    <div>
                 <div className="text-xs text-gray-500 mb-1">Hours</div>
                 <div className="text-lg font-semibold text-gray-900">
                   {safeToFixed(totalHours, 2, '0.00')}
                 </div>
-              </div>
-              <div>
+                    </div>
+                    <div>
                 <div className="text-xs text-gray-500 mb-1">Cost</div>
                 <div className="text-lg font-semibold text-gray-900">
                   ${event.cost_summary?.total_estimated_cost 
@@ -1557,21 +1584,21 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                     : event.total_pay_amount 
                     ? safeToFixed(event.total_pay_amount, 2, '0.00')
                     : '0.00'}
-                </div>
+                    </div>
                 {event.approval_status && event.approval_status.pending > 0 && event.cost_summary && (
                   <div className="text-xs text-amber-600 font-medium mt-0.5">
                     ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')} pending
                   </div>
                 )}
-              </div>
+                </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">Staffing</div>
                 <div className="text-lg font-semibold text-green-600">
                   {event.staffing_percentage || 100}%
-                </div>
+                                </div>
               </div>
-            </div>
-
+                              </div>
+                              
             {/* Action Button */}
             <div className="mt-4 flex justify-end">
               {onApproveHours && (
@@ -1599,8 +1626,8 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   )}
                   <ChevronRight className="h-4 w-4" />
                 </button>
-              )}
-            </div>
+                        )}
+                      </div>
           </div>
         );
       })}
