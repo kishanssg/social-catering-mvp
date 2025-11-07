@@ -14,7 +14,8 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       status: 'success',
       data: {
         event: serialize_event_for_approval(@event),
-        assignments: assignments.map { |a| serialize_assignment_for_approval(a) }
+        assignments: assignments.map { |a| serialize_assignment_for_approval(a) },
+        cost_summary: @event.cost_summary
       }
     }
   end
@@ -24,11 +25,37 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     unless @assignment.can_edit_hours?
       return render json: {
         status: 'error',
-        message: 'Cannot edit hours for this assignment. Shift must be completed and not yet approved.'
+        message: 'Cannot edit hours for this assignment. Shift must be completed.'
       }, status: :unprocessable_entity
     end
 
+    was_approved = @assignment.approved?
+    previous_approver = was_approved ? @assignment.approved_by&.email : nil
+    previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
+    
     ActiveRecord::Base.transaction do
+      # If re-editing approved hours, un-approve and log it
+      if was_approved
+        @assignment.update_columns(
+          approved: false,
+          approved_by_id: nil,
+          approved_at_utc: nil
+        )
+        
+        ActivityLog.create!(
+          actor_user_id: Current.user&.id,
+          entity_type: 'Assignment',
+          entity_id: @assignment.id,
+          action: 'hours_reopened_for_editing',
+          after_json: { 
+            message: "Hours re-opened for editing by #{Current.user&.email}",
+            previous_approver: previous_approver,
+            previous_approval_time: previous_approval_time
+          },
+          created_at_utc: Time.current
+        )
+      end
+      
       @assignment.update!(
         hours_worked: params[:hours_worked],
         actual_start_time_utc: params[:actual_start_time_utc],
@@ -42,14 +69,18 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         actor_user_id: Current.user&.id,
         entity_type: 'Assignment',
         entity_id: @assignment.id,
-        action: 'hours_updated',
+        action: was_approved ? 'hours_re_edited' : 'hours_updated',
         before_json: { original_hours_worked: @assignment.original_hours_worked },
         after_json: { hours_worked: @assignment.hours_worked },
         created_at_utc: Time.current
       )
     end
 
-    render json: { status: 'success', data: serialize_assignment_for_approval(@assignment.reload) }
+    render json: { 
+      status: 'success', 
+      message: was_approved ? 'Hours re-edited and un-approved. Please re-approve after review.' : 'Hours updated successfully',
+      data: serialize_assignment_for_approval(@assignment.reload) 
+    }
   rescue => e
     render json: { status: 'error', message: e.message }, status: :unprocessable_entity
   end

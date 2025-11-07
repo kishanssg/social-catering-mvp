@@ -121,6 +121,60 @@ class Event < ApplicationRecord
       .round(2)
   end
 
+  # Cost breakdown for approval workflow
+  def cost_summary
+    valid_assignments = shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+    
+    approved_assignments = valid_assignments.select(&:approved?)
+    pending_assignments = valid_assignments.reject(&:approved?)
+    
+    {
+      approved_cost: approved_assignments.sum(&:effective_pay).round(2),
+      pending_cost: pending_assignments.sum(&:effective_pay).round(2),
+      total_estimated_cost: valid_assignments.sum(&:effective_pay).round(2),
+      approved_count: approved_assignments.count,
+      pending_count: pending_assignments.count,
+      total_count: valid_assignments.count,
+      all_approved: pending_assignments.empty? && valid_assignments.any?
+    }
+  end
+  
+  # Cost of approved hours only (for payroll processing)
+  def approved_labor_cost
+    shifts.includes(:assignments).flat_map(&:assignments)
+      .select { |a| a.approved? && !a.status.in?(['cancelled', 'no_show']) }
+      .sum(&:effective_pay)
+      .round(2)
+  end
+  
+  # Cost of pending (unapproved) hours
+  def pending_labor_cost
+    shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.approved? || a.status.in?(['cancelled', 'no_show']) }
+      .sum(&:effective_pay)
+      .round(2)
+  end
+  
+  # Total cost (approved + pending) - alias for calculate_total_pay_amount
+  def total_labor_cost
+    calculate_total_pay_amount
+  end
+  
+  # Check if all hours are approved
+  def all_hours_approved?
+    valid_assignments = shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+    valid_assignments.any? && valid_assignments.all?(&:approved?)
+  end
+  
+  # Count of assignments needing approval
+  def pending_approval_count
+    shifts.includes(:assignments).flat_map(&:assignments)
+      .reject { |a| a.approved? || a.status.in?(['cancelled', 'no_show']) }
+      .count
+  end
+
   # Assignment metrics
   def assigned_workers_count
     # Only count assignments for shifts that are actually needed (based on event_skill_requirements)

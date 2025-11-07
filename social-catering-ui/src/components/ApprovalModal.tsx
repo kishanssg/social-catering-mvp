@@ -39,8 +39,19 @@ interface ApprovalModalProps {
   onSuccess: () => void;
 }
 
+interface CostSummary {
+  approved_cost: number;
+  pending_cost: number;
+  total_estimated_cost: number;
+  approved_count: number;
+  pending_count: number;
+  total_count: number;
+  all_approved: boolean;
+}
+
 export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: ApprovalModalProps) {
   const [assignments, setAssignments] = useState<AssignmentForApproval[]>([]);
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
@@ -68,6 +79,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     try {
       const response = await apiClient.get(`/events/${event.id}/approvals`);
       setAssignments(response.data.data.assignments || []);
+      setCostSummary(response.data.data.cost_summary || null);
     } catch (error: any) {
       console.error('Error loading assignments:', error);
       setToast({
@@ -76,6 +88,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         message: error.response?.data?.error || error.message || 'Unable to load assignments for approval'
       });
       setAssignments([]);
+      setCostSummary(null);
     } finally {
       setLoading(false);
     }
@@ -91,12 +104,31 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     });
   };
 
+  const handleReEdit = (assignment: AssignmentForApproval) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Re-Edit Approved Hours',
+      message: `Re-editing will un-approve this assignment. The assignment will need to be re-approved after you make changes. Continue?`,
+      variant: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog({ open: false, title: '' });
+        handleEditHours(assignment);
+      }
+    });
+  };
+
   const handleSaveHours = async (assignmentId: number) => {
     try {
-      await apiClient.patch(`/approvals/${assignmentId}/update_hours`, editData);
+      const response = await apiClient.patch(`/approvals/${assignmentId}/update_hours`, editData);
       await loadAssignments();
       setEditingId(null);
       setEditData({ hours_worked: 0 });
+      // Show success message from backend (includes re-edit notification if applicable)
+      if (response.data?.message) {
+        setToast({ isVisible: true, type: 'success', message: response.data.message });
+      } else {
+        setToast({ isVisible: true, type: 'success', message: 'Hours updated successfully' });
+      }
     } catch (error: any) {
       console.error('Error updating hours:', error);
       setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours' });
@@ -403,29 +435,43 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                         </div>
                       ) : (
                         <div className="flex gap-2 flex-wrap">
-                          {!assignment.approved && assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
+                          {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
                             <>
-                              <button
-                                onClick={() => handleEditHours(assignment)}
-                                className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                                Edit Hours
-                              </button>
-                              <button
-                                onClick={() => handleMarkNoShow(assignment.id, assignment.worker_name)}
-                                className="px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700 transition-colors flex items-center gap-1"
-                              >
-                                <Ban className="h-4 w-4" />
-                                No-Show
-                              </button>
-                              <button
-                                onClick={() => handleRemove(assignment.id, assignment.worker_name)}
-                                className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Remove
-                              </button>
+                              {assignment.approved ? (
+                                // APPROVED STATE - Show Re-Edit button
+                                <button
+                                  onClick={() => handleReEdit(assignment)}
+                                  className="px-3 py-1.5 border border-green-600 text-green-700 text-sm font-medium rounded-md hover:bg-green-50 transition-colors flex items-center gap-1"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                  Re-Edit
+                                </button>
+                              ) : (
+                                // PENDING STATE - Show Edit, No-Show, Remove
+                                <>
+                                  <button
+                                    onClick={() => handleEditHours(assignment)}
+                                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                    Edit Hours
+                                  </button>
+                                  <button
+                                    onClick={() => handleMarkNoShow(assignment.id, assignment.worker_name)}
+                                    className="px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700 transition-colors flex items-center gap-1"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                    No-Show
+                                  </button>
+                                  <button
+                                    onClick={() => handleRemove(assignment.id, assignment.worker_name)}
+                                    className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Remove
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
@@ -439,31 +485,73 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
-          <div className="text-sm">
-            <p className="font-medium text-gray-900">
-              Total: {safeToFixed(totalHours, 2, '0.00')} hours / ${safeToFixed(totalPay, 2, '0.00')}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {assignments.length} worker{assignments.length !== 1 ? 's' : ''} assigned
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Close
-            </button>
-            {unapprovedCount > 0 && (
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+          {/* Cost Breakdown */}
+          {costSummary && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="space-y-2 text-sm">
+                {costSummary.all_approved ? (
+                  // ALL APPROVED - Show final cost
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 font-medium">✅ Final Approved Cost:</span>
+                    <span className="text-xl font-bold text-green-600">
+                      ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
+                    </span>
+                  </div>
+                ) : (
+                  // MIXED STATE - Show breakdown
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">✅ Approved:</span>
+                      <span className="font-semibold text-green-600">
+                        ${safeToFixed(costSummary.approved_cost, 2, '0.00')} ({costSummary.approved_count} workers)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">⚠️ Pending:</span>
+                      <span className="font-semibold text-orange-600">
+                        ${safeToFixed(costSummary.pending_cost, 2, '0.00')} ({costSummary.pending_count} workers)
+                      </span>
+                    </div>
+                    <div className="border-t border-blue-300 pt-2 flex justify-between">
+                      <span className="font-semibold text-gray-700">Estimated Total:</span>
+                      <span className="text-lg font-bold">
+                        ${safeToFixed(costSummary.total_estimated_cost, 2, '0.00')}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <p className="font-medium text-gray-900">
+                Total: {safeToFixed(totalHours, 2, '0.00')} hours / ${safeToFixed(totalPay, 2, '0.00')}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {assignments.length} worker{assignments.length !== 1 ? 's' : ''} assigned
+              </p>
+            </div>
+            <div className="flex gap-3">
               <button
-                onClick={handleApproveAll}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
-                <Check className="h-4 w-4" />
-                Approve All ({unapprovedCount})
+                Close
               </button>
-            )}
+              {unapprovedCount > 0 && (
+                <button
+                  onClick={handleApproveAll}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Check className="h-4 w-4" />
+                  Approve All ({unapprovedCount})
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

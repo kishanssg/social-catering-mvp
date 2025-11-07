@@ -323,8 +323,8 @@ class Assignment < ApplicationRecord
   end
 
   def can_edit_hours?
-    # Can edit if shift has ended and not yet approved
-    shift&.end_time_utc && shift.end_time_utc < Time.current && !approved?
+    # Can edit if shift has ended (even after approval for corrections)
+    shift&.end_time_utc && shift.end_time_utc < Time.current
   end
 
   def can_approve?
