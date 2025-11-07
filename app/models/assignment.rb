@@ -42,7 +42,7 @@ class Assignment < ApplicationRecord
   # 2. If shift has an event, the event exists and is not deleted
   scope :valid, -> {
     joins(:shift)
-      .joins("LEFT JOIN events ON events.id = shifts.event_id")
+      .left_joins(shift: :event)
       .where.not(shifts: { status: 'archived' })
       .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
   }

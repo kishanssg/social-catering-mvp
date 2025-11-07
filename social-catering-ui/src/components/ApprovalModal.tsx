@@ -57,6 +57,9 @@ interface WorkerRowProps {
   editHours: string;
   isSavingEdit: boolean;
   wasApprovedBeforeEdit: boolean;
+  isSelected: boolean;
+  canSelect: boolean;
+  onToggleSelect: (assignmentId: number) => void;
   onStartEdit: (assignment: AssignmentForApproval) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
@@ -74,6 +77,9 @@ function WorkerRow({
   editHours,
   isSavingEdit,
   wasApprovedBeforeEdit,
+  isSelected,
+  canSelect,
+  onToggleSelect,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -205,6 +211,19 @@ function WorkerRow({
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
+      {/* Checkbox */}
+      <td className="py-4 px-3 w-12">
+        {canSelect && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(assignment.id)}
+            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
+      </td>
+      
       {/* Worker Info */}
       <td className="py-4 px-3">
         <div className="flex items-center gap-3">
@@ -737,6 +756,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [wasApprovedBeforeEdit, setWasApprovedBeforeEdit] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  // Selection state for checkboxes
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -751,6 +772,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   useEffect(() => {
     if (isOpen && event) {
       loadAssignments();
+      setSelectedAssignmentIds(new Set()); // Reset selection when modal opens
     }
   }, [isOpen, event]);
 
@@ -928,8 +950,69 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     });
   };
 
+  // Get eligible assignments for approval (pending, can approve, not no-show)
+  const eligibleAssignments = assignments.filter(a => !a.approved && a.can_approve && a.status !== 'no_show' && a.status !== 'cancelled');
+  
+  // Get selected eligible assignments
+  const selectedEligible = eligibleAssignments.filter(a => selectedAssignmentIds.has(a.id));
+  
+  // Toggle selection for a single assignment
+  const toggleSelection = (assignmentId: number) => {
+    setSelectedAssignmentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(assignmentId)) {
+        next.delete(assignmentId);
+      } else {
+        next.add(assignmentId);
+      }
+      return next;
+    });
+  };
+  
+  // Toggle select all
+  const toggleSelectAll = () => {
+    if (selectedEligible.length === eligibleAssignments.length && eligibleAssignments.length > 0) {
+      // Deselect all
+      setSelectedAssignmentIds(new Set());
+    } else {
+      // Select all eligible
+      setSelectedAssignmentIds(new Set(eligibleAssignments.map(a => a.id)));
+    }
+  };
+  
+  const handleApproveSelected = async () => {
+    if (selectedEligible.length === 0) {
+      setToast({ isVisible: true, type: 'error', message: 'Please select at least one assignment to approve' });
+      return;
+    }
+    
+    setConfirmDialog({
+      open: true,
+      title: 'Approve Selected Hours',
+      message: `Approve hours for ${selectedEligible.length} selected ${selectedEligible.length === 1 ? 'worker' : 'workers'}?`,
+      onConfirm: async () => {
+        setIsApproving(true);
+        try {
+          await apiClient.post(`/events/${event.id}/approve_selected`, {
+            assignment_ids: Array.from(selectedEligible.map(a => a.id))
+          });
+          await loadAssignments();
+          setSelectedAssignmentIds(new Set()); // Clear selection after approval
+          onSuccess();
+          setToast({ isVisible: true, type: 'success', message: `Approved ${selectedEligible.length} ${selectedEligible.length === 1 ? 'assignment' : 'assignments'}` });
+        } catch (error: any) {
+          console.error('Error approving selected:', error);
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to approve selected hours' });
+        } finally {
+          setIsApproving(false);
+          setConfirmDialog({ open: false, title: '' });
+        }
+      }
+    });
+  };
+  
   const handleApproveAll = async () => {
-    const pendingCount = assignments.filter(a => !a.approved && a.can_approve && a.status !== 'no_show').length;
+    const pendingCount = eligibleAssignments.length;
     setConfirmDialog({
       open: true,
       title: 'Approve All Hours',
@@ -939,6 +1022,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         try {
           await apiClient.post(`/events/${event.id}/approve_all`);
           await loadAssignments();
+          setSelectedAssignmentIds(new Set()); // Clear selection after approval
           onSuccess();
           setToast({ isVisible: true, type: 'success', message: `Approved ${pendingCount} assignments` });
         } catch (error: any) {
@@ -1038,6 +1122,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             <table className="w-full">
               <thead className="border-b border-gray-200 hidden sm:table-header-group">
                 <tr className="text-left">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-12 px-3">
+                    {eligibleAssignments.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={selectedEligible.length === eligibleAssignments.length && eligibleAssignments.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                        title={selectedEligible.length === eligibleAssignments.length ? "Deselect all" : "Select all"}
+                      />
+                    )}
+                  </th>
                   <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[25%]">
                     Worker
                   </th>
@@ -1062,25 +1157,31 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {assignments.map(assignment => (
-                  <WorkerRow
-                    key={assignment.id}
-                    assignment={assignment}
-                    isEditing={editingAssignmentId === assignment.id}
-                    editHours={editHours}
-                    isSavingEdit={isSavingEdit}
-                    wasApprovedBeforeEdit={wasApprovedBeforeEdit}
-                    onStartEdit={handleStartEdit}
-                    onSaveEdit={handleSaveEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onEditHoursChange={setEditHours}
-                    onEditKeyDown={handleEditKeyDown}
-                    calculateLiveTotal={calculateLiveTotal}
-                    onNoShow={handleMarkNoShow}
-                    onRemove={handleRemove}
-                    onReEdit={handleReEdit}
-                  />
-                ))}
+                {assignments.map(assignment => {
+                  const canSelect = !assignment.approved && assignment.can_approve && assignment.status !== 'no_show' && assignment.status !== 'cancelled';
+                  return (
+                    <WorkerRow
+                      key={assignment.id}
+                      assignment={assignment}
+                      isEditing={editingAssignmentId === assignment.id}
+                      editHours={editHours}
+                      isSavingEdit={isSavingEdit}
+                      wasApprovedBeforeEdit={wasApprovedBeforeEdit}
+                      isSelected={selectedAssignmentIds.has(assignment.id)}
+                      canSelect={canSelect}
+                      onToggleSelect={toggleSelection}
+                      onStartEdit={handleStartEdit}
+                      onSaveEdit={handleSaveEdit}
+                      onCancelEdit={handleCancelEdit}
+                      onEditHoursChange={setEditHours}
+                      onEditKeyDown={handleEditKeyDown}
+                      calculateLiveTotal={calculateLiveTotal}
+                      onNoShow={handleMarkNoShow}
+                      onRemove={handleRemove}
+                      onReEdit={handleReEdit}
+                    />
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1136,23 +1237,44 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               Close
             </button>
             {pendingCount > 0 && (
-              <button
-                onClick={handleApproveAll}
-                disabled={isApproving}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
-              >
-                {isApproving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Approving...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Approve All ({pendingCount})
-                  </>
+              <>
+                {selectedEligible.length > 0 && (
+                  <button
+                    onClick={handleApproveSelected}
+                    disabled={isApproving}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
+                  >
+                    {isApproving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Approving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Approve Selected ({selectedEligible.length})
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
+                <button
+                  onClick={handleApproveAll}
+                  disabled={isApproving}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
+                >
+                  {isApproving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Approving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Approve All ({pendingCount})
+                    </>
+                  )}
+                </button>
+              </>
             )}
           </div>
         </footer>
