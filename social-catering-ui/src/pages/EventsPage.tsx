@@ -1137,117 +1137,45 @@ function ActiveEventsTab({
             key={event.id}
             className="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >
-            {/* Event Header */}
-            <div
-              onClick={() => onToggleEvent(event.id)}
-              className="w-full px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              <div className="flex-1 text-left">
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {event.title}
-                      {event.schedule && (
-                        <span className="ml-2 text-sm font-normal text-gray-600">
-                          • {formatTime(event.schedule.start_time_utc)}–{formatTime(event.schedule.end_time_utc)}
-                        </span>
-                      )}
-                    </h3>
-                  </div>
-                  {getStatusBadge(event.staffing_status)}
-                </div>
-                
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                  {event.venue && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin size={14} className="text-gray-400" />
-                      {event.venue?.name || 'No venue'}
-                    </div>
-                  )}
+            {/* Header Row */}
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-3 p-5 pb-0">
+              <div className="flex-1 min-w-0 w-full">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
+                  {event.title}
+                </h3>
+                <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                   {event.schedule && (
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span>{formatDate(event.schedule.start_time_utc)}</span>
-                      {isUrgent(event) && (
-                        <span 
-                          className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
-                          aria-label="Urgent: starts within 48 hours"
-                        >
-                          Urgent
-                        </span>
-                      )}
-                    </div>
+                    <>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 flex-shrink-0" />
+                        {formatDate(event.schedule.start_time_utc)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 flex-shrink-0" />
+                        {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+                        {isUrgent(event) && (
+                          <span 
+                            className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
+                            aria-label="Urgent: starts within 48 hours"
+                          >
+                            Urgent
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  )}
+                  {event.venue && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4 flex-shrink-0" />
+                      {event.venue.name}
+                    </span>
                   )}
                 </div>
-                
-                {/* Progress Bar */}
-                <div className="mb-2">
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="font-medium text-gray-700">
-                      {event.assigned_workers_count}/{event.total_workers_needed} hired
-                    </span>
-                    <span className="font-semibold text-gray-900">
-                      {event.staffing_percentage}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        event.staffing_percentage === 100
-                          ? 'bg-green-500'
-                          : event.staffing_percentage > 0
-                          ? 'bg-yellow-500'
-                          : 'bg-red-500'
-                      }`}
-                      style={{ width: `${event.staffing_percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-                
-                {event.unfilled_roles_count > 0 && (
-                  <p className="text-sm text-red-600 font-medium">
-                    {event.unfilled_roles_count} still needed
-                  </p>
-                )}
-                
-                {/* ✅ Phase 4: Enhanced Estimated Cost Display */}
-                {(event.total_pay_amount !== undefined || (event.shifts_by_role && event.shifts_by_role.length > 0)) && (
-                  <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                    <span className="text-xs font-medium text-gray-600">Estimated Cost:</span>
-                    <span className="text-base font-bold text-green-700">
-                      ${(() => {
-                        // ✅ SSOT: Prefer backend-calculated total_pay_amount
-                        if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                          return safeToFixed(event.total_pay_amount, 2, '0.00');
-                        }
-                        
-                        // Fallback: Calculate from assignments
-                        let totalCost = 0;
-                        if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                          event.shifts_by_role.forEach(roleGroup => {
-                            roleGroup.shifts?.forEach(shift => {
-                              shift.assignments?.forEach((assignment: any) => {
-                                const pay = safeNumber(assignment.effective_pay);
-                                totalCost += pay;
-                              });
-                            });
-                          });
-                        }
-                        return safeToFixed(totalCost, 2, '0.00');
-                      })()}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      ({event.assigned_workers_count} worker{event.assigned_workers_count !== 1 ? 's' : ''})
-                    </span>
-                  </div>
-                )}
               </div>
-              
-              <div className="ml-4 flex items-center gap-2">
-                {/* Action buttons for events with no shifts */}
-                {/* Redundant delete button removed (trash icon already available elsewhere) */}
-                
-                {/* Edit button - only for published events that haven't started */}
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {getStatusBadge(event.staffing_status)}
                 {onEdit && event.status === 'published' && (
                   <button
                     onClick={(e) => { 
@@ -1260,8 +1188,6 @@ function ActiveEventsTab({
                     <Pencil size={14} />
                   </button>
                 )}
-                
-                {/* Compact delete button for all events */}
                 {onDelete && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(event.id); }}
@@ -1271,15 +1197,89 @@ function ActiveEventsTab({
                     <Trash2 size={14} />
                   </button>
                 )}
-                
-                <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <button
+                  onClick={() => onToggleEvent(event.id)}
+                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
                   {isExpanded ? (
-                    <ChevronUp size={24} className="text-gray-600 hover:text-gray-800" />
+                    <ChevronUp size={20} className="text-gray-600" />
                   ) : (
-                    <ChevronDown size={24} className="text-gray-600 hover:text-gray-800" />
+                    <ChevronDown size={20} className="text-gray-600" />
                   )}
+                </button>
+              </div>
+            </div>
+
+            {/* Stats Grid - Clean & Minimal */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100 px-5">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Workers</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {event.assigned_workers_count || 0}/{event.total_workers_needed || 0}
                 </div>
               </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Shifts</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {event.shifts_count || 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Est. Cost</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  ${(() => {
+                    if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
+                      return safeToFixed(event.total_pay_amount, 2, '0.00');
+                    }
+                    let totalCost = 0;
+                    if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                      event.shifts_by_role.forEach(roleGroup => {
+                        roleGroup.shifts?.forEach(shift => {
+                          shift.assignments?.forEach((assignment: any) => {
+                            const pay = safeNumber(assignment.effective_pay);
+                            totalCost += pay;
+                          });
+                        });
+                      });
+                    }
+                    return safeToFixed(totalCost, 2, '0.00');
+                  })()}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Staffing</div>
+                <div className={cn(
+                  "text-lg font-semibold",
+                  event.staffing_percentage >= 100 ? "text-green-600" :
+                  event.staffing_percentage >= 50 ? "text-yellow-600" :
+                  "text-red-600"
+                )}>
+                  {event.staffing_percentage || 0}%
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 px-5 pb-5">
+              {event.unfilled_roles_count > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                      const firstUnfilled = event.shifts_by_role
+                        .flatMap(rg => rg.shifts)
+                        .find(s => s.staffing_progress.percentage < 100);
+                      if (firstUnfilled) {
+                        onAssignWorker(firstUnfilled.id);
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Users className="h-4 w-4" />
+                  Assign Workers
+                </button>
+              )}
             </div>
             
             {/* Expanded Content - Shifts by Role */}
@@ -1529,7 +1529,7 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
             </div>
 
             {/* Stats Grid - Clean & Minimal */}
-            <div className="grid grid-cols-4 gap-4 py-3 border-y border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Workers</div>
                 <div className="text-lg font-semibold text-gray-900">

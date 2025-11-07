@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
-import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { format, parseISO } from 'date-fns';
@@ -151,19 +152,21 @@ function WorkerRow({
   }
 
   return (
-    <tr
-      className={`group transition-colors ${
-        assignment.approved 
-          ? 'bg-green-50/30' 
-          : assignment.status === 'no_show'
-          ? 'bg-red-50/30'
-          : assignment.status === 'cancelled'
-          ? 'bg-gray-50/30'
-          : 'hover:bg-gray-50'
-      }`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
+    <>
+      {/* Desktop View (sm and up) */}
+      <tr
+        className={`hidden sm:table-row group transition-all duration-150 ease-in-out ${
+          assignment.approved 
+            ? 'bg-green-50/30' 
+            : assignment.status === 'no_show'
+            ? 'bg-red-50/30'
+            : assignment.status === 'cancelled'
+            ? 'bg-gray-50/30'
+            : 'hover:bg-gray-50'
+        }`}
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
+      >
       {/* Worker Info */}
       <td className="py-4">
         <div className="flex items-center gap-3">
@@ -245,7 +248,7 @@ function WorkerRow({
               {assignment.can_edit_hours && (
                 <button
                   onClick={() => onReEdit(assignment)}
-                  className={`text-xs text-gray-600 hover:text-gray-900 transition-all ${
+                  className={`text-xs text-gray-600 hover:text-gray-900 transition-all duration-200 ease-in-out ${
                     showActions ? 'opacity-100' : 'opacity-0'
                   }`}
                   title="Re-edit approved hours"
@@ -264,27 +267,27 @@ function WorkerRow({
               {/* Action buttons - only visible on hover */}
               {assignment.can_edit_hours && (
                 <div
-                  className={`flex items-center gap-1 transition-all ${
+                  className={`flex items-center gap-1 transition-all duration-200 ease-in-out ${
                     showActions ? 'opacity-100' : 'opacity-0'
                   }`}
                 >
                   <button
                     onClick={() => onEdit(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200 ease-in-out"
                     title="Edit hours"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => onNoShow(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                    className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-all duration-200 ease-in-out"
                     title="Mark no-show"
                   >
                     <AlertCircle className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => onRemove(assignment)}
-                    className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-all duration-200 ease-in-out"
                     title="Remove worker"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -296,6 +299,112 @@ function WorkerRow({
         </div>
       </td>
     </tr>
+
+    {/* Mobile View (below sm) */}
+    <tr className="sm:hidden">
+      <td colSpan={6} className="py-3 px-3">
+        <div className={cn(
+          "p-3 rounded-lg space-y-2 transition-all duration-150",
+          assignment.approved ? "bg-green-50 border border-green-200" : 
+          assignment.status === 'no_show' ? "bg-red-50 border border-red-200" :
+          assignment.status === 'cancelled' ? "bg-gray-50 border border-gray-200" :
+          "bg-white border border-gray-200"
+        )}>
+          {/* Worker name & role */}
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="font-medium text-gray-900">{assignment.worker_name}</div>
+              <div className="text-xs text-gray-500">{assignment.shift_role || 'N/A'}</div>
+              {assignment.approved && assignment.approved_by_name && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Approved by {assignment.approved_by_name} on {formatDateTime(assignment.approved_at)}
+                </div>
+              )}
+            </div>
+            {assignment.approved ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                <Check className="h-3.5 w-3.5" />
+                Approved
+              </span>
+            ) : assignment.status === 'no_show' ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
+                <Ban className="h-3.5 w-3.5" />
+                No-Show
+              </span>
+            ) : assignment.status === 'cancelled' ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+                <X className="h-3.5 w-3.5" />
+                Cancelled
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
+                <Clock className="h-3.5 w-3.5" />
+                Pending
+              </span>
+            )}
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t border-gray-200">
+            <div>
+              <div className="text-xs text-gray-500">Hours</div>
+              <div className="font-medium">
+                {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+                {assignment.edited_at && (
+                  <span className="ml-1 text-xs text-orange-600" title="Edited">
+                    <Edit2 className="h-3 w-3 inline" />
+                  </span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Rate</div>
+              <div className="font-medium">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Total</div>
+              <div className="font-semibold">${safeToFixed(assignment.effective_pay, 2, '0.00')}</div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
+            <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+              {assignment.approved ? (
+                <button
+                  onClick={() => onReEdit(assignment)}
+                  className="w-full px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                >
+                  Re-edit
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onEdit(assignment)}
+                    className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => onNoShow(assignment)}
+                    className="flex-1 px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 rounded hover:bg-orange-100 transition-colors"
+                  >
+                    No-Show
+                  </button>
+                  <button
+                    onClick={() => onRemove(assignment)}
+                    className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
+    </>
   );
 }
 
@@ -495,7 +604,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
       
-      <div className="bg-white w-full h-full sm:h-auto sm:max-w-6xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
+      <div className="bg-white w-full h-full sm:h-auto sm:max-w-5xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
         {/* Header - Clean & Minimal */}
         <header className="border-b px-6 py-4 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -526,7 +635,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         )}
 
         {/* Main Content - Table */}
-        <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="flex-1 overflow-auto px-3 sm:px-6 py-4">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -539,7 +648,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             </div>
           ) : (
             <table className="w-full">
-              <thead className="border-b border-gray-200">
+              <thead className="border-b border-gray-200 hidden sm:table-header-group">
                 <tr className="text-left">
                   <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Worker
@@ -586,7 +695,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         </div>
 
         {/* Footer - Summary & Actions */}
-        <footer className="border-t bg-gray-50 px-6 py-4 flex-shrink-0">
+        <footer className="border-t bg-gray-50 px-3 sm:px-6 py-4 flex-shrink-0">
           {/* Cost Summary */}
           {pendingCount > 0 && approvedCount > 0 ? (
             // Mixed state - show breakdown
@@ -627,10 +736,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 ease-in-out"
             >
               Close
             </button>
@@ -638,10 +747,19 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               <button
                 onClick={handleApproveAll}
                 disabled={isApproving}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
               >
-                <Check className="h-4 w-4" />
-                Approve All ({pendingCount})
+                {isApproving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Approve All ({pendingCount})
+                  </>
+                )}
               </button>
             )}
           </div>
