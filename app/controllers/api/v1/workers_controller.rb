@@ -7,11 +7,11 @@ module Api
       before_action :normalize_cert_params!, only: [:create, :update]
 
       def index
-        # Check if we can use cached active workers list (no filters applied)
+        # Check if we can use cached active workers list (no filters applied AND explicitly requesting active only)
         use_cache = params[:search].blank? && 
                    params[:skills].blank? && 
                    params[:certification_id].blank? &&
-                   (params[:active].nil? || params[:active] == 'true') &&
+                   params[:active] == 'true' &&
                    (params[:status].blank? || params[:status].downcase == 'active')
         
         if use_cache
@@ -25,7 +25,7 @@ module Api
               .to_a
           end
         else
-          # Start with all workers (no cache for filtered queries)
+          # Start with all workers (no cache for filtered queries or when showing all workers)
           workers = Worker.includes(worker_certifications: :certification)
           
           # Apply search filter (name, email, phone)
