@@ -11,7 +11,7 @@ module Api
                                 .left_joins(shift: :event)
                                 .where.not(shifts: { status: 'archived' })
                                 .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
-                                .eager_load(:worker, shift: [:event, :venue, :location])
+                                .eager_load(:worker, shift: [:event, :location], shift: { event: [:venue] })
                                 .order(created_at: :desc)
 
         # Filter by date range
