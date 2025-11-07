@@ -28,6 +28,10 @@ class Assignment < ApplicationRecord
     conditions: -> { where.not(status: ['cancelled', 'no_show']) },
     message: "is already assigned to this shift" 
   }
+  
+  # Additional safety check before create to prevent duplicates
+  before_create :check_for_existing_active_assignment
+  
   validate :worker_available_for_shift
   validate :shift_not_at_capacity, unless: :skip_capacity_check
   validate :worker_has_required_skills
@@ -368,6 +372,22 @@ class Assignment < ApplicationRecord
   public :can_edit_hours?, :can_approve?, :approve!, :mark_no_show!, :remove_from_job!
 
   private
+
+  def check_for_existing_active_assignment
+    # Skip check if this assignment is cancelled or no_show (allows duplicates for these statuses)
+    return if status.in?(['cancelled', 'no_show'])
+    
+    # Check if there's already an active assignment for this worker+shift combo
+    existing = Assignment.where(shift_id: shift_id, worker_id: worker_id)
+                        .where.not(status: ['cancelled', 'no_show'])
+                        .where.not(id: id) # Exclude self if updating
+                        .exists?
+    
+    if existing
+      errors.add(:worker_id, "is already assigned to this shift")
+      throw(:abort)
+    end
+  end
 
   def track_hours_changes
     if saved_change_to_hours_worked? && persisted?

@@ -9,6 +9,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       .includes(assignments: :worker)
       .flat_map(&:assignments)
       .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) }
+    
+    # Deduplicate: Keep only the most recent assignment for each worker+shift combo
+    # This prevents showing duplicate assignments even if they exist in the database
+    assignments = assignments.group_by { |a| [a.shift_id, a.worker_id] }
+                            .values
+                            .map { |group| group.max_by(&:created_at) }
 
     render json: {
       status: 'success',
