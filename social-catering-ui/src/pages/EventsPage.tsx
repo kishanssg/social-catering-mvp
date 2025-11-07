@@ -1210,76 +1210,83 @@ function ActiveEventsTab({
               </div>
             </div>
 
-            {/* Stats Grid - Clean & Minimal */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Workers</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  {event.assigned_workers_count || 0}/{event.total_workers_needed || 0}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Shifts</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  {event.shifts_count || 0}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Est. Cost</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  ${(() => {
-                    if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                      return safeToFixed(event.total_pay_amount, 2, '0.00');
-                    }
-                    let totalCost = 0;
-                    if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                      event.shifts_by_role.forEach(roleGroup => {
-                        roleGroup.shifts?.forEach(shift => {
-                          shift.assignments?.forEach((assignment: any) => {
-                            const pay = safeNumber(assignment.effective_pay);
-                            totalCost += pay;
-                          });
+            {/* Staffing Progress Section */}
+            <div className="py-3 border-y border-gray-100 space-y-2">
+              {/* Progress Bar */}
+              {(() => {
+                const assigned = event.assigned_workers_count || 0;
+                const total = event.total_workers_needed || 0;
+                const percentage = total > 0 ? Math.round((assigned / total) * 100) : 0;
+                const unfilledCount = event.unfilled_roles_count || 0;
+                
+                // Calculate estimated cost
+                const estimatedCost = (() => {
+                  if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
+                    return safeToFixed(event.total_pay_amount, 2, '0.00');
+                  }
+                  let totalCost = 0;
+                  if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                    event.shifts_by_role.forEach(roleGroup => {
+                      roleGroup.shifts?.forEach(shift => {
+                        shift.assignments?.forEach((assignment: any) => {
+                          const pay = safeNumber(assignment.effective_pay);
+                          totalCost += pay;
                         });
                       });
-                    }
-                    return safeToFixed(totalCost, 2, '0.00');
-                  })()}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Roles Needed</div>
-                <div className={cn(
-                  "text-lg font-semibold",
-                  event.unfilled_roles_count === 0 ? "text-green-600" :
-                  event.unfilled_roles_count <= 2 ? "text-yellow-600" :
-                  "text-red-600"
-                )}>
-                  {event.unfilled_roles_count || 0}
-                </div>
-              </div>
-            </div>
+                    });
+                  }
+                  return safeToFixed(totalCost, 2, '0.00');
+                })();
 
-            {/* Action Buttons */}
-            <div className="mt-4 flex justify-end">
-              {event.unfilled_roles_count > 0 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                      const firstUnfilled = event.shifts_by_role
-                        .flatMap(rg => rg.shifts)
-                        .find(s => s.staffing_progress.percentage < 100);
-                      if (firstUnfilled) {
-                        onAssignWorker(firstUnfilled.id);
-                      }
-                    }
-                  }}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Users className="h-4 w-4" />
-                  Assign Workers
-                </button>
-              )}
+                // Progress bar color based on percentage
+                const getProgressColor = () => {
+                  if (percentage >= 100) return 'bg-green-500';
+                  if (percentage >= 75) return 'bg-amber-500';
+                  if (percentage >= 50) return 'bg-orange-500';
+                  return 'bg-red-500';
+                };
+
+                // Action text color
+                const getActionTextColor = () => {
+                  if (percentage >= 100) return 'text-green-600';
+                  if (percentage >= 75) return 'text-amber-600';
+                  return 'text-red-600';
+                };
+
+                return (
+                  <>
+                    {/* Progress Bar Row */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        {assigned} of {total} roles filled
+                      </span>
+                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className={cn("h-full rounded-full transition-all duration-300", getProgressColor())}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                        {percentage}%
+                      </span>
+                    </div>
+
+                    {/* Action Needed (if incomplete) */}
+                    {unfilledCount > 0 && (
+                      <div className={cn("flex items-center gap-2 text-sm font-medium", getActionTextColor())}>
+                        <AlertCircle className="h-4 w-4" />
+                        {unfilledCount} {unfilledCount === 1 ? 'role' : 'roles'} still need workers
+                      </div>
+                    )}
+
+                    {/* Cost Display */}
+                    <div className="text-sm text-gray-600">
+                      <span>Est. Cost: </span>
+                      <span className="font-semibold text-gray-900">${estimatedCost}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             
             {/* Expanded Content - Shifts by Role */}
