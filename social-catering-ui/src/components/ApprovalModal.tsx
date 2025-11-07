@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
-import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2 } from 'lucide-react';
+import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
+import { format, parseISO } from 'date-fns';
 
 interface AssignmentForApproval {
   id: number;
@@ -49,12 +50,262 @@ interface CostSummary {
   all_approved: boolean;
 }
 
+interface WorkerRowProps {
+  assignment: AssignmentForApproval;
+  isEditing: boolean;
+  editData: any;
+  onEdit: (assignment: AssignmentForApproval) => void;
+  onSave: (assignmentId: number) => void;
+  onCancel: () => void;
+  onEditDataChange: (data: any) => void;
+  onNoShow: (assignment: AssignmentForApproval) => void;
+  onRemove: (assignment: AssignmentForApproval) => void;
+  onReEdit: (assignment: AssignmentForApproval) => void;
+}
+
+function WorkerRow({ 
+  assignment, 
+  isEditing, 
+  editData, 
+  onEdit, 
+  onSave, 
+  onCancel, 
+  onEditDataChange,
+  onNoShow, 
+  onRemove, 
+  onReEdit 
+}: WorkerRowProps) {
+  const [showActions, setShowActions] = useState(false);
+
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      const date = parseISO(dateString);
+      return format(date, 'MMM d, yyyy h:mm a');
+    } catch {
+      return new Date(dateString).toLocaleString();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <tr className="bg-blue-50">
+        <td colSpan={6} className="py-4 px-6">
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-blue-900">Edit Hours Worked</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Hours Worked
+                </label>
+                <input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  value={editData.hours_worked || ''}
+                  onChange={(e) => onEditDataChange({ ...editData, hours_worked: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Actual Start Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editData.actual_start_time_utc ? new Date(editData.actual_start_time_utc).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => onEditDataChange({ ...editData, actual_start_time_utc: new Date(e.target.value).toISOString() })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Actual End Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editData.actual_end_time_utc ? new Date(editData.actual_end_time_utc).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => onEditDataChange({ ...editData, actual_end_time_utc: new Date(e.target.value).toISOString() })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onSave(assignment.id)}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr
+      className={`group transition-colors ${
+        assignment.approved 
+          ? 'bg-green-50/30' 
+          : assignment.status === 'no_show'
+          ? 'bg-red-50/30'
+          : assignment.status === 'cancelled'
+          ? 'bg-gray-50/30'
+          : 'hover:bg-gray-50'
+      }`}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {/* Worker Info */}
+      <td className="py-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <User className="h-4 w-4 text-gray-600" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900 truncate">
+              {assignment.worker_name}
+            </div>
+            <div className="text-xs text-gray-500">
+              Scheduled: {safeToFixed(assignment.scheduled_hours, 2, '0.00')}h
+            </div>
+          </div>
+        </div>
+        
+        {/* Approval metadata - only if approved */}
+        {assignment.approved && assignment.approved_by_name && (
+          <div className="mt-2 text-xs text-gray-500 ml-11">
+            Approved by {assignment.approved_by_name} on {formatDateTime(assignment.approved_at)}
+          </div>
+        )}
+      </td>
+
+      {/* Role */}
+      <td className="py-4 text-sm text-gray-700">
+        {assignment.shift_role || 'N/A'}
+      </td>
+
+      {/* Hours */}
+      <td className="py-4 text-right">
+        <span className="text-sm font-medium text-gray-900">
+          {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+          {assignment.edited_at && (
+            <span className="ml-1 text-xs text-orange-600" title="Edited">
+              <Edit2 className="h-3 w-3 inline" />
+            </span>
+          )}
+        </span>
+      </td>
+
+      {/* Rate */}
+      <td className="py-4 text-right text-sm text-gray-700">
+        ${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h
+      </td>
+
+      {/* Total Pay */}
+      <td className="py-4 text-right">
+        <span className="text-sm font-semibold text-gray-900">
+          ${safeToFixed(assignment.effective_pay, 2, '0.00')}
+        </span>
+      </td>
+
+      {/* Status & Actions */}
+      <td className="py-4 text-right">
+        <div className="flex items-center justify-end gap-2">
+          {assignment.status === 'no_show' ? (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
+                <Ban className="h-3.5 w-3.5" />
+                No-Show
+              </span>
+            </>
+          ) : assignment.status === 'cancelled' ? (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+                <X className="h-3.5 w-3.5" />
+                Cancelled
+              </span>
+            </>
+          ) : assignment.approved ? (
+            <>
+              {/* Approved badge */}
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                <Check className="h-3.5 w-3.5" />
+                Approved
+              </span>
+              {/* Re-edit button - only visible on hover */}
+              {assignment.can_edit_hours && (
+                <button
+                  onClick={() => onReEdit(assignment)}
+                  className={`text-xs text-gray-600 hover:text-gray-900 transition-all ${
+                    showActions ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  title="Re-edit approved hours"
+                >
+                  Re-edit
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Pending badge */}
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
+                <Clock className="h-3.5 w-3.5" />
+                Pending
+              </span>
+              {/* Action buttons - only visible on hover */}
+              {assignment.can_edit_hours && (
+                <div
+                  className={`flex items-center gap-1 transition-all ${
+                    showActions ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  <button
+                    onClick={() => onEdit(assignment)}
+                    className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Edit hours"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onNoShow(assignment)}
+                    className="p-1.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                    title="Mark no-show"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onRemove(assignment)}
+                    className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Remove worker"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: ApprovalModalProps) {
   const [assignments, setAssignments] = useState<AssignmentForApproval[]>([]);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
+  const [isApproving, setIsApproving] = useState(false);
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({ isVisible: false, message: '', type: 'success' });
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -122,8 +373,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       const response = await apiClient.patch(`/approvals/${assignmentId}/update_hours`, editData);
       await loadAssignments();
       setEditingId(null);
-      setEditData({ hours_worked: 0 });
-      // Show success message from backend (includes re-edit notification if applicable)
+      setEditData({});
       if (response.data?.message) {
         setToast({ isVisible: true, type: 'success', message: response.data.message });
       } else {
@@ -135,17 +385,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     }
   };
 
-  const handleMarkNoShow = async (assignmentId: number, workerName: string) => {
+  const handleMarkNoShow = async (assignment: AssignmentForApproval) => {
     setConfirmDialog({
       open: true,
       title: 'Mark No-Show',
-      message: `Mark ${workerName} as no-show? This will set hours to 0.`,
+      message: `Mark ${assignment.worker_name} as no-show? This will set hours to 0.`,
       requireNote: true,
       note: '',
       variant: 'warning',
       onConfirm: async () => {
         try {
-          await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, { notes: confirmDialog.note });
+          await apiClient.post(`/approvals/${assignment.id}/mark_no_show`, { notes: confirmDialog.note });
           await loadAssignments();
           setToast({ isVisible: true, type: 'success', message: 'Marked as no-show' });
         } catch (error: any) {
@@ -158,17 +408,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     });
   };
 
-  const handleRemove = async (assignmentId: number, workerName: string) => {
+  const handleRemove = async (assignment: AssignmentForApproval) => {
     setConfirmDialog({
       open: true,
       title: 'Remove from Job',
-      message: `Remove ${workerName} from this job? This cannot be undone.`,
+      message: `Remove ${assignment.worker_name} from this job? This cannot be undone.`,
       requireNote: true,
       note: '',
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await apiClient.delete(`/approvals/${assignmentId}/remove`, { data: { notes: confirmDialog.note } });
+          await apiClient.delete(`/approvals/${assignment.id}/remove`, { data: { notes: confirmDialog.note } });
           await loadAssignments();
           setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
         } catch (error: any) {
@@ -182,21 +432,23 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   };
 
   const handleApproveAll = async () => {
-    const unapprovedCount = assignments.filter(a => !a.approved && a.can_approve).length;
+    const pendingCount = assignments.filter(a => !a.approved && a.can_approve && a.status !== 'no_show').length;
     setConfirmDialog({
       open: true,
       title: 'Approve All Hours',
-      message: `Approve hours for all ${unapprovedCount} eligible workers?`,
+      message: `Approve hours for all ${pendingCount} eligible workers?`,
       onConfirm: async () => {
+        setIsApproving(true);
         try {
           await apiClient.post(`/events/${event.id}/approve_all`);
           await loadAssignments();
           onSuccess();
-          setToast({ isVisible: true, type: 'success', message: `Approved ${unapprovedCount} assignments` });
+          setToast({ isVisible: true, type: 'success', message: `Approved ${pendingCount} assignments` });
         } catch (error: any) {
           console.error('Error approving all:', error);
           setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to approve all hours' });
         } finally {
+          setIsApproving(false);
           setConfirmDialog({ open: false, title: '' });
         }
       }
@@ -205,47 +457,76 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
   if (!isOpen) return null;
 
-  const unapprovedCount = assignments.filter(a => !a.approved && a.can_approve).length;
-  const totalHours = assignments.reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
-  const totalPay = assignments.reduce((sum, a) => sum + (Number(a.effective_pay) || 0), 0);
-  
-  // ✅ Phase 3: Calculate approved vs pending hours for enhanced display
-  const approvedHours = assignments
-    .filter(a => a.approved && !a.status?.includes('no_show') && !a.status?.includes('cancelled'))
-    .reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
-  const pendingHours = assignments
-    .filter(a => !a.approved && !a.status?.includes('no_show') && !a.status?.includes('cancelled'))
-    .reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
+  // Calculate state for new layout
+  const validAssignments = assignments.filter(a => a.status !== 'no_show' && a.status !== 'cancelled');
+  const pendingCount = validAssignments.filter(a => !a.approved).length;
+  const approvedCount = validAssignments.filter(a => a.approved).length;
+  const totalCount = validAssignments.length;
+
+  const pendingCost = validAssignments
+    .filter(a => !a.approved)
+    .reduce((sum, a) => sum + Number(a.effective_pay || 0), 0);
+
+  const approvedCost = validAssignments
+    .filter(a => a.approved)
+    .reduce((sum, a) => sum + Number(a.effective_pay || 0), 0);
+
+  const totalCost = pendingCost + approvedCost;
+
+  const totalHours = validAssignments
+    .reduce((sum, a) => sum + Number(a.effective_hours || 0), 0);
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    try {
+      return format(parseISO(dateString), 'MMM d, yyyy');
+    } catch {
+      return new Date(dateString).toLocaleDateString();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
-      {/* Render Toast at overlay level to avoid clipping by overflow-hidden container */}
+      {/* Render Toast at overlay level */}
       <Toast
         isVisible={toast.isVisible}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
+      
       <div className="bg-white w-full h-full sm:h-auto sm:max-w-6xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Approve Hours</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {event?.title} - {event?.event_date ? new Date(event.event_date).toLocaleDateString() : ''}
+        {/* Header - Clean & Minimal */}
+        <header className="border-b px-6 py-4 bg-white flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Approve Hours</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {event?.title} · {event?.event_date ? formatDate(event.event_date) : ''}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Info Banner - Only show if pending assignments exist */}
+        {pendingCount > 0 && (
+          <div className="bg-amber-50 border-l-4 border-amber-400 px-6 py-3 flex-shrink-0">
+            <p className="text-sm text-amber-800 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <strong>{pendingCount}</strong> {pendingCount === 1 ? 'assignment' : 'assignments'} pending approval
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
+        )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Main Content - Table */}
+        <div className="flex-1 overflow-auto px-6 py-4">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -257,435 +538,117 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               <p className="text-gray-600">No assignments found for this event.</p>
             </div>
           ) : (
-            <>
-              {/* Summary Banner */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">
-                      {unapprovedCount > 0 ? (
-                        <>
-                          {unapprovedCount} assignment{unapprovedCount !== 1 ? 's' : ''} pending approval
-                        </>
-                      ) : (
-                        'All assignments have been approved'
-                      )}
-                    </p>
-                    <p className="text-xs text-blue-700 mt-1">
-                      Review and confirm hours worked, mark no-shows, or remove workers from this job.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Assignments List */}
-              <div className="space-y-4">
-                {assignments.map((assignment) => (
-                  <div
+            <table className="w-full">
+              <thead className="border-b border-gray-200">
+                <tr className="text-left">
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Worker
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                    Hours
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                    Rate
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                    Total
+                  </th>
+                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {assignments.map(assignment => (
+                  <WorkerRow
                     key={assignment.id}
-                    className={`border rounded-lg p-4 transition-all ${
-                      assignment.approved
-                        ? 'bg-green-50 border-green-200'
-                        : assignment.status === 'no_show'
-                        ? 'bg-red-50 border-red-200'
-                        : assignment.status === 'cancelled'
-                        ? 'bg-gray-50 border-gray-300'
-                        : 'bg-white border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    {/* Worker Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 text-lg">
-                          {assignment.worker_name}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-1">
-                          <p className="text-sm text-gray-600">{assignment.shift_role}</p>
-                          <span className="text-gray-400">•</span>
-                          <p className="text-sm text-gray-600">
-                            {new Date(assignment.shift_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        {/* ✅ Enhanced: Show approval metadata prominently for approved assignments */}
-                        {assignment.approved && assignment.approved_by_name && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Check className="h-4 w-4 text-green-600" />
-                            <p className="text-sm font-medium text-green-900">
-                              Approved by {assignment.approved_by_name}
-                              {assignment.approved_at && (
-                                <span className="text-green-700 font-normal">
-                                  {' '}on {new Date(assignment.approved_at).toLocaleDateString()} at {new Date(assignment.approved_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {assignment.approved && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <Check className="h-3 w-3 mr-1" />
-                            Approved
-                          </span>
-                        )}
-                        {assignment.status === 'no_show' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <Ban className="h-3 w-3 mr-1" />
-                            No-Show
-                          </span>
-                        )}
-                        {assignment.status === 'cancelled' && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            <X className="h-3 w-3 mr-1" />
-                            Cancelled
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {editingId === assignment.id ? (
-                      /* Edit Mode */
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                        <p className="text-sm font-medium text-blue-900 mb-3">Edit Hours Worked</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Hours Worked
-                            </label>
-                            <input
-                              type="number"
-                              step="0.25"
-                              min="0"
-                              value={editData.hours_worked}
-                              onChange={(e) => setEditData({ ...editData, hours_worked: parseFloat(e.target.value) || 0 })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Actual Start Time
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={editData.actual_start_time_utc ? new Date(editData.actual_start_time_utc).toISOString().slice(0, 16) : ''}
-                              onChange={(e) => setEditData({ ...editData, actual_start_time_utc: new Date(e.target.value).toISOString() })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Actual End Time
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={editData.actual_end_time_utc ? new Date(editData.actual_end_time_utc).toISOString().slice(0, 16) : ''}
-                              onChange={(e) => setEditData({ ...editData, actual_end_time_utc: new Date(e.target.value).toISOString() })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* View Mode */
-                      <>
-                        {/* ✅ Enhanced: Show locked-in values prominently for approved assignments */}
-                        {assignment.approved ? (
-                          <div className="bg-white border border-green-300 rounded-lg p-4 mb-4">
-                            <p className="text-xs font-semibold text-green-900 mb-3 uppercase tracking-wide">Locked-In Values</p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <p className="text-xs text-gray-600 mb-1">Scheduled Hours</p>
-                                <p className="font-semibold text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600 mb-1">Hours Worked</p>
-                                <p className="font-semibold text-gray-900">
-                                  {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-                                  {assignment.edited_at && (
-                                    <span className="ml-1 text-xs text-orange-600" title="Edited">
-                                      <Edit2 className="h-3 w-3 inline" />
-                                    </span>
-                                  )}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600 mb-1">Hourly Rate</p>
-                                <p className="font-semibold text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600 mb-1">Total Pay</p>
-                                <p className="font-semibold text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Scheduled Hours</p>
-                              <p className="font-medium text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Hours Worked</p>
-                              <p className="font-medium text-gray-900">
-                                {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-                                {assignment.edited_at && (
-                                  <span className="ml-1 text-xs text-orange-600" title="Edited">
-                                    <Edit2 className="h-3 w-3 inline" />
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Hourly Rate</p>
-                              <p className="font-medium text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">Total Pay</p>
-                              <p className="font-medium text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* Notes/Audit Trail */}
-                    {(assignment.approval_notes || assignment.edited_by_name || assignment.approved_by_name) && (
-                      <div className="bg-gray-50 rounded-md p-3 mb-3 text-sm">
-                        {assignment.approval_notes && (
-                          <p className="text-gray-700">
-                            <span className="font-medium">Note:</span> {assignment.approval_notes}
-                          </p>
-                        )}
-                        {assignment.edited_by_name && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Edited by {assignment.edited_by_name} on{' '}
-                            {assignment.edited_at ? new Date(assignment.edited_at).toLocaleString() : ''}
-                          </p>
-                        )}
-                        {assignment.approved_by_name && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Approved by {assignment.approved_by_name} on{' '}
-                            {assignment.approved_at ? new Date(assignment.approved_at).toLocaleString() : ''}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                      {editingId === assignment.id ? (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSaveHours(assignment.id)}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                          >
-                            Save Changes
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-300 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2 flex-wrap">
-                          {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
-                            <>
-                              {assignment.approved ? (
-                                // ✅ Enhanced: APPROVED STATE - More prominent Re-Edit button
-                                <button
-                                  onClick={() => handleReEdit(assignment)}
-                                  className="px-4 py-2 border-2 border-green-600 text-green-700 text-sm font-semibold rounded-md hover:bg-green-50 hover:border-green-700 transition-all shadow-sm flex items-center gap-2"
-                                  title="Re-edit approved hours (will un-approve)"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                  Re-Edit
-                                </button>
-                              ) : (
-                                // PENDING STATE - Show Edit, No-Show, Remove
-                                <>
-                                  <button
-                                    onClick={() => handleEditHours(assignment)}
-                                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1"
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                    Edit Hours
-                                  </button>
-                                  <button
-                                    onClick={() => handleMarkNoShow(assignment.id, assignment.worker_name)}
-                                    className="px-3 py-1.5 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700 transition-colors flex items-center gap-1"
-                                  >
-                                    <Ban className="h-4 w-4" />
-                                    No-Show
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemove(assignment.id, assignment.worker_name)}
-                                    className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors flex items-center gap-1"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    Remove
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    assignment={assignment}
+                    isEditing={editingId === assignment.id}
+                    editData={editData}
+                    onEdit={handleEditHours}
+                    onSave={handleSaveHours}
+                    onCancel={() => {
+                      setEditingId(null);
+                      setEditData({});
+                    }}
+                    onEditDataChange={setEditData}
+                    onNoShow={handleMarkNoShow}
+                    onRemove={handleRemove}
+                    onReEdit={handleReEdit}
+                  />
                 ))}
-              </div>
-            </>
+              </tbody>
+            </table>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          {/* ✅ Phase 3: Enhanced Cost Breakdown */}
-          {costSummary && (
-            <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 shadow-sm">
-              <div className="space-y-3">
-                {costSummary.all_approved ? (
-                  // ALL APPROVED - Show final cost prominently
-                  <div className="text-center">
-                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Final Approved Cost</p>
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-green-600">
-                          ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {costSummary.approved_count} worker{costSummary.approved_count !== 1 ? 's' : ''} • {safeToFixed(approvedHours, 2, '0.00')} hours
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-green-700 mt-2 font-medium">
-                      ✅ All hours approved - ready for payroll processing
-                    </p>
-                  </div>
-                ) : (
-                  // MIXED STATE - Enhanced breakdown with hours
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Approved Section */}
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Check className="h-4 w-4 text-green-600" />
-                          <span className="text-xs font-semibold text-green-900 uppercase tracking-wide">Approved</span>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Hours:</span>
-                            <span className="text-sm font-semibold text-green-700">
-                              {safeToFixed(approvedHours, 2, '0.00')}h
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Cost:</span>
-                            <span className="text-sm font-semibold text-green-600">
-                              ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1 border-t border-green-200">
-                            <span className="text-xs text-gray-600">Workers:</span>
-                            <span className="text-sm font-medium text-green-700">
-                              {costSummary.approved_count}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Pending Section */}
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="h-4 w-4 text-amber-600" />
-                          <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide">Pending</span>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Hours:</span>
-                            <span className="text-sm font-semibold text-amber-700">
-                              {safeToFixed(pendingHours, 2, '0.00')}h
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Cost:</span>
-                            <span className="text-sm font-semibold text-amber-600">
-                              ${safeToFixed(costSummary.pending_cost, 2, '0.00')}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1 border-t border-amber-200">
-                            <span className="text-xs text-gray-600">Workers:</span>
-                            <span className="text-sm font-medium text-amber-700">
-                              {costSummary.pending_count}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Total Section */}
-                    <div className="bg-white border-2 border-gray-300 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-700">Estimated Total Labor Cost:</span>
-                        <span className="text-2xl font-bold text-gray-900">
-                          ${safeToFixed(costSummary.total_estimated_cost, 2, '0.00')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-xs text-gray-500">Total Hours:</span>
-                        <span className="text-sm font-medium text-gray-700">
-                          {safeToFixed(totalHours, 2, '0.00')}h
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Helpful Text */}
-                    {costSummary.pending_count > 0 && (
-                      <div className="bg-amber-100 border border-amber-300 rounded-md p-2">
-                        <p className="text-xs text-amber-900 text-center font-medium">
-                          ⚠️ {costSummary.pending_count} assignment{costSummary.pending_count !== 1 ? 's' : ''} pending approval
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
+        {/* Footer - Summary & Actions */}
+        <footer className="border-t bg-gray-50 px-6 py-4 flex-shrink-0">
+          {/* Cost Summary */}
+          {pendingCount > 0 && approvedCount > 0 ? (
+            // Mixed state - show breakdown
+            <div className="mb-4 space-y-1.5 text-sm">
+              <div className="flex justify-between text-gray-600">
+                <span>Pending approval:</span>
+                <span className="font-medium">
+                  ${safeToFixed(pendingCost, 2, '0.00')} ({pendingCount} {pendingCount === 1 ? 'worker' : 'workers'})
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Approved:</span>
+                <span className="font-medium">
+                  ${safeToFixed(approvedCost, 2, '0.00')} ({approvedCount} {approvedCount === 1 ? 'worker' : 'workers'})
+                </span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 flex justify-between text-gray-900">
+                <span className="font-semibold">Total:</span>
+                <span className="font-semibold">
+                  ${safeToFixed(totalCost, 2, '0.00')} ({totalCount} workers, {safeToFixed(totalHours, 2, '0.00')}h)
+                </span>
               </div>
             </div>
+          ) : pendingCount === 0 && approvedCount > 0 ? (
+            // All approved - show final cost only
+            <div className="mb-4 flex justify-between items-center">
+              <span className="text-sm font-semibold text-gray-700">Final approved cost:</span>
+              <span className="text-lg font-bold text-green-600">${safeToFixed(approvedCost, 2, '0.00')}</span>
+            </div>
+          ) : (
+            // All pending - show total only
+            <div className="mb-4 flex justify-between items-center">
+              <span className="text-sm font-semibold text-gray-700">Total cost:</span>
+              <span className="text-lg font-bold text-gray-900">
+                ${safeToFixed(totalCost, 2, '0.00')} ({totalCount} workers, {safeToFixed(totalHours, 2, '0.00')}h)
+              </span>
+            </div>
           )}
-          
+
           {/* Action Buttons */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <p className="font-medium text-gray-900">
-                Total: {safeToFixed(totalHours, 2, '0.00')} hours / ${safeToFixed(totalPay, 2, '0.00')}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {assignments.length} worker{assignments.length !== 1 ? 's' : ''} assigned
-              </p>
-            </div>
-            <div className="flex gap-3">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              Close
+            </button>
+            {pendingCount > 0 && (
               <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                onClick={handleApproveAll}
+                disabled={isApproving}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center gap-2 transition-colors"
               >
-                Close
+                <Check className="h-4 w-4" />
+                Approve All ({pendingCount})
               </button>
-              {unapprovedCount > 0 && (
-                <button
-                  onClick={handleApproveAll}
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <Check className="h-4 w-4" />
-                  Approve All ({unapprovedCount})
-                </button>
-              )}
-            </div>
+            )}
           </div>
-        </div>
+        </footer>
       </div>
+
+      {/* Confirmation Dialog */}
       {confirmDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDialog({ open: false, title: '' })}></div>
@@ -732,5 +695,3 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     </div>
   );
 }
-
-
