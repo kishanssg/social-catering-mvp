@@ -401,7 +401,7 @@ export function WorkerDetailPage() {
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Upcoming ({upcomingAssignments.length})
+                Upcoming ({upcomingEvents.length})
               </button>
               <button
                 onClick={() => setActiveTab('past')}
