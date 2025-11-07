@@ -1255,8 +1255,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   <>
                     <Check className="h-4 w-4" />
                     {selectedEligible.length > 0 
-                      ? `Approve Selected (${selectedEligible.length})`
-                      : `Approve All (${pendingCount})`
+                      ? 'Approve Selected'
+                      : 'Approve All'
                     }
                   </>
                 )}
