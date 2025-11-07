@@ -169,6 +169,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   }, [fullEventData, event]);
 
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
+    if (index < 0 || index >= roles.length) return; // Guard against invalid index
     const newRoles = [...roles];
     newRoles[index] = { ...newRoles[index], [field]: value };
     setRoles(newRoles);
@@ -186,12 +187,12 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   };
 
   const handleRemoveRole = (index: number) => {
-    if (roles[index].needed_workers > 0) {
+    if (index < 0 || index >= roles.length) return; // Guard against invalid index
+    const role = roles[index];
+    if (role?.needed_workers > 0) {
       const roleData = displayEvent?.shifts_by_role?.[index];
-      const hasAssignedWorkers = roleData && 
-        ((roleData as any).assigned_workers > 0 || (roleData as any).filled_shifts > 0);
-      if (hasAssignedWorkers) {
-        // TODO: Show confirmation for removing assigned roles
+      const assignedCount = roleData?.assigned_workers || roleData?.filled_shifts || 0;
+      if (assignedCount > 0) {
         setToast({
           isVisible: true,
           message: 'Cannot remove role with assigned workers. Please unassign workers first.',
@@ -204,6 +205,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   };
 
   const handleSkillSelect = (index: number, skillName: string) => {
+    if (index < 0 || index >= roles.length) return; // Guard against invalid index
     const skill = availableSkills.find(s => s.name === skillName);
     const newRoles = [...roles];
     newRoles[index] = { 
@@ -569,13 +571,15 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                 </div>
 
                 {/* Show assigned workers count */}
-                {displayEvent.shifts_by_role?.[index] && (
-                  ((event.shifts_by_role[index] as any).assigned_workers > 0 || (event.shifts_by_role[index] as any).filled_shifts > 0) && (
+                {(() => {
+                  const roleData = displayEvent?.shifts_by_role?.[index];
+                  const assignedCount = roleData?.assigned_workers || roleData?.filled_shifts || 0;
+                  return assignedCount > 0 ? (
                     <div className="text-sm text-amber-600 font-semibold bg-amber-50 px-3 py-2 rounded-lg">
-                      {(event.shifts_by_role[index] as any).assigned_workers || (event.shifts_by_role[index] as any).filled_shifts} worker(s) assigned
+                      {assignedCount} worker(s) assigned
                     </div>
-                  )
-                )}
+                  ) : null;
+                })()}
               </div>
             ))}
           </div>
