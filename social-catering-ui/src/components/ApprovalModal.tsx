@@ -1223,23 +1223,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             </div>
           )}
 
-          {/* Action Buttons - CHANGED: Single button only */}
-          <div className="flex items-center justify-between">
-            {/* Left: Cost Summary */}
-            <div className="text-sm">
-              <span className="text-gray-600">
-                {pendingCount === 0 ? 'Final approved cost:' : 'Total cost:'}
-              </span>
-              <span className="ml-2 text-lg font-bold text-gray-900">
-                ${safeToFixed(totalCost, 2, '0.00')}
-              </span>
-              <span className="ml-1 text-gray-600">
-                ({totalCount} {totalCount === 1 ? 'worker' : 'workers'}, {safeToFixed(totalHours, 2, '0.00')}h)
-              </span>
-            </div>
-
-            {/* Right: Action Buttons */}
-            <div className="flex items-center gap-3">
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3">
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
