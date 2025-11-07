@@ -5,8 +5,13 @@ module Api
 
       def index
         # Filter out orphaned assignments (deleted events, archived shifts)
-        assignments = Assignment.valid
-                                .includes(:worker, shift: [:event, :venue, :location])
+        # Use eager_load instead of includes when we have joins in valid scope
+        assignments = Assignment
+                                .joins(:shift)
+                                .left_joins(shift: :event)
+                                .where.not(shifts: { status: 'archived' })
+                                .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
+                                .eager_load(:worker, shift: [:event, :venue, :location])
                                 .order(created_at: :desc)
 
         # Filter by date range
