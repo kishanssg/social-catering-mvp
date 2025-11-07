@@ -9,6 +9,7 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Edit,
   Pencil,
   Trash2,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { safeToFixed, safeNumber } from '../utils/number';
+import { cn } from '../lib/utils';
 import { AssignmentModal } from '../components/AssignmentModal';
 import { Toast } from '../components/common/Toast';
 import { ConfirmationModal } from '../components/common/ConfirmationModal';
@@ -774,15 +776,13 @@ export function EventsPage() {
               />
             )}
             
-            {activeTab === 'completed' && (
-              <PastEventsTab
-                events={filteredEvents}
-                expandedEvents={expandedEvents}
-                onToggleEvent={toggleEvent}
-                searchQuery={searchQuery}
-                onApproveHours={(event) => setApprovalModal({ isOpen: true, event })}
-              />
-            )}
+              {activeTab === 'completed' && (
+                <PastEventsTab
+                  events={filteredEvents}
+                  searchQuery={searchQuery}
+                  onApproveHours={(event) => setApprovalModal({ isOpen: true, event })}
+                />
+              )}
           </>
         )}
       </div>
@@ -1430,13 +1430,11 @@ function ActiveEventsTab({
 // Past Events Tab Component (replaces Staffing > Past)
 interface PastEventsTabProps {
   events: Event[];
-  expandedEvents: Set<number>;
-  onToggleEvent: (id: number) => void;
   searchQuery: string;
   onApproveHours?: (event: Event) => void;
 }
 
-function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onApproveHours }: PastEventsTabProps) {
+function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabProps) {
   const formatDate = (dateString: string) => {
     // Parse UTC ISO string and format in local timezone
     const date = parseISO(dateString);
@@ -1469,309 +1467,133 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
   return (
     <div className="space-y-4">
       {events.map((event) => {
-        const isExpanded = expandedEvents.has(event.id);
-        
         // Calculate totals - prefer backend-calculated values (SSOT)
         let totalHours = safeNumber(event.total_hours_worked);
-        let totalPay = safeNumber(event.total_pay_amount);
         
         // Fallback: Calculate from assignments if backend totals not available
-        if (totalHours === 0 && totalPay === 0 && event.shifts_by_role && event.shifts_by_role.length > 0) {
+        if (totalHours === 0 && event.shifts_by_role && event.shifts_by_role.length > 0) {
           event.shifts_by_role.forEach(roleGroup => {
             roleGroup.shifts?.forEach(shift => {
               shift.assignments?.forEach((assignment: any) => {
-                // ✅ SSOT: Use backend-calculated effective_hours (Single Source of Truth)
                 const hours = safeNumber(assignment.effective_hours);
                 totalHours += hours;
-                // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-                const pay = safeNumber(assignment.effective_pay);
-                totalPay += pay;
               });
             });
           });
         }
         
         return (
-          <div 
+          <div
             key={event.id}
-            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+            className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 hover:shadow-sm transition-all"
           >
-            {/* Event Header */}
-            <div
-              onClick={() => onToggleEvent(event.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              <div className="flex-1 text-left">
-                <div className="flex items-start gap-3 mb-2 flex-wrap">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {event.title}
-                  </h3>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-                    Completed
-                  </span>
-                  {/* Approval Status Badge */}
-                  {event.approval_status && event.approval_status.total > 0 && (
-                    event.approval_status.approved === event.approval_status.total ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
-                        <Check size={12} />
-                        All Hours Approved
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                        <AlertCircle size={12} />
-                        {event.approval_status.pending} Pending Approval
-                      </span>
-                    )
-                  )}
-                </div>
-                {/* Approve button moved to right side for cleaner alignment */}
-                
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+            {/* Header Row */}
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
+                  {event.title}
+                </h3>
+                <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
                   {event.schedule && (
                     <>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={14} className="text-gray-400" />
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 flex-shrink-0" />
                         {formatDate(event.schedule.start_time_utc)}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={14} className="text-gray-400" />
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4 flex-shrink-0" />
                         {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
-                      </div>
+                      </span>
                     </>
                   )}
                   {event.venue && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin size={14} className="text-gray-400" />
-                      {event.venue?.name || 'No venue'}
-                    </div>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4 flex-shrink-0" />
+                      {event.venue.name}
+                    </span>
                   )}
                 </div>
-                {/* ✅ Phase 2: Cost Summary on Event Card Header */}
-                {event.cost_summary && (
-                  <div className="mt-2 text-sm">
-                    {event.cost_summary.all_approved ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Final Cost:</span>
-                        <span className="font-semibold text-green-600">
-                          ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          ({event.cost_summary.approved_count} workers)
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="flex items-center gap-1">
-                          <span className="text-gray-600">Cost:</span>
-                          <span className="font-semibold text-gray-900">
-                            ${safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')}
-                          </span>
-                        </div>
-                        {event.cost_summary.approved_count > 0 && (
-                          <span className="text-xs text-green-600">
-                            ✅ ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')} approved
-                          </span>
-                        )}
-                        {event.cost_summary.pending_count > 0 && (
-                          <span className="text-xs text-amber-600">
-                            ⚠️ ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')} pending
-                          </span>
-                        )}
-                      </div>
-                    )}
+              </div>
+
+              {/* Status Badges */}
+              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
+                  Completed
+                </span>
+                {event.approval_status && event.approval_status.pending > 0 && (
+                  <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded">
+                    {event.approval_status.pending} Pending
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Stats Grid - Clean & Minimal */}
+            <div className="grid grid-cols-4 gap-4 py-3 border-y border-gray-100">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Workers</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {event.assigned_workers_count || 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Hours</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {safeToFixed(totalHours, 2, '0.00')}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Cost</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  ${event.cost_summary?.total_estimated_cost 
+                    ? safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')
+                    : event.total_pay_amount 
+                    ? safeToFixed(event.total_pay_amount, 2, '0.00')
+                    : '0.00'}
+                </div>
+                {event.approval_status && event.approval_status.pending > 0 && event.cost_summary && (
+                  <div className="text-xs text-amber-600 font-medium mt-0.5">
+                    ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')} pending
                   </div>
                 )}
               </div>
-              
-              <div className="ml-4 flex items-center gap-2">
-                {onApproveHours && (
-                  event.approval_status && event.approval_status.approved === event.approval_status.total ? (
-                    <span className="px-3 py-1.5 text-sm bg-emerald-100 text-emerald-700 rounded-md flex items-center gap-1 font-medium">
-                      <Check size={14} />
-                      Approved
-                    </span>
-                  ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onApproveHours(event); }}
-                      className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-1 ${
-                        event.approval_status && event.approval_status.pending > 0
-                          ? 'bg-amber-600 text-white hover:bg-amber-700'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                      title="Approve Hours"
-                    >
-                      {event.approval_status && event.approval_status.pending > 0
-                        ? `Approve Hours (${event.approval_status.pending})`
-                        : 'Approve Hours'}
-                    </button>
-                  )
-                )}
-                <div className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                  {isExpanded ? (
-                    <ChevronUp size={24} className="text-gray-600 hover:text-gray-800" />
-                  ) : (
-                    <ChevronDown size={24} className="text-gray-600 hover:text-gray-800" />
-                  )}
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Staffing</div>
+                <div className="text-lg font-semibold text-green-600">
+                  {event.staffing_percentage || 100}%
                 </div>
               </div>
             </div>
-            
-            {/* Expanded Content - Workers & Hours */}
-            {isExpanded && event.shifts_by_role && (
-              <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-                {/* Summary */}
-                <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="grid grid-cols-4 gap-4 text-center">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Workers</p>
-                      <p className="text-2xl font-semibold text-gray-900">
-                        {event.assigned_workers_count}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Total Hours</p>
-                      <p className="text-2xl font-semibold text-gray-900">
-                        {safeToFixed(totalHours, 2, '0.00')}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Total Event Cost</p>
-                      {/* ✅ Phase 2: Three-State Cost Display */}
-                      {event.cost_summary ? (
-                        event.cost_summary.all_approved ? (
-                          // ALL APPROVED - Show final approved cost
-                          <div>
-                            <p className="text-2xl font-semibold text-green-600">
-                              ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">Final Approved Cost</p>
-                          </div>
-                        ) : (
-                          // MIXED STATE - Show breakdown
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-gray-600">✅ Approved:</span>
-                              <span className="text-sm font-semibold text-green-600">
-                                ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-gray-600">⚠️ Pending:</span>
-                              <span className="text-sm font-semibold text-amber-600">
-                                ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')}
-                              </span>
-                            </div>
-                            <div className="border-t border-gray-300 pt-1 mt-1 flex items-center justify-between">
-                              <span className="text-xs font-medium text-gray-700">Total:</span>
-                              <span className="text-lg font-bold text-gray-900">
-                                ${safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')}
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      ) : (
-                        // Fallback: Use backend-calculated total_pay_amount or calculate from assignments
-                        <p className="text-2xl font-semibold text-green-600">
-                          ${(() => {
-                            // ✅ SSOT: Prefer backend-calculated total_pay_amount (most reliable)
-                            if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                              return safeToFixed(event.total_pay_amount, 0, '0');
-                            }
-                            
-                            // Fallback: Calculate from assignments if backend total not available
-                            let totalCost = 0;
-                            if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                              event.shifts_by_role.forEach(roleGroup => {
-                                roleGroup.shifts?.forEach(shift => {
-                                  shift.assignments?.forEach((assignment: any) => {
-                                    // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-                                    const pay = safeNumber(assignment.effective_pay);
-                                    totalCost += pay;
-                                  });
-                                });
-                              });
-                            }
-                            return safeToFixed(totalCost, 0, '0');
-                          })()}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Staffing</p>
-                      <p className="text-2xl font-semibold text-gray-900">
-                        {event.staffing_percentage}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Workers by Role */}
-                <div className="space-y-3">
-                  {event.shifts_by_role.map((roleGroup) => (
-                    <div key={roleGroup.role_name} className="bg-white rounded-lg border border-gray-200 p-4">
-                      <h4 className="font-medium text-gray-900 mb-3">{roleGroup.role_name}</h4>
-                      
-                      <div className="space-y-2">
-                        {roleGroup.shifts.flatMap(shift => 
-                          shift.assignments.map(assignment => (
-                            <div 
-                              key={assignment.id}
-                              className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded"
-                            >
-                              <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-medium">
-                                {(assignment.worker?.first_name?.[0]) || ''}{(assignment.worker?.last_name?.[0]) || ''}
-                              </div>
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {assignment.worker?.first_name || 'Unknown'} {assignment.worker?.last_name || 'Worker'}
-                                  </span>
-                                  {/* Approval Status */}
-                                  {assignment.approved ? (
-                                    <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                                      <Check size={10} />
-                                      Approved{assignment.approved_by_name ? ` by ${assignment.approved_by_name.split('@')[0]}` : ''}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-amber-600 font-medium">Pending Approval</span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                {/* Scheduled vs Actual Hours */}
-                                {assignment.scheduled_hours !== undefined && (
-                                  <div className="flex flex-col items-end">
-                                    <span className="text-xs text-gray-500">Scheduled: {safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</span>
-                                    <span className="font-medium">
-                                      {safeToFixed(assignment.effective_hours || assignment.hours_worked || 0, 2, '0.00')} hrs
-                                    </span>
-                                  </div>
-                                )}
-                                {!assignment.scheduled_hours && assignment.hours_worked && (
-                                  <span className="font-medium">
-                                    {safeToFixed(assignment.hours_worked, 2, '0.00')} hrs
-                                  </span>
-                                )}
-                                <span className="font-medium text-green-600">
-                                  ${safeToFixed(Number(assignment.hourly_rate ?? shift.pay_rate ?? 0), 0, '0')}/hr
-                                </span>
-                                <span className="font-semibold text-blue-600">
-                                  ${safeToFixed(assignment.effective_pay || (Number(assignment.hours_worked || 0) * Number(assignment.hourly_rate ?? shift.pay_rate ?? 0)), 0, '0')}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
-                                </span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
+            {/* Action Button */}
+            <div className="mt-4 flex justify-end">
+              {onApproveHours && (
+                <button
+                  onClick={() => onApproveHours(event)}
+                  className={cn(
+                    "px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors shadow-sm",
+                    event.approval_status && event.approval_status.pending > 0
+                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                      : event.approval_status && event.approval_status.approved === event.approval_status.total
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-green-600 hover:bg-green-700 text-white"
+                  )}
+                >
+                  {event.approval_status && event.approval_status.pending > 0 ? (
+                    <>
+                      <Clock className="h-4 w-4" />
+                      Approve Hours ({event.approval_status.pending})
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Approved
+                    </>
+                  )}
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
