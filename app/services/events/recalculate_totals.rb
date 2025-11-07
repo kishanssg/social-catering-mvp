@@ -13,13 +13,22 @@ class Events::RecalculateTotals
     ActiveRecord::Base.transaction do
       valid_assignments = fetch_valid_assignments
       
-      @event.update_columns(
+      # Only update columns that exist (Event may use updated_at_utc instead of updated_at)
+      update_hash = {
         total_hours_worked: calculate_total_hours(valid_assignments),
         total_pay_amount: calculate_total_pay(valid_assignments),
         assigned_shifts_count: calculate_assigned_shifts,
-        total_shifts_count: @event.shifts.count,
-        updated_at: Time.current
-      )
+        total_shifts_count: @event.shifts.count
+      }
+      
+      # Add timestamp if column exists
+      if @event.class.column_names.include?('updated_at')
+        update_hash[:updated_at] = Time.current
+      elsif @event.class.column_names.include?('updated_at_utc')
+        update_hash[:updated_at_utc] = Time.current
+      end
+      
+      @event.update_columns(update_hash)
       
       # Log activity for audit trail
       log_recalculation_activity
