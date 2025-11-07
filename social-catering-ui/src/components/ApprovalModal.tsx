@@ -206,24 +206,11 @@ function WorkerRow({
           !isApproved && !isEditing && assignment.status === 'no_show' && "bg-red-50/30",
           !isApproved && !isEditing && assignment.status === 'cancelled' && "bg-gray-50/30",
           !isApproved && !isEditing && "bg-white hover:bg-gray-50",
-          isEditing && "bg-blue-50"
+          isEditing && "bg-slate-50"
         )}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
-      {/* Checkbox */}
-      <td className="py-4 px-3 w-12">
-        {canSelect && (
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onToggleSelect(assignment.id)}
-            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
-            onClick={(e) => e.stopPropagation()}
-          />
-        )}
-      </td>
-      
       {/* Worker Info */}
       <td className="py-4 px-3">
         <div className="flex items-center gap-3">
@@ -361,77 +348,72 @@ function WorkerRow({
 
     {/* Expanded Edit Panel - Below Row */}
     {isEditing && (
-      <tr className="bg-blue-50">
+      <tr className="bg-slate-50">
         <td colSpan={7} className="px-3 py-0">
           <div className="overflow-hidden transition-all duration-300 ease-in-out">
-            <div className="py-4">
-              <div className="bg-white border-2 border-blue-400 rounded-lg p-4 shadow-sm">
+            <div className="py-3">
+              {/* CHANGED: Softer border (slate-300), less padding (p-3) */}
+              <div className="bg-white border border-slate-300 rounded-lg p-3 shadow-sm">
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-4">
-                  <Edit2 className="h-4 w-4 text-blue-600" />
+                <div className="flex items-center gap-2 mb-3">
+                  <Edit2 className="h-4 w-4 text-slate-600" />
                   <h4 className="text-sm font-semibold text-gray-900">
                     Edit Hours Worked
                   </h4>
                 </div>
 
-                {/* Form */}
-                <div className="space-y-4">
-                  {/* Shift Context */}
-                  <div className="p-3 bg-gray-50 rounded-lg flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                    <span className="text-gray-700">
-                      <strong>Shift:</strong> {shiftTime}
-                    </span>
-                    {shiftDuration > 0 && (
-                      <span className="text-gray-500">
-                        ({shiftDuration} hour shift)
-                      </span>
-                    )}
-                  </div>
+                {/* CHANGED: Shift Context - Compact Inline (1 line, text-xs) */}
+                <div className="mb-3 flex items-center gap-2 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded">
+                  <Clock className="h-3.5 w-3.5 text-gray-400" />
+                  <span>{shiftTime}</span>
+                  {shiftDuration > 0 && (
+                    <>
+                      <span className="text-gray-400">·</span>
+                      <span>{shiftDuration} hour shift</span>
+                    </>
+                  )}
+                </div>
 
+                {/* CHANGED: Tighter spacing (space-y-3) */}
+                <div className="space-y-3">
                   {/* Hours Input with Controls */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Hours Worked
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => adjustHours(-1)}
-                        disabled={isSavingEdit}
-                        className="p-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        type="button"
-                        title="Decrease by 1 hour"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <input
-                        type="number"
-                        step="0.25"
-                        min="0"
-                        max="24"
-                        value={editHours}
-                        onChange={(e) => onEditHoursChange(e.target.value)}
-                        onKeyDown={onEditKeyDown}
-                        disabled={isSavingEdit}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                        placeholder="0.0"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => adjustHours(1)}
-                        disabled={isSavingEdit}
-                        className="p-2 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        type="button"
-                        title="Increase by 1 hour"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => adjustHours(-1)}
+                      disabled={isSavingEdit}
+                      className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      type="button"
+                      title="Decrease by 1 hour"
+                    >
+                      <Minus className="h-4 w-4 text-gray-600" />
+                    </button>
+                    <input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      max="24"
+                      value={editHours}
+                      onChange={(e) => onEditHoursChange(e.target.value)}
+                      onKeyDown={onEditKeyDown}
+                      disabled={isSavingEdit}
+                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-center text-base font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                      placeholder="0.0"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => adjustHours(1)}
+                      disabled={isSavingEdit}
+                      className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      type="button"
+                      title="Increase by 1 hour"
+                    >
+                      <Plus className="h-4 w-4 text-gray-600" />
+                    </button>
                   </div>
 
-                  {/* Quick Adjust Buttons */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600">Quick adjust:</span>
+                  {/* CHANGED: Compact Quick Adjust (smaller gaps) */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500">Quick:</span>
                     <button
                       onClick={() => adjustHours(-1)}
                       disabled={isSavingEdit}
@@ -470,29 +452,27 @@ function WorkerRow({
                     </div>
                   </div>
 
-                  {/* Warning for re-editing approved */}
+                  {/* CHANGED: Compact Warning (single line, left border only) */}
                   {wasApprovedBeforeEdit && (
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                      <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div className="text-xs text-amber-800">
-                        <strong>Note:</strong> Re-editing will un-approve these hours.
-                      </div>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-l-2 border-amber-400 rounded text-xs text-amber-800">
+                      <AlertCircle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                      <span><strong>Note:</strong> Re-editing will un-approve these hours.</span>
                     </div>
                   )}
 
-                  {/* Actions Row */}
-                  <div className="flex items-center justify-between pt-4 border-t">
-                    {/* Destructive actions */}
-                    <div className="flex items-center gap-2">
+                  {/* CHANGED: Compact Action Row (pt-3, smaller buttons) */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                    {/* Left: Destructive actions - CHANGED: Smaller (px-2.5 py-1.5) */}
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => {
                           onNoShow(assignment);
                           onCancelEdit();
                         }}
                         disabled={isSavingEdit}
-                        className="px-3 py-2 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                        className="px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       >
-                        <AlertCircle className="h-4 w-4" />
+                        <AlertCircle className="h-3.5 w-3.5" />
                         No-Show
                       </button>
                       <button
@@ -501,26 +481,26 @@ function WorkerRow({
                           onCancelEdit();
                         }}
                         disabled={isSavingEdit}
-                        className="px-3 py-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
+                        className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                         Remove
                       </button>
                     </div>
 
-                    {/* Save/Cancel */}
+                    {/* Right: Save/Cancel - CHANGED: py-1.5 instead of py-2 */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={onCancelEdit}
                         disabled={isSavingEdit}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 disabled:opacity-50 transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={onSaveEdit}
                         disabled={isSavingEdit}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 disabled:bg-blue-400 transition-colors"
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
                       >
                         {isSavingEdit ? (
                           <>
@@ -1122,17 +1102,6 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             <table className="w-full">
               <thead className="border-b border-gray-200 hidden sm:table-header-group">
                 <tr className="text-left">
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-12 px-3">
-                    {eligibleAssignments.length > 0 && (
-                      <input
-                        type="checkbox"
-                        checked={selectedEligible.length === eligibleAssignments.length && eligibleAssignments.length > 0}
-                        onChange={toggleSelectAll}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
-                        title={selectedEligible.length === eligibleAssignments.length ? "Deselect all" : "Select all"}
-                      />
-                    )}
-                  </th>
                   <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[25%]">
                     Worker
                   </th>
@@ -1228,39 +1197,36 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 ease-in-out"
-            >
-              Close
-            </button>
-            {pendingCount > 0 && (
-              <>
-                {selectedEligible.length > 0 && (
-                  <button
-                    onClick={handleApproveSelected}
-                    disabled={isApproving}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
-                  >
-                    {isApproving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Approving...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Approve Selected ({selectedEligible.length})
-                      </>
-                    )}
-                  </button>
-                )}
+          {/* Action Buttons - CHANGED: Single button only */}
+          <div className="flex items-center justify-between">
+            {/* Left: Cost Summary */}
+            <div className="text-sm">
+              <span className="text-gray-600">
+                {pendingCount === 0 ? 'Final approved cost:' : 'Total cost:'}
+              </span>
+              <span className="ml-2 text-lg font-bold text-gray-900">
+                ${safeToFixed(totalCost, 2, '0.00')}
+              </span>
+              <span className="ml-1 text-gray-600">
+                ({totalCount} {totalCount === 1 ? 'worker' : 'workers'}, {safeToFixed(totalHours, 2, '0.00')}h)
+              </span>
+            </div>
+
+            {/* Right: Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Close
+              </button>
+              
+              {/* CHANGED: Only show Approve All when pending > 0 */}
+              {pendingCount > 0 && (
                 <button
                   onClick={handleApproveAll}
                   disabled={isApproving}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-200 ease-in-out"
+                  className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
                 >
                   {isApproving ? (
                     <>
@@ -1274,8 +1240,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                     </>
                   )}
                 </button>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </footer>
       </div>

@@ -7,13 +7,20 @@ module Api
       # GET /api/v1/staffing
       # Query params: event_id, worker_id, status, start_date, end_date
       def index
-        # Filter out orphaned assignments (deleted events, archived shifts)
+        # Filter out orphaned assignments (deleted events, archived shifts, blank event titles)
         # Use eager_load instead of includes when we have joins in valid scope
         assignments = Assignment
                            .joins(:shift)
                            .left_joins(shift: :event)
                            .where.not(shifts: { status: 'archived' })
-                           .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
+                           .where("shifts.event_id IS NULL OR (
+                             events.id IS NOT NULL 
+                             AND events.status != 'deleted'
+                             AND (events.deleted_at IS NULL OR events.deleted_at > NOW())
+                             AND events.title IS NOT NULL
+                             AND events.title != ''
+                             AND TRIM(events.title) != ''
+                           )")
                            .eager_load(worker: [], shift: [:event, :skill_requirement])
                            .order(created_at: :desc)
         
