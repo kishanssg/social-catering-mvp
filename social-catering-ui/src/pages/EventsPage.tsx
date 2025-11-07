@@ -64,6 +64,16 @@ interface Event {
     approved: number;
     pending: number;
   };
+  // Cost summary (fetched from approvals endpoint)
+  cost_summary?: {
+    approved_cost: number;
+    pending_cost: number;
+    total_estimated_cost: number;
+    approved_count: number;
+    pending_count: number;
+    total_count: number;
+    all_approved: boolean;
+  };
   // Full event details (loaded when expanded)
   full_details?: any;
 }
@@ -254,7 +264,7 @@ export function EventsPage() {
         console.log('Received events:', response.data.data.length);
         const loadedEvents = response.data.data;
         
-        // For completed events, fetch approval status
+        // For completed events, fetch approval status and cost summary
         if (activeTab === 'completed') {
           const eventsWithApprovals = await Promise.all(
             loadedEvents.map(async (event: Event) => {
@@ -264,13 +274,16 @@ export function EventsPage() {
                   const assignments = apprResponse.data.data.assignments || [];
                   const total = assignments.length;
                   const approved = assignments.filter((a: any) => a.approved).length;
+                  // ✅ Phase 2: Fetch cost_summary from approvals endpoint
+                  const costSummary = apprResponse.data.data.cost_summary || null;
                   return {
                     ...event,
                     approval_status: {
                       total,
                       approved,
                       pending: total - approved
-                    }
+                    },
+                    cost_summary: costSummary
                   };
                 }
               } catch (e) {
@@ -1197,15 +1210,15 @@ function ActiveEventsTab({
                   </p>
                 )}
                 
-                {/* Estimated Cost Summary */}
+                {/* ✅ Phase 4: Enhanced Estimated Cost Display */}
                 {(event.total_pay_amount !== undefined || (event.shifts_by_role && event.shifts_by_role.length > 0)) && (
-                  <div className="text-sm text-gray-600 mt-2">
-                    <span className="font-medium text-gray-700">Est. Cost: </span>
-                    <span className="font-semibold text-green-600">
+                  <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-xs font-medium text-gray-600">Estimated Cost:</span>
+                    <span className="text-base font-bold text-green-700">
                       ${(() => {
                         // ✅ SSOT: Prefer backend-calculated total_pay_amount
                         if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                          return safeToFixed(event.total_pay_amount, 0, '0');
+                          return safeToFixed(event.total_pay_amount, 2, '0.00');
                         }
                         
                         // Fallback: Calculate from assignments
@@ -1220,8 +1233,11 @@ function ActiveEventsTab({
                             });
                           });
                         }
-                        return safeToFixed(totalCost, 0, '0');
+                        return safeToFixed(totalCost, 2, '0.00');
                       })()}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      ({event.assigned_workers_count} worker{event.assigned_workers_count !== 1 ? 's' : ''})
                     </span>
                   </div>
                 )}
@@ -1530,6 +1546,41 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                     </div>
                   )}
                 </div>
+                {/* ✅ Phase 2: Cost Summary on Event Card Header */}
+                {event.cost_summary && (
+                  <div className="mt-2 text-sm">
+                    {event.cost_summary.all_approved ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Final Cost:</span>
+                        <span className="font-semibold text-green-600">
+                          ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({event.cost_summary.approved_count} workers)
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600">Cost:</span>
+                          <span className="font-semibold text-gray-900">
+                            ${safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')}
+                          </span>
+                        </div>
+                        {event.cost_summary.approved_count > 0 && (
+                          <span className="text-xs text-green-600">
+                            ✅ ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')} approved
+                          </span>
+                        )}
+                        {event.cost_summary.pending_count > 0 && (
+                          <span className="text-xs text-amber-600">
+                            ⚠️ ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')} pending
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="ml-4 flex items-center gap-2">
@@ -1585,29 +1636,65 @@ function PastEventsTab({ events, expandedEvents, onToggleEvent, searchQuery, onA
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Total Event Cost</p>
-                      <p className="text-2xl font-semibold text-green-600">
-                        ${(() => {
-                          // ✅ SSOT: Prefer backend-calculated total_pay_amount (most reliable)
-                          if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
-                            return safeToFixed(event.total_pay_amount, 0, '0');
-                          }
-                          
-                          // Fallback: Calculate from assignments if backend total not available
-                          let totalCost = 0;
-                          if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                            event.shifts_by_role.forEach(roleGroup => {
-                              roleGroup.shifts?.forEach(shift => {
-                                shift.assignments?.forEach((assignment: any) => {
-                                  // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
-                                  const pay = safeNumber(assignment.effective_pay);
-                                  totalCost += pay;
+                      {/* ✅ Phase 2: Three-State Cost Display */}
+                      {event.cost_summary ? (
+                        event.cost_summary.all_approved ? (
+                          // ALL APPROVED - Show final approved cost
+                          <div>
+                            <p className="text-2xl font-semibold text-green-600">
+                              ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">Final Approved Cost</p>
+                          </div>
+                        ) : (
+                          // MIXED STATE - Show breakdown
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-600">✅ Approved:</span>
+                              <span className="text-sm font-semibold text-green-600">
+                                ${safeToFixed(event.cost_summary.approved_cost, 2, '0.00')}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-600">⚠️ Pending:</span>
+                              <span className="text-sm font-semibold text-amber-600">
+                                ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')}
+                              </span>
+                            </div>
+                            <div className="border-t border-gray-300 pt-1 mt-1 flex items-center justify-between">
+                              <span className="text-xs font-medium text-gray-700">Total:</span>
+                              <span className="text-lg font-bold text-gray-900">
+                                ${safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        // Fallback: Use backend-calculated total_pay_amount or calculate from assignments
+                        <p className="text-2xl font-semibold text-green-600">
+                          ${(() => {
+                            // ✅ SSOT: Prefer backend-calculated total_pay_amount (most reliable)
+                            if (event.total_pay_amount !== undefined && event.total_pay_amount > 0) {
+                              return safeToFixed(event.total_pay_amount, 0, '0');
+                            }
+                            
+                            // Fallback: Calculate from assignments if backend total not available
+                            let totalCost = 0;
+                            if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                              event.shifts_by_role.forEach(roleGroup => {
+                                roleGroup.shifts?.forEach(shift => {
+                                  shift.assignments?.forEach((assignment: any) => {
+                                    // ✅ SSOT: Use backend-calculated effective_pay (Single Source of Truth)
+                                    const pay = safeNumber(assignment.effective_pay);
+                                    totalCost += pay;
+                                  });
                                 });
                               });
-                            });
-                          }
-                          return safeToFixed(totalCost, 0, '0');
-                        })()}
-                      </p>
+                            }
+                            return safeToFixed(totalCost, 0, '0');
+                          })()}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Staffing</p>

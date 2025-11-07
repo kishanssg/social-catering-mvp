@@ -208,6 +208,14 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const unapprovedCount = assignments.filter(a => !a.approved && a.can_approve).length;
   const totalHours = assignments.reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
   const totalPay = assignments.reduce((sum, a) => sum + (Number(a.effective_pay) || 0), 0);
+  
+  // ✅ Phase 3: Calculate approved vs pending hours for enhanced display
+  const approvedHours = assignments
+    .filter(a => a.approved && !a.status?.includes('no_show') && !a.status?.includes('cancelled'))
+    .reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
+  const pendingHours = assignments
+    .filter(a => !a.approved && !a.status?.includes('no_show') && !a.status?.includes('cancelled'))
+    .reduce((sum, a) => sum + (Number(a.effective_hours) || 0), 0);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
@@ -299,6 +307,20 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                             {new Date(assignment.shift_date).toLocaleDateString()}
                           </p>
                         </div>
+                        {/* ✅ Enhanced: Show approval metadata prominently for approved assignments */}
+                        {assignment.approved && assignment.approved_by_name && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Check className="h-4 w-4 text-green-600" />
+                            <p className="text-sm font-medium text-green-900">
+                              Approved by {assignment.approved_by_name}
+                              {assignment.approved_at && (
+                                <span className="text-green-700 font-normal">
+                                  {' '}on {new Date(assignment.approved_at).toLocaleDateString()} at {new Date(assignment.approved_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {assignment.approved && (
@@ -366,31 +388,65 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                       </div>
                     ) : (
                       /* View Mode */
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Scheduled Hours</p>
-                          <p className="font-medium text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Hours Worked</p>
-                          <p className="font-medium text-gray-900">
-                            {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-                            {assignment.edited_at && (
-                              <span className="ml-1 text-xs text-orange-600" title="Edited">
-                                <Edit2 className="h-3 w-3 inline" />
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Hourly Rate</p>
-                          <p className="font-medium text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Total Pay</p>
-                          <p className="font-medium text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
-                        </div>
-                      </div>
+                      <>
+                        {/* ✅ Enhanced: Show locked-in values prominently for approved assignments */}
+                        {assignment.approved ? (
+                          <div className="bg-white border border-green-300 rounded-lg p-4 mb-4">
+                            <p className="text-xs font-semibold text-green-900 mb-3 uppercase tracking-wide">Locked-In Values</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-xs text-gray-600 mb-1">Scheduled Hours</p>
+                                <p className="font-semibold text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-600 mb-1">Hours Worked</p>
+                                <p className="font-semibold text-gray-900">
+                                  {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+                                  {assignment.edited_at && (
+                                    <span className="ml-1 text-xs text-orange-600" title="Edited">
+                                      <Edit2 className="h-3 w-3 inline" />
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-600 mb-1">Hourly Rate</p>
+                                <p className="font-semibold text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-600 mb-1">Total Pay</p>
+                                <p className="font-semibold text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Scheduled Hours</p>
+                              <p className="font-medium text-gray-900">{safeToFixed(assignment.scheduled_hours, 2, '0.00')}h</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Hours Worked</p>
+                              <p className="font-medium text-gray-900">
+                                {safeToFixed(assignment.effective_hours, 2, '0.00')}h
+                                {assignment.edited_at && (
+                                  <span className="ml-1 text-xs text-orange-600" title="Edited">
+                                    <Edit2 className="h-3 w-3 inline" />
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Hourly Rate</p>
+                              <p className="font-medium text-gray-900">${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Total Pay</p>
+                              <p className="font-medium text-green-600">${safeToFixed(assignment.effective_pay, 2, '0.00')}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Notes/Audit Trail */}
@@ -438,10 +494,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                           {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
                             <>
                               {assignment.approved ? (
-                                // APPROVED STATE - Show Re-Edit button
+                                // ✅ Enhanced: APPROVED STATE - More prominent Re-Edit button
                                 <button
                                   onClick={() => handleReEdit(assignment)}
-                                  className="px-3 py-1.5 border border-green-600 text-green-700 text-sm font-medium rounded-md hover:bg-green-50 transition-colors flex items-center gap-1"
+                                  className="px-4 py-2 border-2 border-green-600 text-green-700 text-sm font-semibold rounded-md hover:bg-green-50 hover:border-green-700 transition-all shadow-sm flex items-center gap-2"
+                                  title="Re-edit approved hours (will un-approve)"
                                 >
                                   <Edit2 className="h-4 w-4" />
                                   Re-Edit
@@ -486,39 +543,113 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-          {/* Cost Breakdown */}
+          {/* ✅ Phase 3: Enhanced Cost Breakdown */}
           {costSummary && (
-            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="space-y-2 text-sm">
+            <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 shadow-sm">
+              <div className="space-y-3">
                 {costSummary.all_approved ? (
-                  // ALL APPROVED - Show final cost
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700 font-medium">✅ Final Approved Cost:</span>
-                    <span className="text-xl font-bold text-green-600">
-                      ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
-                    </span>
+                  // ALL APPROVED - Show final cost prominently
+                  <div className="text-center">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Final Approved Cost</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-green-600">
+                          ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {costSummary.approved_count} worker{costSummary.approved_count !== 1 ? 's' : ''} • {safeToFixed(approvedHours, 2, '0.00')} hours
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-green-700 mt-2 font-medium">
+                      ✅ All hours approved - ready for payroll processing
+                    </p>
                   </div>
                 ) : (
-                  // MIXED STATE - Show breakdown
+                  // MIXED STATE - Enhanced breakdown with hours
                   <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">✅ Approved:</span>
-                      <span className="font-semibold text-green-600">
-                        ${safeToFixed(costSummary.approved_cost, 2, '0.00')} ({costSummary.approved_count} workers)
-                      </span>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Approved Section */}
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="text-xs font-semibold text-green-900 uppercase tracking-wide">Approved</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Hours:</span>
+                            <span className="text-sm font-semibold text-green-700">
+                              {safeToFixed(approvedHours, 2, '0.00')}h
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Cost:</span>
+                            <span className="text-sm font-semibold text-green-600">
+                              ${safeToFixed(costSummary.approved_cost, 2, '0.00')}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1 border-t border-green-200">
+                            <span className="text-xs text-gray-600">Workers:</span>
+                            <span className="text-sm font-medium text-green-700">
+                              {costSummary.approved_count}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pending Section */}
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="h-4 w-4 text-amber-600" />
+                          <span className="text-xs font-semibold text-amber-900 uppercase tracking-wide">Pending</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Hours:</span>
+                            <span className="text-sm font-semibold text-amber-700">
+                              {safeToFixed(pendingHours, 2, '0.00')}h
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Cost:</span>
+                            <span className="text-sm font-semibold text-amber-600">
+                              ${safeToFixed(costSummary.pending_cost, 2, '0.00')}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1 border-t border-amber-200">
+                            <span className="text-xs text-gray-600">Workers:</span>
+                            <span className="text-sm font-medium text-amber-700">
+                              {costSummary.pending_count}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">⚠️ Pending:</span>
-                      <span className="font-semibold text-orange-600">
-                        ${safeToFixed(costSummary.pending_cost, 2, '0.00')} ({costSummary.pending_count} workers)
-                      </span>
+
+                    {/* Total Section */}
+                    <div className="bg-white border-2 border-gray-300 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-gray-700">Estimated Total Labor Cost:</span>
+                        <span className="text-2xl font-bold text-gray-900">
+                          ${safeToFixed(costSummary.total_estimated_cost, 2, '0.00')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-xs text-gray-500">Total Hours:</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          {safeToFixed(totalHours, 2, '0.00')}h
+                        </span>
+                      </div>
                     </div>
-                    <div className="border-t border-blue-300 pt-2 flex justify-between">
-                      <span className="font-semibold text-gray-700">Estimated Total:</span>
-                      <span className="text-lg font-bold">
-                        ${safeToFixed(costSummary.total_estimated_cost, 2, '0.00')}
-                      </span>
-                    </div>
+
+                    {/* Helpful Text */}
+                    {costSummary.pending_count > 0 && (
+                      <div className="bg-amber-100 border border-amber-300 rounded-md p-2">
+                        <p className="text-xs text-amber-900 text-center font-medium">
+                          ⚠️ {costSummary.pending_count} assignment{costSummary.pending_count !== 1 ? 's' : ''} pending approval
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
