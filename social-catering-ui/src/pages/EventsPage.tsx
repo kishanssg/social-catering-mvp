@@ -556,6 +556,7 @@ export function EventsPage() {
       if (response.data?.status === 'success') {
         setToast({ isVisible: true, message: 'Worker unassigned successfully', type: 'success' });
         setUnassignModal({ isOpen: false, isLoading: false });
+        // Refetch all events to get updated aggregates (backend recalculates on unassign)
         loadEvents();
       } else {
         setToast({ isVisible: true, message: response.data?.message || 'Unable to unassign worker', type: 'error' });
@@ -576,6 +577,21 @@ export function EventsPage() {
     setAssignmentModal({ isOpen: false });
   };
   
+  // Helper to update a single event's aggregates after mutation
+  const updateEventAggregates = async (eventId: number) => {
+    try {
+      const response = await apiClient.get(`/events/${eventId}`);
+      if (response.data?.status === 'success') {
+        const updatedEvent = response.data.data;
+        setEvents(prev => prev.map(e => e.id === eventId ? { ...e, ...updatedEvent } : e));
+      }
+    } catch (error) {
+      console.error('Failed to update event aggregates:', error);
+      // Fallback to full reload if single event update fails
+      loadEvents();
+    }
+  };
+
   const handleAssignmentSuccess = () => {
     closeAssignmentModal();
     setToast({
@@ -583,6 +599,7 @@ export function EventsPage() {
       message: 'Worker assigned',
       type: 'success'
     });
+    // Refetch all events to get updated aggregates (backend recalculates on assignment)
     loadEvents();
   };
   
