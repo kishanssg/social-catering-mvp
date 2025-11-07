@@ -948,25 +948,25 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
     <div className="space-y-4">
       {/* Daily Staffing Summary */}
       {events.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-blue-600" />
+              <Users className="h-5 w-5 text-gray-600" />
               <div>
-                <p className="text-sm font-medium text-blue-900">
+                <p className="text-sm font-medium text-gray-900">
                   {events.length} Event{events.length !== 1 ? 's' : ''} Today
                 </p>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-gray-700">
                   {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}/
                   {events.reduce((sum, e) => sum + (e.total_workers_needed || 0), 0)} workers hired
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-gray-900">
                 {events.reduce((sum, e) => sum + (e.assigned_workers_count || 0), 0)}
               </p>
-              <p className="text-xs text-blue-700">hired</p>
+              <p className="text-xs text-gray-700">hired</p>
             </div>
           </div>
         </div>
@@ -1135,11 +1135,11 @@ function ActiveEventsTab({
         return (
           <div 
             key={event.id}
-            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+            className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 hover:shadow-sm transition-all"
           >
             {/* Header Row */}
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-3 p-5 pb-0">
-              <div className="flex-1 min-w-0 w-full">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate">
                   {event.title}
                 </h3>
@@ -1173,8 +1173,8 @@ function ActiveEventsTab({
                 </div>
               </div>
 
-              {/* Status Badge */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Status Badges */}
+              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 {getStatusBadge(event.staffing_status)}
                 {onEdit && event.status === 'published' && (
                   <button
@@ -1211,7 +1211,7 @@ function ActiveEventsTab({
             </div>
 
             {/* Stats Grid - Clean & Minimal */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100 px-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Workers</div>
                 <div className="text-lg font-semibold text-gray-900">
@@ -1247,20 +1247,20 @@ function ActiveEventsTab({
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Staffing</div>
+                <div className="text-xs text-gray-500 mb-1">Roles Needed</div>
                 <div className={cn(
                   "text-lg font-semibold",
-                  event.staffing_percentage >= 100 ? "text-green-600" :
-                  event.staffing_percentage >= 50 ? "text-yellow-600" :
+                  event.unfilled_roles_count === 0 ? "text-green-600" :
+                  event.unfilled_roles_count <= 2 ? "text-yellow-600" :
                   "text-red-600"
                 )}>
-                  {event.staffing_percentage || 0}%
+                  {event.unfilled_roles_count || 0}
                 </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 px-5 pb-5">
+            <div className="mt-4 flex justify-end">
               {event.unfilled_roles_count > 0 && (
                 <button
                   onClick={(e) => {
@@ -1274,7 +1274,7 @@ function ActiveEventsTab({
                       }
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors"
                 >
                   <Users className="h-4 w-4" />
                   Assign Workers
