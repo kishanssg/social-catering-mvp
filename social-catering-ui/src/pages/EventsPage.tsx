@@ -1276,13 +1276,10 @@ function ActiveEventsTab({
                       </span>
                     </div>
 
-                    {/* Action Needed (if incomplete) */}
-                    {unfilledCount > 0 && (
-                      <div className={cn("flex items-center gap-2 text-sm font-medium", getActionTextColor())}>
-                        <AlertCircle className="h-4 w-4" />
-                        {unfilledCount} {unfilledCount === 1 ? 'role' : 'roles'} still need workers
-                      </div>
-                    )}
+                    {/* Staffing progress display */}
+                    <div className="text-sm font-medium text-gray-700">
+                      {assigned}/{total} hired
+                    </div>
 
                     {/* Cost Display */}
                     <div className="text-sm text-gray-600">

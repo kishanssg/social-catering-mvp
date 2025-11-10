@@ -51,6 +51,7 @@ interface DayData {
   shifts_count: number;
   needs_workers_count: number;
   total_hired_today: number;
+  total_required_today: number;
 }
 
 interface UrgentEvent {
@@ -174,7 +175,8 @@ export function DashboardPage() {
                   events: [],
                   shifts_count: 0,
                   needs_workers_count: 0,
-                  total_hired_today: 0
+                  total_hired_today: 0,
+                  total_required_today: 0
                 };
               }
               
@@ -192,6 +194,7 @@ export function DashboardPage() {
               daysMap[dateKey].shifts_count += event.total_shifts_count || 0;
               daysMap[dateKey].needs_workers_count += event.unfilled_roles_count || 0;
               daysMap[dateKey].total_hired_today += hiredCount;
+              daysMap[dateKey].total_required_today += requiredCount;
               
               // Determine worst status for the day
               if (event.staffing_status === 'needs_workers') {
@@ -562,40 +565,10 @@ function MonthCalendar({
                     {getStatusEmoji(dayData.status)}
                   </div>
                   
-                  {/* Event count */}
+                  {/* Daily staffing progress - simplified to just "X/Y hired" */}
                   {dayData.events.length > 0 && (
-                    <div className="text-xs text-center text-gray-600">
-                      {dayData.events.length} event{dayData.events.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                  
-                  {/* Staffing progress per event */}
-                  {dayData.events.length > 0 && dayData.events.length <= 2 && (
-                    <div className="space-y-0.5">
-                      {dayData.events.map((event) => (
-                        <div
-                          key={event.id}
-                          className="text-xs text-center font-medium text-gray-700 truncate"
-                          title={`${event.title}: ${event.hired_count}/${event.required_count} hired`}
-                          aria-label={`Staffing progress: ${event.hired_count} of ${event.required_count} hired`}
-                        >
-                          {event.hired_count}/{event.required_count} hired
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Summary for multiple events or single event summary */}
-                  {dayData.events.length > 2 && (
                     <div className="text-xs text-center font-medium text-gray-700">
-                      {dayData.total_hired_today} hired today
-                    </div>
-                  )}
-                  
-                  {/* Daily total for single event days */}
-                  {dayData.events.length === 1 && dayData.total_hired_today > 0 && (
-                    <div className="text-xs text-center text-gray-500 mt-0.5">
-                      Hired today: {dayData.total_hired_today}
+                      {dayData.total_hired_today}/{dayData.total_required_today} hired
                     </div>
                   )}
                 </div>
