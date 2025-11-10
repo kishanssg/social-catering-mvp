@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus } from 'lucide-react';
+import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
@@ -227,30 +227,36 @@ function WorkerRow({
             </div>
             {/* Status-specific metadata */}
             {assignment.status === 'no_show' && !isEditing && (
-              <div className="mt-1 text-xs text-red-600 font-medium flex items-center gap-1">
-                <Ban className="h-3 w-3" />
-                <span>No-Show</span>
-                {assignment.approval_notes && (
-                  <span className="text-gray-500">• {assignment.approval_notes}</span>
-                )}
-                {assignment.approved_by_name && (
-                  <span className="text-gray-500">
-                    (by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'})
+              <div className="mt-1 text-xs text-red-600 font-medium">
+                {assignment.approved_by_name ? (
+                  <span>
+                    Marked as no-show by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                   </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Ban className="h-3 w-3" />
+                    <span>No-Show</span>
+                  </span>
+                )}
+                {assignment.approval_notes && (
+                  <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
                 )}
               </div>
             )}
             {(assignment.status === 'cancelled' || assignment.status === 'removed') && !isEditing && (
-              <div className="mt-1 text-xs text-gray-500 font-medium flex items-center gap-1">
-                <Trash2 className="h-3 w-3" />
-                <span>Removed</span>
-                {assignment.approval_notes && (
-                  <span>• {assignment.approval_notes}</span>
-                )}
-                {assignment.approved_by_name && (
+              <div className="mt-1 text-xs text-red-600 font-medium">
+                {assignment.approved_by_name ? (
                   <span>
-                    (by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'})
+                    Denied by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                   </span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <Trash2 className="h-3 w-3" />
+                    <span>Removed</span>
+                  </span>
+                )}
+                {assignment.approval_notes && (
+                  <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
                 )}
               </div>
             )}
@@ -293,7 +299,18 @@ function WorkerRow({
       {/* Hours */}
       <td className="py-4 px-3 text-sm font-medium text-right">
         {assignment.status === 'no_show' ? (
-          <span className="text-red-600">0h</span>
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="text-red-600">0h</span>
+            {assignment.can_edit_hours && (
+              <button
+                onClick={() => onStartEdit(assignment)}
+                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                title="Edit Hours"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
           <div className="flex items-center justify-end gap-1.5">
             <span className="text-gray-400">-</span>
@@ -641,6 +658,40 @@ function WorkerRow({
                   {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                 </div>
               )}
+              {assignment.status === 'no_show' && !isEditing && (
+                <div className="text-xs text-red-600 mt-1 ml-10 font-medium">
+                  {assignment.approved_by_name ? (
+                    <span>
+                      Marked as no-show by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Ban className="h-3 w-3" />
+                      <span>No-Show</span>
+                    </span>
+                  )}
+                  {assignment.approval_notes && (
+                    <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
+                  )}
+                </div>
+              )}
+              {(assignment.status === 'cancelled' || assignment.status === 'removed') && !isEditing && (
+                <div className="text-xs text-red-600 mt-1 ml-10 font-medium">
+                  {assignment.approved_by_name ? (
+                    <span>
+                      Denied by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <Trash2 className="h-3 w-3" />
+                      <span>Removed</span>
+                    </span>
+                  )}
+                  {assignment.approval_notes && (
+                    <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
+                  )}
+                </div>
+              )}
             </div>
             {assignment.approved ? (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
@@ -755,7 +806,18 @@ function WorkerRow({
                   <div className="text-xs text-gray-500">Hours</div>
                   <div className="font-medium flex items-center gap-1.5">
                     {assignment.status === 'no_show' ? (
-                      <span className="text-red-600">0h</span>
+                      <>
+                        <span className="text-red-600">0h</span>
+                        {assignment.can_edit_hours && (
+                          <button
+                            onClick={() => onStartEdit(assignment)}
+                            className="p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
+                            title="Edit Hours"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </>
                     ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
                       <>
                         <span className="text-gray-400">-</span>
@@ -791,8 +853,8 @@ function WorkerRow({
                 </div>
               </div>
 
-              {/* Action buttons - Allow editing cancelled workers too */}
-              {assignment.can_edit_hours && assignment.status !== 'no_show' && (
+              {/* Action buttons - Allow editing cancelled, removed, and no-show workers */}
+              {assignment.can_edit_hours && (
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                   {assignment.approved ? (
                     <button
@@ -1230,11 +1292,23 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         {/* Header - Clean & Minimal */}
         <header className="border-b px-6 py-4 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h2 className="text-xl font-semibold text-gray-900">Approve Hours</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {event?.title} · {event?.event_date ? formatDate(event.event_date) : ''}
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                <span className="font-medium text-gray-900">{event?.title}</span>
+                {event?.schedule?.start_time_utc && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-gray-400" />
+                    {format(parseISO(event.schedule.start_time_utc), 'MMM d, yyyy h:mm a')} - {format(parseISO(event.schedule.end_time_utc), 'h:mm a')}
+                  </span>
+                )}
+                {event?.venue?.name && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                    {event.venue.name}
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={onClose}
