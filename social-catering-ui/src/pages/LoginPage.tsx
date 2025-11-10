@@ -197,7 +197,8 @@ export function LoginPage() {
                   loading="eager"
                   decoding="async"
                   style={{ 
-                    imageRendering: 'crisp-edges',
+                    imageRendering: 'auto',
+                    imageRendering: '-webkit-optimize-contrast',
                     WebkitFontSmoothing: 'antialiased',
                     MozOsxFontSmoothing: 'grayscale'
                   }}
