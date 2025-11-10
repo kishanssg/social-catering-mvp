@@ -28,6 +28,7 @@ import {
   startOfDay
 } from 'date-fns';
 import { apiClient } from '../lib/api';
+import { cn } from '../lib/utils';
 
 interface DashboardStats {
   draft_events: number;
