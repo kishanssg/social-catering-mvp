@@ -99,16 +99,16 @@ function WorkerRow({
     if (!dateString) return 'N/A';
     try {
       const date = parseISO(dateString);
-      return format(date, 'MMM d, yyyy h:mm a');
+      // Humanized format: "Nov 7, 6:57 AM, 2025"
+      return format(date, 'MMM d, h:mm a, yyyy');
     } catch {
       try {
-        return new Date(dateString).toLocaleString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        });
+        const d = new Date(dateString);
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        const day = d.getDate();
+        const time = d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const year = d.getFullYear();
+        return `${month} ${day}, ${time}, ${year}`;
       } catch {
         return 'N/A';
       }
