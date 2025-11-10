@@ -45,6 +45,11 @@ cp -a social-catering-ui/dist/*.svg public/assets/ 2>/dev/null || true
 cp -a social-catering-ui/dist/*.png public/assets/ 2>/dev/null || true
 cp social-catering-ui/dist/index.html public/index.html
 
+# Copy subdirectories (like icons) from dist/assets/
+if [ -d "social-catering-ui/dist/assets" ]; then
+  cp -a social-catering-ui/dist/assets/* public/assets/ 2>/dev/null || true
+fi
+
 # Step 3: Index ↔ Assets Integrity Check
 echo ""
 echo "🔍 Step 3: Index ↔ Assets Integrity Check"
