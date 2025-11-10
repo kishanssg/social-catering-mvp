@@ -46,10 +46,22 @@ export function AppLayout() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
-            src="https://api.builder.io/api/v1/image/assets/TEMP/d8ae28adfafcd027c6a2af6793beae5a60e94de9?width=297" 
+            src="/assets/icons/sc_logo.svg" 
             alt="Social Catering Logo" 
-            className="w-[148.515px] h-10"
+            className="h-10 w-auto""
           />
+            loading="eager"
+            decoding="async"
+            style={{ 
+              imageRendering: 'crisp-edges',
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale'
+            }}
+            onError={(e) => {
+              // Fallback to PNG if SVG fails
+              const target = e.currentTarget as HTMLImageElement;
+              target.src = '/assets/icons/sc_logo.png';
+            }}
         </div>
 
         {/* ADD SPACING AFTER LOGO */}
