@@ -480,7 +480,12 @@ class Api::V1::EventsController < Api::V1::BaseController
       status: event.status,
       staffing_status: event.staffing_status,
       venue_id: event.venue_id,
-      venue_name: event.venue&.name,
+      venue_name: event.venue&.name,  # Keep for backward compatibility
+      venue: event.venue ? {
+        id: event.venue.id,
+        name: event.venue.name,
+        formatted_address: event.venue.formatted_address
+      } : nil,
       
       # Pre-calculated counts (use denormalized columns, fallback to computed)
       total_shifts: event.total_shifts_count || event.shifts.count,
