@@ -38,8 +38,9 @@ export default defineConfig(({ command }) => {
               // Preserve original filename for logos and icons
               return '[name][extname]';
             }
-            // Default for other assets
-            return 'assets/[name].[hash][extname]';
+            // For CSS and other assets: don't include 'assets/' prefix since base is already '/assets/'
+            // This prevents double paths like /assets/assets/...
+            return '[name].[hash][extname]';
           },
         },
       },
