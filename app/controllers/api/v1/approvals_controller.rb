@@ -5,10 +5,13 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # GET /api/v1/events/:event_id/approvals
   def show
+    # Include ALL assignments (assigned, confirmed, completed, no_show, cancelled)
+    # This ensures transparency - users can see who was assigned, who no-showed, and who was removed
     assignments = @event.shifts
       .includes(assignments: :worker)
       .flat_map(&:assignments)
-      .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) }
+      # Include all statuses - don't filter out no-shows or cancelled
+      # This provides complete audit trail in the approval modal
     
     # Deduplicate: Keep only the most recent assignment for each worker+shift combo
     # This prevents showing duplicate assignments even if they exist in the database
