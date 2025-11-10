@@ -44,7 +44,7 @@ export function AppLayout() {
       {/* Sidebar Navigation */}
       <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color fixed left-0 top-0 h-screen flex-shrink-0" style={{ padding: '32px 24px' }}>
         {/* Logo */}
-        <div className="flex flex-col items-center gap-2.5 self-stretch">
+        <div className="flex flex-col items-center self-stretch">
           <img 
             src="/sc_logo.png"
             srcSet="/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x"
