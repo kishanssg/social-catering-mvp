@@ -775,7 +775,27 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     setLoading(true);
     try {
       const response = await apiClient.get(`/events/${event.id}/approvals`);
-      setAssignments(response.data.data.assignments || []);
+      const rawAssignments = response.data.data.assignments || [];
+      
+      // Frontend deduplication: Remove duplicates by assignment ID
+      // This prevents showing the same assignment multiple times if API returns duplicates
+      const uniqueAssignments = Array.from(
+        new Map(rawAssignments.map((a: AssignmentForApproval) => [a.id, a])).values()
+      );
+      
+      // Additional deduplication by [shift_id, worker_id] to catch edge cases
+      const finalAssignments = Array.from(
+        new Map(
+          uniqueAssignments.map((a: AssignmentForApproval) => [
+            `${a.shift_id}-${a.worker_id}`,
+            a
+          ])
+        ).values()
+      );
+      
+      console.log(`Loaded ${rawAssignments.length} assignments, deduplicated to ${finalAssignments.length}`);
+      
+      setAssignments(finalAssignments);
       setCostSummary(response.data.data.cost_summary || null);
     } catch (error: any) {
       console.error('Error loading assignments:', error);
