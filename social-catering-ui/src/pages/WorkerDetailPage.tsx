@@ -13,7 +13,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
-import { formatDate, formatTime } from '../utils/dateUtils';
+import { formatDate, formatTime, getAssignmentStatusMessage } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
@@ -55,6 +55,10 @@ interface Assignment {
   hours_worked?: number;
   status: string;
   is_completed: boolean;
+  approved?: boolean;
+  approved_by_name?: string;
+  approved_at?: string;
+  approval_notes?: string;
 }
 
 export function WorkerDetailPage() {
@@ -493,6 +497,20 @@ export function WorkerDetailPage() {
                           {assignment.shift.event?.venue_name || (typeof assignment.shift.location === 'string' ? assignment.shift.location : null) || 'No venue'}
                         </div>
                       </div>
+                      {getAssignmentStatusMessage(assignment) && (
+                        <div className={`mt-2 text-xs font-medium ${
+                          assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
+                            ? 'text-red-600'
+                            : assignment.approved
+                            ? 'text-green-700'
+                            : 'text-gray-500'
+                        }`}>
+                          {getAssignmentStatusMessage(assignment)}
+                          {assignment.approval_notes && (
+                            <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

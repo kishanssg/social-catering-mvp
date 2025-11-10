@@ -85,3 +85,47 @@ export function safeParseDate(dateString: string | null | undefined): Date | nul
     return null;
   }
 }
+
+/**
+ * Formats a humanized date-time string: "Nov 7, 6:57 AM, 2025"
+ * @param dateString - The date string to format
+ * @returns Formatted date string or fallback
+ */
+export function formatHumanizedDateTime(dateString: string | null | undefined, fallback: string = 'N/A'): string {
+  if (!dateString) return fallback;
+  
+  try {
+    const parsedDate = parseISO(dateString);
+    if (!isValid(parsedDate)) {
+      return fallback;
+    }
+    return format(parsedDate, 'MMM d, h:mm a, yyyy');
+  } catch (error) {
+    console.warn('Error formatting humanized datetime:', dateString, error);
+    return fallback;
+  }
+}
+
+/**
+ * Gets status message for an assignment (approved, denied, no-show)
+ * @param assignment - Assignment object with status, approved_by_name, approved_at, approval_notes
+ * @returns Status message string or null
+ */
+export function getAssignmentStatusMessage(assignment: {
+  status?: string;
+  approved?: boolean;
+  approved_by_name?: string;
+  approved_at?: string;
+  approval_notes?: string;
+}): string | null {
+  if (assignment.status === 'no_show' && assignment.approved_by_name) {
+    return `Marked as no-show by ${assignment.approved_by_name.split('@')[0]} on ${formatHumanizedDateTime(assignment.approved_at)}`;
+  }
+  if ((assignment.status === 'cancelled' || assignment.status === 'removed') && assignment.approved_by_name) {
+    return `Denied by ${assignment.approved_by_name.split('@')[0]} on ${formatHumanizedDateTime(assignment.approved_at)}`;
+  }
+  if (assignment.approved && assignment.approved_by_name) {
+    return `Approved by ${assignment.approved_by_name.split('@')[0]} on ${formatHumanizedDateTime(assignment.approved_at)}`;
+  }
+  return null;
+}

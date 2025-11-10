@@ -17,7 +17,7 @@ module Api
                                   AND events.title != ''
                                   AND TRIM(events.title) != ''
                                 )")
-                                .eager_load(:worker, shift: [:event, :location])
+                                .eager_load(:worker, :approved_by, shift: [:event, :location])
                                 .eager_load(shift: { event: [:venue] })
                                 .order(created_at: :desc)
 
@@ -333,7 +333,11 @@ module Api
           overtime_hours: assignment.overtime_hours,
           performance_rating: assignment.performance_rating,
           is_clocked_in: assignment.is_clocked_in?,
-          created_at: assignment.created_at
+          created_at: assignment.created_at,
+          approved: assignment.approved?,
+          approved_by_name: assignment.approved_by&.email,
+          approved_at: assignment.approved_at_utc&.iso8601,
+          approval_notes: assignment.approval_notes
         }
       end
 

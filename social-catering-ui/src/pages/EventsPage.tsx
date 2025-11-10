@@ -19,6 +19,7 @@ import {
   Award
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { getAssignmentStatusMessage } from '../utils/dateUtils';
 import { safeToFixed, safeNumber } from '../utils/number';
 import { cn } from '../lib/utils';
 import { AssignmentModal } from '../components/AssignmentModal';
