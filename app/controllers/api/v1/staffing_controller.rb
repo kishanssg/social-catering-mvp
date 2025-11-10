@@ -16,7 +16,6 @@ module Api
                            .where("shifts.event_id IS NULL OR (
                              events.id IS NOT NULL 
                              AND events.status != 'deleted'
-                             AND (events.deleted_at IS NULL OR events.deleted_at > NOW())
                              AND events.title IS NOT NULL
                              AND events.title != ''
                              AND TRIM(events.title) != ''
