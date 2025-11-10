@@ -232,9 +232,18 @@ export function DashboardPage() {
                 const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
                 
                 eventMap.set(e.id, {
-                  ...e,
+                  // Only include properties we need (avoid spreading entire object which may contain nested objects)
+                  id: e.id,
+                  title: e.title,
+                  status: e.status,
+                  staffing_status: e.staffing_status,
+                  staffing_percentage: e.staffing_percentage || 0,
+                  unfilled_roles_count: e.unfilled_roles_count || 0,
+                  assigned_workers_count: e.assigned_workers_count || 0,
+                  total_workers_needed: e.total_workers_needed || 0,
                   // Normalize potentially missing nested objects used by UI
                   venue: e.venue || { name: '', formatted_address: '' },
+                  schedule: e.schedule || null,
                   hours_until: hoursUntil
                 });
               }
