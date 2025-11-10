@@ -18,7 +18,7 @@ module Api
                                   AND events.title != ''
                                   AND TRIM(events.title) != ''
                                 )")
-                                .eager_load(:worker, shift: { event: [:venue], location: [] })
+                                .eager_load(:worker, shift: [:location, { event: [:venue] }])
                                 .order(created_at: :desc)
 
         # Filter by date range
