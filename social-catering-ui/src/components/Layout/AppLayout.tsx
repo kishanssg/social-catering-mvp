@@ -46,21 +46,14 @@ export function AppLayout() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
-            src="/sc_logo.svg" 
+            src="/sc_logo.png"
+            srcSet="/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x"
             alt="Social Catering Logo" 
-            className="h-10 w-auto"
+            className="h-12 w-auto"
             loading="eager"
             decoding="async"
             style={{ 
-              imageRendering: 'crisp-edges',
-              WebkitFontSmoothing: 'antialiased',
-              MozOsxFontSmoothing: 'grayscale'
-            }}
-            onError={(e) => {
-              // Fallback to high-res PNG if SVG fails
-              const target = e.currentTarget as HTMLImageElement;
-              target.src = '/sc_logo@2x.png';
-              target.srcset = '/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x';
+              imageRendering: 'auto'
             }}
           />
         </div>
