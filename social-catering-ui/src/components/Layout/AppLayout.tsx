@@ -61,10 +61,7 @@ export function AppLayout() {
               const target = e.currentTarget as HTMLImageElement;
               target.src = '/assets/icons/sc_logo.png';
             }}
-        </div>
-
-        {/* ADD SPACING AFTER LOGO */}
-        <div className="h-16" />
+          />
 
         {/* Navigation Pages */}
         <div className="flex flex-col items-start gap-2 self-stretch">
