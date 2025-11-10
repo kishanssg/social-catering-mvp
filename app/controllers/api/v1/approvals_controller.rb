@@ -269,7 +269,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       status: a.status,
       approved: a.approved,
       approved_by_name: a.approved_by&.email,
-      approved_at: a.approved_at_utc,
+      approved_at: a.approved_at_utc&.iso8601,
       
       # Audit trail
       original_hours_worked: a.original_hours_worked,
