@@ -16,15 +16,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 px-6 py-8">
           <img
-            src="/sc_logo.svg"
+            src="/sc_logo.png"
+            srcSet="/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x"
             alt="Social Catering Logo"
             className="h-10 w-auto"
-            onError={(e) => {
-              // Fallback to high-res PNG if SVG fails
-              const target = e.currentTarget as HTMLImageElement;
-              target.src = '/sc_logo@2x.png';
-              target.srcset = '/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x';
-            }}
             loading="eager"
             decoding="async"
             style={{ 
