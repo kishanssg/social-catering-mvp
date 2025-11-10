@@ -48,7 +48,7 @@ export function AppLayout() {
           <img 
             src="/assets/icons/sc_logo.svg" 
             alt="Social Catering Logo" 
-            className="h-10 w-auto""
+            className="h-10 w-auto"
           />
             loading="eager"
             decoding="async"
