@@ -3,12 +3,14 @@ namespace :shifts do
   task cleanup_duplicates: :environment do
     puts "🔍 Finding duplicate shifts..."
     
-    # Find groups of duplicate shifts
-    duplicate_groups = Shift
-      .select('event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count')
-      .where('event_id IS NOT NULL')
-      .group('event_id, role_needed, start_time_utc, end_time_utc, pay_rate')
-      .having('COUNT(*) > 1')
+    # Find groups of duplicate shifts using raw SQL for better compatibility
+    duplicate_groups = ActiveRecord::Base.connection.execute(
+      "SELECT event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count
+       FROM shifts
+       WHERE event_id IS NOT NULL
+       GROUP BY event_id, role_needed, start_time_utc, end_time_utc, pay_rate
+       HAVING COUNT(*) > 1"
+    )
     
     total_duplicates = 0
     total_assignments_moved = 0
@@ -95,11 +97,13 @@ namespace :shifts do
   task cleanup_duplicates_dry_run: :environment do
     puts "🔍 DRY RUN: Finding duplicate shifts (no changes will be made)..."
     
-    duplicate_groups = Shift
-      .select('event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count')
-      .where('event_id IS NOT NULL')
-      .group('event_id, role_needed, start_time_utc, end_time_utc, pay_rate')
-      .having('COUNT(*) > 1')
+    duplicate_groups = ActiveRecord::Base.connection.execute(
+      "SELECT event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count
+       FROM shifts
+       WHERE event_id IS NOT NULL
+       GROUP BY event_id, role_needed, start_time_utc, end_time_utc, pay_rate
+       HAVING COUNT(*) > 1"
+    )
     
     total_duplicates = 0
     total_assignments = 0
