@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="198" height="55" viewBox="0 0 198 55" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Social Catering">
-  <!-- SOCIAL - Larger, bold text -->
+  <!-- SOCIAL - Larger, bold text with italicized L -->
   <text 
     x="0" 
     y="32" 
@@ -10,7 +10,7 @@
     fill="#1F2937"
     letter-spacing="-0.5px"
   >
-    SOCIAL
+    SOCIA<tspan font-style="italic">L</tspan>
   </text>
   
   <!-- CATERING - Smaller text below -->
