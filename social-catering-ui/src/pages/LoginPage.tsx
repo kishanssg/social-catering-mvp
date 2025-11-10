@@ -191,13 +191,17 @@ export function LoginPage() {
           {/* Professional Logo */}
           <div className="mb-8">
                 <img 
-                  src="/assets/icons/sc_logo.svg" 
+                  src={scLogo}
                   alt="Social Catering" 
                   className="mx-auto h-20 w-auto"
                   onError={(e) => {
-                    // Fallback to PNG if SVG fails
+                    // Fallback to public path if imported image fails
                     const target = e.currentTarget as HTMLImageElement;
-                    target.src = '/assets/icons/sc_logo.png';
+                    if (target.src !== '/assets/icons/sc_logo.svg') {
+                      target.src = '/assets/icons/sc_logo.svg';
+                    } else if (target.src !== '/assets/icons/sc_logo.png') {
+                      target.src = '/assets/icons/sc_logo.png';
+                    }
                   }}
                   loading="eager"
                   decoding="async"
