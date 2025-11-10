@@ -28,10 +28,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(user)
           
           // Verify session is still valid by trying to access a protected endpoint
-          // Only verify if we're not on the login page
+          // Skip verification on login page to avoid unnecessary API calls
           if (window.location.pathname !== '/login') {
             try {
-              await apiClient.get('/session')
+              // Use dashboard endpoint to verify session (lightweight check)
+              await apiClient.get('/dashboard')
               console.log('Session verified')
             } catch (error) {
               console.log('Session expired, clearing user')
