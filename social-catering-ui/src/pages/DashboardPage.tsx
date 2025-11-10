@@ -621,11 +621,11 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
   const getUrgencyBadge = () => {
     return (
       <span 
-        className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+        className="bg-red-50 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5"
         aria-label="Urgent: starts within 48 hours"
       >
-        <AlertCircle className="h-3 w-3" />
-        Urgent
+        <div className="w-2 h-2 bg-red-600 rounded-full" />
+        URGENT
       </span>
     );
   };

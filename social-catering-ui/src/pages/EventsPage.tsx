@@ -1172,10 +1172,11 @@ function ActiveEventsTab({
                         {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
                       {isUrgent(event) && (
                         <span 
-                          className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full ml-2"
+                          className="bg-red-50 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full ml-2 inline-flex items-center gap-1.5"
                           aria-label="Urgent: starts within 48 hours"
                         >
-                          Urgent
+                          <div className="w-2 h-2 bg-red-600 rounded-full" />
+                          URGENT
                         </span>
                       )}
                     </span>
