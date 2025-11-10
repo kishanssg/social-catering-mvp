@@ -295,7 +295,18 @@ function WorkerRow({
         {assignment.status === 'no_show' ? (
           <span className="text-red-600">0h</span>
         ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
-          <span className="text-gray-400">-</span>
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="text-gray-400">-</span>
+            {assignment.can_edit_hours && (
+              <button
+                onClick={() => onStartEdit(assignment)}
+                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                title="Edit Hours"
+              >
+                <Edit2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         ) : (
           <>
             <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
@@ -354,9 +365,9 @@ function WorkerRow({
                   Cancelled
                 </span>
                 
-                {/* Action Buttons - Allow editing cancelled workers */}
+                {/* Action Buttons - Allow editing cancelled workers - Always visible */}
                 {assignment.can_edit_hours && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => onStartEdit(assignment)}
                       className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -742,12 +753,31 @@ function WorkerRow({
               <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t border-gray-200">
                 <div>
                   <div className="text-xs text-gray-500">Hours</div>
-                  <div className="font-medium">
-                    {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-                    {assignment.edited_at && (
-                      <span className="ml-1 text-xs text-orange-600" title="Edited">
-                        <Edit2 className="h-3 w-3 inline" />
-                      </span>
+                  <div className="font-medium flex items-center gap-1.5">
+                    {assignment.status === 'no_show' ? (
+                      <span className="text-red-600">0h</span>
+                    ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
+                      <>
+                        <span className="text-gray-400">-</span>
+                        {assignment.can_edit_hours && (
+                          <button
+                            onClick={() => onStartEdit(assignment)}
+                            className="p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
+                            title="Edit Hours"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
+                        {assignment.edited_at && (
+                          <span className="text-xs text-orange-600" title="Edited">
+                            <Edit2 className="h-3 w-3 inline" />
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
