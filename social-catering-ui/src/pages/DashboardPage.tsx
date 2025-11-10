@@ -213,7 +213,10 @@ export function DashboardPage() {
           setCalendarData(Object.values(daysMap));
           
           // Get urgent events (upcoming with gaps, within 48h)
-          const urgent = publishedEvents
+          // Deduplicate by event ID to prevent showing the same event twice
+          const eventMap = new Map<number, any>();
+          
+          publishedEvents
             .filter((e: any) => {
               if (!e.schedule || (e.unfilled_roles_count || 0) === 0) return false;
               const eventDate = parseISO(e.schedule.start_time_utc);
@@ -222,17 +225,22 @@ export function DashboardPage() {
               const hoursUntil = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
               return hoursUntil > 0 && hoursUntil <= 48;
             })
-            .map((e: any) => {
-              const eventDate = parseISO(e.schedule.start_time_utc);
-              const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
-              
-              return {
-                ...e,
-                // Normalize potentially missing nested objects used by UI
-                venue: e.venue || { name: '', formatted_address: '' },
-                hours_until: hoursUntil
-              };
-            })
+            .forEach((e: any) => {
+              // Only keep the first occurrence of each event ID (most recent data)
+              if (!eventMap.has(e.id)) {
+                const eventDate = parseISO(e.schedule.start_time_utc);
+                const hoursUntil = (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+                
+                eventMap.set(e.id, {
+                  ...e,
+                  // Normalize potentially missing nested objects used by UI
+                  venue: e.venue || { name: '', formatted_address: '' },
+                  hours_until: hoursUntil
+                });
+              }
+            });
+          
+          const urgent = Array.from(eventMap.values())
             .sort((a: any, b: any) => {
               // Sort by time until event, then by percentage filled
               if (a.hours_until !== b.hours_until) {
