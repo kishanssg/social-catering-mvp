@@ -313,6 +313,8 @@ class Assignment < ApplicationRecord
         hours_worked: 0,
         edited_by_id: updated_by_user.id,
         edited_at_utc: Time.current,
+        approved_by_id: updated_by_user.id,
+        approved_at_utc: Time.current,
         approval_notes: combined_notes,
         updated_at: Time.current
       )
@@ -342,6 +344,8 @@ class Assignment < ApplicationRecord
         hours_worked: 0,
         edited_by_id: updated_by_user.id,
         edited_at_utc: Time.current,
+        approved_by_id: updated_by_user.id,
+        approved_at_utc: Time.current,
         approval_notes: combined_notes,
         updated_at: Time.current
       )
