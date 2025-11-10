@@ -19,11 +19,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             src="/sc_logo.png"
             srcSet="/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x"
             alt="Social Catering Logo"
-            className="h-10 w-auto"
+            className="h-12 w-auto"
             loading="eager"
             decoding="async"
             style={{ 
-              imageRendering: '-webkit-optimize-contrast',
               imageRendering: 'auto'
             }}
           />
