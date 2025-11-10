@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuth } from '../contexts/AuthContext'
 import { X, AlertCircle } from 'lucide-react'
-import { Logo } from '../components/Logo'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -190,7 +189,24 @@ export function LoginPage() {
         <div className="text-center">
           {/* Professional Logo */}
           <div className="mb-8">
-            <Logo size="large" />
+                <img 
+                  src="/sc_logo.svg"
+                  alt="Social Catering" 
+                  className="mx-auto h-20 w-auto"
+                  onError={(e) => {
+                    // Fallback to high-res PNG if SVG fails
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.src = '/sc_logo@2x.png';
+                    target.srcset = '/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x';
+                  }}
+                  loading="eager"
+                  decoding="async"
+                  style={{ 
+                    imageRendering: 'crisp-edges',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale'
+                  }}
+                />
           </div>
           
           {/* Tagline */}

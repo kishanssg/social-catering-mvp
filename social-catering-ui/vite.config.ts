@@ -31,6 +31,16 @@ export default defineConfig(({ command }) => {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
           },
+          // Ensure SVG and image assets are copied with proper naming
+          assetFileNames: (assetInfo) => {
+            // Keep original structure for images/icons (SVG, PNG, etc.)
+            if (/\.(png|jpe?g|svg|gif|webp|ico)$/i.test(assetInfo.name || '')) {
+              // Preserve original filename for logos and icons
+              return '[name][extname]';
+            }
+            // Default for other assets
+            return 'assets/[name].[hash][extname]';
+          },
         },
       },
     },

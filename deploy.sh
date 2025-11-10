@@ -45,9 +45,22 @@ cp -a social-catering-ui/dist/*.svg public/assets/ 2>/dev/null || true
 cp -a social-catering-ui/dist/*.png public/assets/ 2>/dev/null || true
 cp social-catering-ui/dist/index.html public/index.html
 
-# Copy subdirectories (like icons) from dist/assets/
-if [ -d "social-catering-ui/dist/assets" ]; then
-  cp -a social-catering-ui/dist/assets/* public/assets/ 2>/dev/null || true
+# Copy logo files to public root (not assets/) - these are served from /sc_logo.svg
+if [ -f social-catering-ui/dist/sc_logo.svg ]; then
+  cp social-catering-ui/dist/sc_logo.svg public/sc_logo.svg
+  echo "   ✅ Copied sc_logo.svg to public root"
+fi
+if [ -f social-catering-ui/dist/sc_logo.png ]; then
+  cp social-catering-ui/dist/sc_logo.png public/sc_logo.png
+  echo "   ✅ Copied sc_logo.png to public root"
+fi
+if [ -f social-catering-ui/dist/sc_logo@2x.png ]; then
+  cp social-catering-ui/dist/sc_logo@2x.png public/sc_logo@2x.png
+  echo "   ✅ Copied sc_logo@2x.png to public root"
+fi
+if [ -f social-catering-ui/dist/sc_logo@3x.png ]; then
+  cp social-catering-ui/dist/sc_logo@3x.png public/sc_logo@3x.png
+  echo "   ✅ Copied sc_logo@3x.png to public root"
 fi
 
 # Step 3: Index ↔ Assets Integrity Check

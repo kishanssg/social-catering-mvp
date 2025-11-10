@@ -1,5 +1,4 @@
 import React from 'react';
-import { Logo } from '../components/Logo';
 import squaresIcon from '../assets/icons/squares-2x2.svg';
 import briefcaseIcon from '../assets/icons/briefcase.svg';
 import userGroupIcon from '../assets/icons/user-group.svg';
@@ -16,7 +15,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex flex-col w-[261px] border-r border-gray-300 bg-secondary-color">
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 px-6 py-8">
-          <Logo size="small" />
+          <img
+            src="/sc_logo.svg"
+            alt="Social Catering Logo"
+            className="h-10 w-auto"
+            onError={(e) => {
+              // Fallback to high-res PNG if SVG fails
+              const target = e.currentTarget as HTMLImageElement;
+              target.src = '/sc_logo@2x.png';
+              target.srcset = '/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x';
+            }}
+            loading="eager"
+            decoding="async"
+            style={{ 
+              imageRendering: 'crisp-edges',
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale'
+            }}
+          />
         </div>
 
         {/* Active State Indicator */}

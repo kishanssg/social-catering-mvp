@@ -46,7 +46,7 @@ export function AppLayout() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
-            src="/assets/icons/sc_logo.svg" 
+            src="/sc_logo.svg" 
             alt="Social Catering Logo" 
             className="h-10 w-auto"
             loading="eager"
@@ -57,9 +57,10 @@ export function AppLayout() {
               MozOsxFontSmoothing: 'grayscale'
             }}
             onError={(e) => {
-              // Fallback to PNG if SVG fails
+              // Fallback to high-res PNG if SVG fails
               const target = e.currentTarget as HTMLImageElement;
-              target.src = '/assets/icons/sc_logo.png';
+              target.src = '/sc_logo@2x.png';
+              target.srcset = '/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x';
             }}
           />
         </div>
