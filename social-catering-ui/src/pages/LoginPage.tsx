@@ -193,14 +193,11 @@ export function LoginPage() {
                   src="/sc_logo.png"
                   srcSet="/sc_logo.png 1x, /sc_logo@2x.png 2x, /sc_logo@3x.png 3x"
                   alt="Social Catering" 
-                  className="mx-auto h-20 w-auto"
+                  className="mx-auto h-14 w-auto"
                   loading="eager"
                   decoding="async"
                   style={{ 
-                    imageRendering: 'auto',
-                    imageRendering: '-webkit-optimize-contrast',
-                    WebkitFontSmoothing: 'antialiased',
-                    MozOsxFontSmoothing: 'grayscale'
+                    imageRendering: 'auto'
                   }}
                 />
           </div>

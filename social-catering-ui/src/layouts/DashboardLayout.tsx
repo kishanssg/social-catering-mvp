@@ -23,10 +23,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             loading="eager"
             decoding="async"
             style={{ 
-              imageRendering: 'auto',
               imageRendering: '-webkit-optimize-contrast',
-              WebkitFontSmoothing: 'antialiased',
-              MozOsxFontSmoothing: 'grayscale'
+              imageRendering: 'auto'
             }}
           />
         </div>
