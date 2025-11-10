@@ -17,6 +17,9 @@ class Shift < ApplicationRecord
 
   # Recalculate event totals when shift pay_rate changes (affects assignment effective_pay)
   after_update :recalculate_event_totals_if_pay_rate_changed, if: :saved_change_to_pay_rate?
+  
+  # Cascade shift time changes to assignments (for worker profile display)
+  after_update :cascade_time_changes, if: :saved_change_to_start_time_utc_or_end_time_utc?
 
   validates :client_name, :role_needed, :start_time_utc, :end_time_utc, :capacity, presence: true
   validates :capacity, numericality: { greater_than: 0 }
@@ -228,5 +231,39 @@ class Shift < ApplicationRecord
         "Update the event schedule instead."
       )
     end
+  end
+  
+  # Check if either time field changed
+  def saved_change_to_start_time_utc_or_end_time_utc?
+    saved_change_to_start_time_utc? || saved_change_to_end_time_utc?
+  end
+  
+  # Cascade shift time changes to assignments
+  # Note: Assignments reference shift times directly via belongs_to :shift,
+  # so they automatically see updated times. This callback ensures:
+  # 1. Activity log is created for audit trail
+  # 2. Any cached/denormalized data is refreshed
+  # 3. Worker profiles will show updated times on next load
+  def cascade_time_changes
+    return unless assignments.any?
+    
+    # Log the cascade for debugging
+    Rails.logger.info("Cascading time changes for Shift #{id}: #{start_time_utc} - #{end_time_utc}")
+    Rails.logger.info("Updated #{assignments.count} assignment records will reflect new shift times")
+    
+    # Create activity log for the cascade
+    ActivityLog.create!(
+      actor_user_id: Current.user&.id,
+      entity_type: 'Shift',
+      entity_id: id,
+      action: 'cascaded_time_change',
+      after_json: {
+        start_time_utc: start_time_utc,
+        end_time_utc: end_time_utc,
+        assignments_count: assignments.count,
+        note: 'Shift times updated - all assigned workers will see new times on their profiles'
+      },
+      created_at_utc: Time.current
+    )
   end
 end

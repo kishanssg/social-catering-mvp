@@ -21,7 +21,8 @@ puts "\n👤 Creating admin users..."
 admin_credentials = [
   { email: 'natalie@socialcatering.com', password: 'Password@123' },
   { email: 'madison@socialcatering.com', password: 'Password@123' },
-  { email: 'sarah@socialcatering.com', password: 'Password@123' }
+  { email: 'sarah@socialcatering.com', password: 'Password@123' },
+  { email: 'gravyadmin@socialcatering.com', password: 'gravyadmin@sc_mvp' }
 ]
 
 admins = []
