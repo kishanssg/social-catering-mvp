@@ -1,7 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="198" height="55" viewBox="0 0 198 55" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Social Catering">
-  <rect width="198" height="55" rx="8" fill="#0EA5E9"/>
-  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Manrope, -apple-system, Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="white">
-    Social Catering
+  <!-- SOCIAL - Larger, bold text -->
+  <text 
+    x="0" 
+    y="32" 
+    font-family="Manrope, -apple-system, Roboto, Helvetica, Arial, sans-serif" 
+    font-size="28" 
+    font-weight="700" 
+    fill="#1F2937"
+    letter-spacing="-0.5px"
+  >
+    SOCIAL
+  </text>
+  
+  <!-- CATERING - Smaller text below -->
+  <text 
+    x="0" 
+    y="48" 
+    font-family="Manrope, -apple-system, Roboto, Helvetica, Arial, sans-serif" 
+    font-size="16" 
+    font-weight="500" 
+    fill="#4B5563"
+    letter-spacing="0.5px"
+  >
+    CATERING
   </text>
 </svg>
