@@ -28,13 +28,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(user)
           
           // Verify session is still valid by trying to access a protected endpoint
-          try {
-            await apiClient.get('/workers')
-            console.log('Session verified')
-          } catch (error) {
-            console.log('Session expired, clearing user')
-            setUser(null)
-            localStorage.removeItem('user')
+          // Only verify if we're not on the login page
+          if (window.location.pathname !== '/login') {
+            try {
+              await apiClient.get('/session')
+              console.log('Session verified')
+            } catch (error) {
+              console.log('Session expired, clearing user')
+              setUser(null)
+              localStorage.removeItem('user')
+            }
           }
         } catch {
           localStorage.removeItem('user')
