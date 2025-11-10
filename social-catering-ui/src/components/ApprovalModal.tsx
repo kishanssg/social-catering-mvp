@@ -1184,47 +1184,22 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
         {/* Footer - Summary & Actions */}
         <footer className="border-t bg-gray-50 px-3 sm:px-6 py-4 flex-shrink-0">
-          {/* Cost Summary */}
-          {pendingCount > 0 && approvedCount > 0 ? (
-            // Mixed state - show breakdown
-            <div className="mb-4 space-y-1.5 text-sm">
-              <div className="flex justify-between text-gray-600">
-                <span>Pending approval:</span>
-                <span className="font-medium">
-                  ${safeToFixed(pendingCost, 2, '0.00')} ({pendingCount} {pendingCount === 1 ? 'worker' : 'workers'})
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Approved:</span>
-                <span className="font-medium">
-                  ${safeToFixed(approvedCost, 2, '0.00')} ({approvedCount} {approvedCount === 1 ? 'worker' : 'workers'})
-                </span>
-              </div>
-              <div className="pt-2 border-t border-gray-200 flex justify-between text-gray-900">
-                <span className="font-semibold">Total:</span>
-                <span className="font-semibold">
-                  ${safeToFixed(totalCost, 2, '0.00')} ({totalCount} workers, {safeToFixed(totalHours, 2, '0.00')}h)
-                </span>
-              </div>
-            </div>
-          ) : pendingCount === 0 && approvedCount > 0 ? (
-            // All approved - show final cost only
-            <div className="mb-4 flex justify-between items-center">
-              <span className="text-sm font-semibold text-gray-700">Final approved cost:</span>
-              <span className="text-lg font-bold text-green-600">${safeToFixed(approvedCost, 2, '0.00')}</span>
-            </div>
-          ) : (
-            // All pending - show total only
-            <div className="mb-4 flex justify-between items-center">
-              <span className="text-sm font-semibold text-gray-700">Total cost:</span>
-              <span className="text-lg font-bold text-gray-900">
-                ${safeToFixed(totalCost, 2, '0.00')} ({totalCount} workers, {safeToFixed(totalHours, 2, '0.00')}h)
+          <div className="flex items-center justify-between">
+            {/* Left: Cost Summary - Single line format */}
+            <div className="text-sm">
+              <span className="text-gray-600">
+                {pendingCount === 0 ? 'Final approved cost:' : 'Total cost:'}
+              </span>
+              <span className="ml-2 text-lg font-bold text-gray-900">
+                ${safeToFixed(totalCost, 2, '0.00')}
+              </span>
+              <span className="ml-1 text-gray-600">
+                ({totalCount} {totalCount === 1 ? 'worker' : 'workers'}, {safeToFixed(totalHours, 2, '0.00')}h)
               </span>
             </div>
-          )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3">
+            {/* Right: Action Buttons Only */}
+            <div className="flex items-center gap-3">
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
@@ -1262,6 +1237,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 )}
               </button>
             )}
+            </div>
           </div>
         </footer>
       </div>
