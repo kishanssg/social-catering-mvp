@@ -346,13 +346,27 @@ function WorkerRow({
                   No-Show
                 </span>
               </>
-            ) : assignment.status === 'cancelled' ? (
-              <>
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+            ) : assignment.status === 'cancelled' || assignment.status === 'removed' ? (
+              <div className="flex items-center justify-end gap-3">
+                {/* Status Badge */}
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-100 rounded flex-shrink-0">
                   <X className="h-3.5 w-3.5" />
                   Cancelled
                 </span>
-              </>
+                
+                {/* Action Buttons - Allow editing cancelled workers */}
+                {assignment.can_edit_hours && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => onStartEdit(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Edit Hours"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex items-center justify-end gap-3">
                 {/* Status Badge */}
@@ -388,7 +402,7 @@ function WorkerRow({
                     <button
                       onClick={() => onRemove(assignment)}
                       className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="Remove"
+                      title="Deny"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -627,11 +641,23 @@ function WorkerRow({
                 <Ban className="h-3.5 w-3.5" />
                 No-Show
               </span>
-            ) : assignment.status === 'cancelled' ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
-                <X className="h-3.5 w-3.5" />
-                Cancelled
-              </span>
+            ) : assignment.status === 'cancelled' || assignment.status === 'removed' ? (
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+                  <X className="h-3.5 w-3.5" />
+                  Cancelled
+                </span>
+                {/* Allow editing cancelled workers in mobile view too */}
+                {assignment.can_edit_hours && (
+                  <button
+                    onClick={() => onStartEdit(assignment)}
+                    className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100 transition-colors flex items-center gap-1"
+                  >
+                    <Edit2 className="h-3 w-3" />
+                    Edit
+                  </button>
+                )}
+              </div>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded">
                 <Clock className="h-3.5 w-3.5" />
@@ -735,8 +761,8 @@ function WorkerRow({
                 </div>
               </div>
 
-              {/* Action buttons */}
-              {assignment.can_edit_hours && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && (
+              {/* Action buttons - Allow editing cancelled workers too */}
+              {assignment.can_edit_hours && assignment.status !== 'no_show' && (
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                   {assignment.approved ? (
                     <button
@@ -763,9 +789,10 @@ function WorkerRow({
                       </button>
                       <button
                         onClick={() => onRemove(assignment)}
-                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors flex items-center gap-1"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
+                        Deny
                       </button>
                     </>
                   )}
@@ -1003,8 +1030,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const handleRemove = (assignment: AssignmentForApproval) => {
     setConfirmDialog({
       open: true,
-      title: 'Remove from Job',
-      message: `Remove ${assignment.worker_name} from this job? This cannot be undone.`,
+      title: 'Deny Assignment',
+      message: `Deny ${assignment.worker_name} from this job? This will cancel their assignment.`,
       requireNote: true,
       note: '',
       variant: 'danger',
