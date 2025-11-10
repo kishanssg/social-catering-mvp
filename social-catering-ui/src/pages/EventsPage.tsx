@@ -1564,40 +1564,80 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                 </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">Staffing</div>
-                <div className="text-lg font-semibold text-green-600">
-                  {event.staffing_percentage || 100}%
-                                </div>
+                {(() => {
+                  const totalNeeded = event.total_workers_needed || 0;
+                  const assigned = event.assigned_workers_count || 0;
+                  
+                  // Gracefully handle unstaffed events
+                  if (totalNeeded === 0 && assigned === 0) {
+                    return (
+                      <div className="text-lg font-semibold text-gray-400">
+                        Not staffed
+                      </div>
+                    );
+                  }
+                  
+                  // Show percentage for staffed events
+                  const percentage = event.staffing_percentage || (totalNeeded > 0 ? Math.round((assigned / totalNeeded) * 100) : 0);
+                  return (
+                    <div className={cn(
+                      "text-lg font-semibold",
+                      percentage === 100 ? "text-green-600" : percentage > 0 ? "text-yellow-600" : "text-red-600"
+                    )}>
+                      {percentage}%
+                    </div>
+                  );
+                })()}
               </div>
                               </div>
                               
             {/* Action Button */}
             <div className="mt-4 flex justify-end">
-              {onApproveHours && (
-                <button
-                  onClick={() => onApproveHours(event)}
-                  className={cn(
-                    "px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors shadow-sm",
-                    event.approval_status && event.approval_status.pending > 0
-                      ? "bg-amber-600 hover:bg-amber-700 text-white"
-                      : event.approval_status && event.approval_status.approved === event.approval_status.total
-                      ? "bg-green-600 hover:bg-green-700 text-white"
-                      : "bg-green-600 hover:bg-green-700 text-white"
-                  )}
-                >
-                  {event.approval_status && event.approval_status.pending > 0 ? (
-                    <>
-                      <Clock className="h-4 w-4" />
-                      Approve Hours ({event.approval_status.pending})
-                    </>
-                  ) : (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Approved
-                    </>
-                  )}
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                        )}
+              {onApproveHours && (() => {
+                const totalNeeded = event.total_workers_needed || 0;
+                const assigned = event.assigned_workers_count || 0;
+                const hasAssignments = event.approval_status && event.approval_status.total > 0;
+                
+                // Hide button for unstaffed events with no assignments
+                if (totalNeeded === 0 && assigned === 0 && !hasAssignments) {
+                  return null;
+                }
+                
+                return (
+                  <button
+                    onClick={() => onApproveHours(event)}
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors shadow-sm",
+                      event.approval_status && event.approval_status.pending > 0
+                        ? "bg-amber-600 hover:bg-amber-700 text-white"
+                        : event.approval_status && event.approval_status.approved === event.approval_status.total && hasAssignments
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : hasAssignments
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    )}
+                    disabled={!hasAssignments}
+                  >
+                    {event.approval_status && event.approval_status.pending > 0 ? (
+                      <>
+                        <Clock className="h-4 w-4" />
+                        Approve Hours ({event.approval_status.pending})
+                      </>
+                    ) : hasAssignments ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Approved
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        No assignments
+                      </>
+                    )}
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                );
+              })()}
                       </div>
           </div>
         );
