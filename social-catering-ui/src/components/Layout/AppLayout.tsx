@@ -61,6 +61,7 @@ export function AppLayout() {
               const target = e.currentTarget as HTMLImageElement;
               target.src = '/assets/icons/sc_logo.png';
             }}
+          />
         </div>
         <div className="flex flex-col items-start gap-2 self-stretch">
           {/* Dashboard */}
