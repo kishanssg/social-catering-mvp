@@ -4,12 +4,14 @@ import { cn } from '../lib/utils';
 import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
+import { Avatar } from './common/Avatar';
 import { format, parseISO } from 'date-fns';
 
 interface AssignmentForApproval {
   id: number;
   worker_id: number;
   worker_name: string;
+  worker_profile_photo_url?: string;
   shift_role: string;
   shift_date: string;
   scheduled_start: string;
@@ -112,28 +114,6 @@ function WorkerRow({
     }
   };
 
-  /**
-   * Get avatar color based on name
-   */
-  const getAvatarColor = (name: string): string => {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
-      'bg-orange-500', 'bg-teal-500', 'bg-indigo-500', 'bg-cyan-500'
-    ];
-    if (!name) return colors[0];
-    const charCode = name.charCodeAt(0) || 0;
-    return colors[charCode % colors.length];
-  };
-
-  /**
-   * Get initials from name
-   */
-  const getInitials = (name: string): string => {
-    if (!name) return '??';
-    const parts = name.trim().split(' ');
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
 
   /**
    * Format time for display
@@ -191,8 +171,6 @@ function WorkerRow({
   };
 
   const isApproved = assignment.approved;
-  const initials = getInitials(assignment.worker_name);
-  const avatarColor = getAvatarColor(assignment.worker_name);
   const shiftTime = getShiftTime();
   const shiftDuration = getShiftDuration();
 
@@ -227,13 +205,12 @@ function WorkerRow({
       {/* Worker Info */}
       <td className="py-4 px-3">
         <div className="flex items-center gap-3">
-          {/* Colored Avatar */}
-          <div className={cn(
-            "h-9 w-9 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0",
-            avatarColor
-          )}>
-            {initials}
-          </div>
+          {/* Avatar - using same component as worker directory */}
+          <Avatar
+            name={assignment.worker_name}
+            src={assignment.worker_profile_photo_url}
+            size={36}
+          />
           {/* Info */}
           <div className="min-w-0">
             <div className="font-medium text-gray-900 truncate">

@@ -220,6 +220,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       id: a.id,
       worker_id: a.worker_id,
       worker_name: [a.worker&.first_name, a.worker&.last_name].compact.join(' '),
+      worker_profile_photo_url: a.worker&.profile_photo_url,
       shift_id: a.shift_id,
       shift_role: a.shift&.role_needed,
       shift_date: a.shift&.start_time_utc&.to_date,
