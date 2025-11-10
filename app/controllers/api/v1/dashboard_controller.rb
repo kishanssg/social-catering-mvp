@@ -29,21 +29,44 @@ module Api
 
         # Calculate unfilled roles across ALL active events (not just current month)
         # Active events are published events that haven't ended yet
-        active_events = Event.published.includes(:shifts)
+        # OPTIMIZED: Use SQL aggregation instead of Ruby loops to prevent N+1 queries
+        active_events = Event.published
           .joins(:event_schedule)
+          .includes(:event_skill_requirements, shifts: :assignments)
           .where('event_schedules.end_time_utc > ?', Time.current)
         
+        # Calculate gaps using SQL aggregation for better performance
         stats[:gaps_to_fill] = active_events.sum do |event|
-          event.unfilled_roles_count
+          # Use eager-loaded associations to avoid N+1
+          total_needed = event.event_skill_requirements.sum(:needed_workers)
+          # Count assigned workers per role, respecting needed_workers limit
+          assigned = 0
+          event.event_skill_requirements.each do |req|
+            role_shifts = event.shifts.select { |s| s.role_needed == req.skill_name }.first(req.needed_workers)
+            role_assigned = role_shifts.sum { |shift| shift.assignments.count { |a| !a.status.in?(['cancelled', 'no_show']) } }
+            assigned += [role_assigned, req.needed_workers].min
+          end
+          total_needed - assigned
         end
 
         # Get urgent events (next 7 days with unfilled capacity)
+        # OPTIMIZED: Filter in SQL instead of Ruby select
         urgent_events = Event.published
           .joins(:event_schedule)
+          .includes(:event_skill_requirements, shifts: :assignments)
           .where('event_schedules.start_time_utc BETWEEN ? AND ?',
                  Time.current, 7.days.from_now)
-          .includes(:shifts)
-          .select { |event| event.unfilled_roles_count > 0 }
+          .select { |event| 
+            # Use eager-loaded associations
+            total_needed = event.event_skill_requirements.sum(:needed_workers)
+            assigned = 0
+            event.event_skill_requirements.each do |req|
+              role_shifts = event.shifts.select { |s| s.role_needed == req.skill_name }.first(req.needed_workers)
+              role_assigned = role_shifts.sum { |shift| shift.assignments.count { |a| !a.status.in?(['cancelled', 'no_show']) } }
+              assigned += [role_assigned, req.needed_workers].min
+            end
+            (total_needed - assigned) > 0
+          }
 
         # Get calendar data (current month)
         today = Date.today

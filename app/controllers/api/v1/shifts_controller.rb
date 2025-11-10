@@ -35,9 +35,15 @@ module Api
         end
 
         # Group by event if requested
+        # OPTIMIZED: Eager load events to prevent N+1 queries
         if params[:group_by] == 'event'
+          # Get all unique event_ids from shifts
+          event_ids = shifts.pluck(:event_id).compact.uniq
+          # Eager load all events in one query
+          events_by_id = Event.where(id: event_ids).index_by(&:id)
+          
           grouped_data = shifts.group_by(&:event_id).map do |event_id, event_shifts|
-            event = event_id ? Event.find_by(id: event_id) : nil
+            event = events_by_id[event_id]
             {
               event: event ? serialize_event_minimal(event) : nil,
               shifts: event_shifts.map { |shift| serialize_shift(shift) }
