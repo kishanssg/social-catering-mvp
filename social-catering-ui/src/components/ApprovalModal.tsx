@@ -529,13 +529,12 @@ function WorkerRow({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                {/* Avatar */}
-                <div className={cn(
-                  "h-8 w-8 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0",
-                  avatarColor
-                )}>
-                  {initials}
-                </div>
+                {/* Avatar - using same component as worker directory */}
+                <Avatar
+                  name={assignment.worker_name}
+                  src={assignment.worker_profile_photo_url}
+                  size={32}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">{assignment.worker_name}</div>
                   <div className="text-xs text-gray-500">{assignment.shift_role || 'N/A'}</div>
