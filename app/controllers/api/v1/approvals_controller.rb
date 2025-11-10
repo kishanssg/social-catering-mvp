@@ -43,6 +43,27 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
     
     ActiveRecord::Base.transaction do
+      # If assignment was cancelled/removed, restore it to 'assigned' status when editing hours
+      was_cancelled = @assignment.status.in?(['cancelled', 'removed'])
+      if was_cancelled
+        @assignment.update_columns(
+          status: 'assigned',
+          updated_at: Time.current
+        )
+        
+        ActivityLog.create!(
+          actor_user_id: Current.user&.id,
+          entity_type: 'Assignment',
+          entity_id: @assignment.id,
+          action: 'restored_from_cancelled',
+          after_json: {
+            status: 'assigned',
+            note: 'Assignment restored from cancelled status when hours were edited'
+          },
+          created_at_utc: Time.current
+        )
+      end
+      
       # If re-editing approved hours, un-approve and log it
       if was_approved
         @assignment.update_columns(
