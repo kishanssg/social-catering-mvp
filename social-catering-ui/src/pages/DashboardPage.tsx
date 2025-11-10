@@ -619,9 +619,10 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
   const getUrgencyBadge = () => {
     return (
       <span 
-        className="bg-red-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full"
+        className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
         aria-label="Urgent: starts within 48 hours"
       >
+        <AlertCircle className="h-3 w-3" />
         Urgent
       </span>
     );
@@ -657,9 +658,12 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
     <div>
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">⚠️ Priority Staffing Queue</h3>
-        <p className="text-sm text-gray-500 mt-1">
-          {events.length} event{events.length !== 1 ? 's' : ''} need{events.length === 1 ? 's' : ''} workers • Sorted by urgency
+        <div className="flex items-center gap-2 mb-1">
+          <AlertCircle className="h-5 w-5 text-amber-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Priority Staffing Queue</h3>
+        </div>
+        <p className="text-sm text-gray-600">
+          {events.length} {events.length === 1 ? 'event needs' : 'events need'} workers · Sorted by urgency
         </p>
       </div>
 
@@ -673,7 +677,8 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
             <div className="flex items-start justify-between gap-4">
               {/* Left: Event Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
+                {/* Date + Urgent badge */}
+                <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm font-medium text-gray-600">
                     {formatDate(event.schedule.start_time_utc)}
                   </span>
@@ -682,31 +687,62 @@ function UrgentEventsList({ events, onEventClick }: UrgentEventsListProps) {
                   )}
                 </div>
                 
-                <h4 className="text-base font-semibold text-gray-900 mb-1">
+                {/* Event name - Larger and bolder */}
+                <h4 className="text-lg font-semibold text-gray-900 mb-2 truncate">
                   {event.title}
                 </h4>
                 
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin size={14} className="text-gray-400" />
-                    <span className="truncate">{event.venue?.name || 'No venue'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={14} className="text-gray-400" />
+                {/* Venue + Time */}
+                <div className="flex items-center gap-4 text-sm text-gray-600 mb-3 flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                    <span className="truncate">{event.venue?.name || 'Venue TBD'}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4 flex-shrink-0 text-gray-400" />
                     <span>
                       {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+                    </span>
+                  </span>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full rounded-full transition-all duration-300",
+                          (event.staffing_percentage || 0) >= 100 ? "bg-green-500" :
+                          (event.staffing_percentage || 0) >= 75 ? "bg-amber-500" :
+                          "bg-red-500"
+                        )}
+                        style={{ width: `${event.staffing_percentage || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-gray-600 min-w-[3rem] text-right">
+                      {event.staffing_percentage || 0}%
                     </span>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium text-red-600">
-                    {event.unfilled_roles_count} role{event.unfilled_roles_count !== 1 ? 's' : ''} still needed
-                  </span>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-600">
-                    {event.staffing_percentage}% staffed
-                  </span>
+                {/* Staffing status with icon */}
+                <div className="flex items-center gap-1.5 text-sm">
+                  {event.unfilled_roles_count > 0 ? (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      <span className="text-red-600 font-medium">
+                        {event.unfilled_roles_count} {event.unfilled_roles_count === 1 ? 'role' : 'roles'} still need workers
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <span className="text-green-600 font-medium">
+                        Fully staffed
+                      </span>
+                    </>
+                  )}
                 </div>
       </div>
 
