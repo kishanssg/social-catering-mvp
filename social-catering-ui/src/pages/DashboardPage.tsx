@@ -565,11 +565,16 @@ function MonthCalendar({
                     {getStatusEmoji(dayData.status)}
                   </div>
                   
-                  {/* Daily staffing progress - simplified to just "X/Y hired" */}
+                  {/* Event count and staffing progress */}
                   {dayData.events.length > 0 && (
-                    <div className="text-xs text-center font-medium text-gray-700">
-                      {dayData.total_hired_today}/{dayData.total_required_today} hired
-                    </div>
+                    <>
+                      <div className="text-xs text-center text-gray-600">
+                        {dayData.events.length} event{dayData.events.length !== 1 ? 's' : ''}
+                      </div>
+                      <div className="text-xs text-center font-medium text-gray-700">
+                        {dayData.total_hired_today}/{dayData.total_required_today} hired
+                      </div>
+                    </>
                   )}
                 </div>
               )}
