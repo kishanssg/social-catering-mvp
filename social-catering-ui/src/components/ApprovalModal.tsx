@@ -12,6 +12,7 @@ interface AssignmentForApproval {
   worker_id: number;
   worker_name: string;
   worker_profile_photo_url?: string;
+  shift_id: number;
   shift_role: string;
   shift_date: string;
   scheduled_start: string;
@@ -178,14 +179,14 @@ function WorkerRow({
     <>
       {/* Desktop View (sm and up) */}
       <tr
-        className={cn(
-          "hidden sm:table-row group transition-all duration-150 ease-in-out border-b",
-          isApproved && !isEditing && "bg-green-50/30 hover:bg-green-50/50",
-          !isApproved && !isEditing && assignment.status === 'no_show' && "bg-red-50/30",
-          !isApproved && !isEditing && assignment.status === 'cancelled' && "bg-gray-50/30",
-          !isApproved && !isEditing && "bg-white hover:bg-gray-50",
-          isEditing && "bg-slate-50"
-        )}
+            className={cn(
+              "hidden sm:table-row group transition-all duration-150 ease-in-out border-b",
+              isApproved && !isEditing && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && "bg-green-50/30 hover:bg-green-50/50",
+              !isApproved && !isEditing && assignment.status === 'no_show' && "bg-red-50/30 opacity-60",
+              !isApproved && !isEditing && (assignment.status === 'cancelled' || assignment.status === 'removed') && "bg-gray-50/30 opacity-60",
+              !isApproved && !isEditing && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && "bg-white hover:bg-gray-50",
+              isEditing && "bg-slate-50"
+            )}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
@@ -213,14 +214,48 @@ function WorkerRow({
           />
           {/* Info */}
           <div className="min-w-0">
-            <div className="font-medium text-gray-900 truncate">
+            <div className={cn(
+              "font-medium truncate",
+              (assignment.status === 'cancelled' || assignment.status === 'removed') && "line-through text-gray-500",
+              assignment.status === 'no_show' && "text-gray-700",
+              !assignment.status || (assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed') && "text-gray-900"
+            )}>
               {assignment.worker_name}
             </div>
             <div className="text-xs text-gray-500">
               Scheduled: {safeToFixed(assignment.scheduled_hours, 2, '0.00')}h
             </div>
-            {/* Approval metadata - only if approved */}
-            {isApproved && !isEditing && assignment.approved_by_name && (
+            {/* Status-specific metadata */}
+            {assignment.status === 'no_show' && !isEditing && (
+              <div className="mt-1 text-xs text-red-600 font-medium flex items-center gap-1">
+                <Ban className="h-3 w-3" />
+                <span>No-Show</span>
+                {assignment.approval_notes && (
+                  <span className="text-gray-500">• {assignment.approval_notes}</span>
+                )}
+                {assignment.approved_by_name && (
+                  <span className="text-gray-500">
+                    (by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'})
+                  </span>
+                )}
+              </div>
+            )}
+            {(assignment.status === 'cancelled' || assignment.status === 'removed') && !isEditing && (
+              <div className="mt-1 text-xs text-gray-500 font-medium flex items-center gap-1">
+                <Trash2 className="h-3 w-3" />
+                <span>Removed</span>
+                {assignment.approval_notes && (
+                  <span>• {assignment.approval_notes}</span>
+                )}
+                {assignment.approved_by_name && (
+                  <span>
+                    (by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'})
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Approval metadata - only if approved and not no-show/removed */}
+            {isApproved && !isEditing && assignment.approved_by_name && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && (
               <div className="mt-1 text-xs text-green-700 font-medium">
                 Approved by {assignment.approved_by_name.split('@')[0]} on{' '}
                 {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
@@ -232,35 +267,65 @@ function WorkerRow({
 
       {/* Role */}
       <td className="py-4 px-3 text-sm text-gray-700">
-        {assignment.shift_role || 'N/A'}
+        <span className={cn(
+          (assignment.status === 'cancelled' || assignment.status === 'removed' || assignment.status === 'no_show') && "text-gray-400"
+        )}>
+          {assignment.shift_role || 'N/A'}
+        </span>
       </td>
 
       {/* Time Worked */}
       <td className="py-4 px-3">
         <div className="flex items-center gap-1.5 text-sm text-gray-700">
-          <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-          <span className="whitespace-nowrap">{shiftTime}</span>
+          <Clock className={cn(
+            "h-3.5 w-3.5 flex-shrink-0",
+            (assignment.status === 'cancelled' || assignment.status === 'removed' || assignment.status === 'no_show') ? "text-gray-300" : "text-gray-400"
+          )} />
+          <span className={cn(
+            "whitespace-nowrap",
+            (assignment.status === 'cancelled' || assignment.status === 'removed' || assignment.status === 'no_show') && "text-gray-400"
+          )}>
+            {shiftTime}
+          </span>
         </div>
       </td>
 
       {/* Hours */}
-      <td className="py-4 px-3 text-sm font-medium text-gray-900 text-right">
-        {safeToFixed(assignment.effective_hours, 2, '0.00')}h
-        {assignment.edited_at && (
-          <span className="ml-1 text-xs text-orange-600" title="Edited">
-            <Edit2 className="h-3 w-3 inline" />
-          </span>
+      <td className="py-4 px-3 text-sm font-medium text-right">
+        {assignment.status === 'no_show' ? (
+          <span className="text-red-600">0h</span>
+        ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
+          <span className="text-gray-400">-</span>
+        ) : (
+          <>
+            <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
+            {assignment.edited_at && (
+              <span className="ml-1 text-xs text-orange-600" title="Edited">
+                <Edit2 className="h-3 w-3 inline" />
+              </span>
+            )}
+          </>
         )}
       </td>
 
       {/* Rate */}
       <td className="py-4 px-3 text-sm text-gray-700 text-right">
-        ${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h
+        <span className={cn(
+          (assignment.status === 'cancelled' || assignment.status === 'removed' || assignment.status === 'no_show') && "text-gray-400"
+        )}>
+          ${safeToFixed(assignment.effective_hourly_rate, 2, '0.00')}/h
+        </span>
       </td>
 
       {/* Total Pay */}
-      <td className="py-4 px-3 text-sm font-semibold text-gray-900 text-right">
-        ${safeToFixed(assignment.effective_pay, 2, '0.00')}
+      <td className="py-4 px-3 text-sm font-semibold text-right">
+        {assignment.status === 'no_show' ? (
+          <span className="text-red-600 line-through">$0.00</span>
+        ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
+          <span className="text-gray-400">-</span>
+        ) : (
+          <span className="text-gray-900">${safeToFixed(assignment.effective_pay, 2, '0.00')}</span>
+        )}
       </td>
 
       {/* Status & Actions */}
@@ -517,14 +582,14 @@ function WorkerRow({
     {/* Mobile View (below sm) */}
     <tr className="sm:hidden">
       <td colSpan={8} className="py-3 px-3">
-        <div className={cn(
-          "p-3 rounded-lg space-y-2 transition-all duration-150",
-          isEditing && "bg-blue-50 border-2 border-blue-500",
-          !isEditing && isApproved && "bg-green-50 border border-green-200",
-          !isEditing && assignment.status === 'no_show' && "bg-red-50 border border-red-200",
-          !isEditing && assignment.status === 'cancelled' && "bg-gray-50 border border-gray-200",
-          !isEditing && "bg-white border border-gray-200"
-        )}>
+              <div className={cn(
+                "p-3 rounded-lg space-y-2 transition-all duration-150",
+                isEditing && "bg-blue-50 border-2 border-blue-500",
+                !isEditing && isApproved && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && "bg-green-50 border border-green-200",
+                !isEditing && assignment.status === 'no_show' && "bg-red-50 border border-red-200 opacity-60",
+                !isEditing && (assignment.status === 'cancelled' || assignment.status === 'removed') && "bg-gray-50 border border-gray-200 opacity-60",
+                !isEditing && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && "bg-white border border-gray-200"
+              )}>
           {/* Worker name & role */}
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -734,7 +799,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     message?: string;
     requireNote?: boolean;
     note?: string;
-    onConfirm?: () => Promise<void> | void;
+    onConfirm?: (note?: string) => Promise<void> | void;
     variant?: 'default' | 'warning' | 'danger';
   }>({ open: false, title: '', variant: 'default' });
 
@@ -911,7 +976,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     });
   };
 
-  const handleMarkNoShow = async (assignment: AssignmentForApproval) => {
+  const handleMarkNoShow = (assignment: AssignmentForApproval) => {
     setConfirmDialog({
       open: true,
       title: 'Mark No-Show',
@@ -935,7 +1000,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     });
   };
 
-  const handleRemove = async (assignment: AssignmentForApproval) => {
+  const handleRemove = (assignment: AssignmentForApproval) => {
     setConfirmDialog({
       open: true,
       title: 'Remove from Job',
@@ -1047,23 +1112,42 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
   if (!isOpen) return null;
 
-  // Calculate state for new layout
-  const validAssignments = assignments.filter(a => a.status !== 'no_show' && a.status !== 'cancelled');
-  const pendingCount = validAssignments.filter(a => !a.approved).length;
-  const approvedCount = validAssignments.filter(a => a.approved).length;
-  const totalCount = validAssignments.length;
-
-  const pendingCost = validAssignments
+  // Calculate state for new layout - Show ALL assignments
+  const allAssignments = assignments; // Show all, including no-shows and removed
+  
+  // Group assignments by status
+  const activeAssignments = assignments.filter(a => 
+    a.status !== 'no_show' && a.status !== 'cancelled' && a.status !== 'removed'
+  );
+  const noShowAssignments = assignments.filter(a => a.status === 'no_show');
+  const removedAssignments = assignments.filter(a => 
+    a.status === 'cancelled' || a.status === 'removed'
+  );
+  
+  // Counts for active assignments only (for approval logic)
+  const pendingCount = activeAssignments.filter(a => !a.approved).length;
+  const approvedCount = activeAssignments.filter(a => a.approved).length;
+  const totalActiveCount = activeAssignments.length;
+  
+  // Total assigned (all statuses)
+  const totalAssignedCount = allAssignments.length;
+  
+  // Costs - only count active assignments
+  const pendingCost = activeAssignments
     .filter(a => !a.approved)
     .reduce((sum, a) => sum + Number(a.effective_pay || 0), 0);
 
-  const approvedCost = validAssignments
+  const approvedCost = activeAssignments
     .filter(a => a.approved)
     .reduce((sum, a) => sum + Number(a.effective_pay || 0), 0);
 
   const totalCost = pendingCost + approvedCost;
 
-  const totalHours = validAssignments
+  const totalHours = activeAssignments
+    .reduce((sum, a) => sum + Number(a.effective_hours || 0), 0);
+  
+  const approvedHours = activeAssignments
+    .filter(a => a.approved)
     .reduce((sum, a) => sum + Number(a.effective_hours || 0), 0);
 
   const formatDate = (dateString?: string) => {
@@ -1198,6 +1282,40 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
         {/* Footer - Summary & Actions */}
         <footer className="border-t bg-gray-50 px-3 sm:px-6 py-4 flex-shrink-0">
+          {/* Breakdown Summary - Show all statuses */}
+          {(noShowAssignments.length > 0 || removedAssignments.length > 0) && (
+            <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-sm border-b border-gray-200 pb-4">
+              <div>
+                <div className="text-gray-500 text-xs">Total Assigned</div>
+                <div className="text-base font-semibold text-gray-900">
+                  {totalAssignedCount}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-500 text-xs">Approved</div>
+                <div className="text-base font-semibold text-green-600">
+                  {approvedCount}
+                </div>
+              </div>
+              {noShowAssignments.length > 0 && (
+                <div>
+                  <div className="text-gray-500 text-xs">No-Shows</div>
+                  <div className="text-base font-semibold text-red-600">
+                    {noShowAssignments.length}
+                  </div>
+                </div>
+              )}
+              {removedAssignments.length > 0 && (
+                <div>
+                  <div className="text-gray-500 text-xs">Removed</div>
+                  <div className="text-base font-semibold text-gray-500">
+                    {removedAssignments.length}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="flex items-center justify-between">
             {/* Left: Cost Summary - Single line format */}
             <div className="text-sm">
@@ -1205,10 +1323,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 {pendingCount === 0 ? 'Final approved cost:' : 'Total cost:'}
               </span>
               <span className="ml-2 text-lg font-bold text-gray-900">
-                ${safeToFixed(totalCost, 2, '0.00')}
+                ${safeToFixed(pendingCount === 0 ? approvedCost : totalCost, 2, '0.00')}
               </span>
               <span className="ml-1 text-gray-600">
-                ({totalCount} {totalCount === 1 ? 'worker' : 'workers'}, {safeToFixed(totalHours, 2, '0.00')}h)
+                ({pendingCount === 0 ? approvedCount : totalActiveCount} {pendingCount === 0 ? (approvedCount === 1 ? 'worker' : 'workers') : (totalActiveCount === 1 ? 'worker' : 'workers')}, {safeToFixed(pendingCount === 0 ? approvedHours : totalHours, 2, '0.00')}h)
               </span>
             </div>
 
