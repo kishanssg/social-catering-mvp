@@ -1355,28 +1355,53 @@ function ActiveEventsTab({
                               </span>
                               
                               {shift.assignments.length > 0 && (
-                                <div className="flex items-center gap-1 flex-wrap">
+                                <div className="flex flex-col gap-1.5">
                                   {shift.assignments.map((assignment) => {
                                     const fullName = `${assignment.worker.first_name} ${assignment.worker.last_name}`;
                                     const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
+                                    const statusMessage = getAssignmentStatusMessage(assignment);
+                                    const tooltipText = statusMessage 
+                                      ? `${fullName} • $${safeToFixed(rate, 0, '0')}/hr • ${statusMessage}`
+                                      : `${fullName} • $${safeToFixed(rate, 0, '0')}/hr`;
                                     return (
-                                      <div key={assignment.id} className="flex items-center gap-1">
-                                        <span 
-                                          className="bg-white text-black border border-gray-200 rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate"
-                                          title={`${fullName} • $${safeToFixed(rate, 0, '0')}/hr`}
-                                        >
-                                          {fullName}
-                                        </span>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onUnassign(assignment.id, fullName);
-                                          }}
-                                          className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                                          title="Unassign worker"
-                                        >
-                                          <X size={12} />
-                                        </button>
+                                      <div key={assignment.id} className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-1">
+                                          <span 
+                                            className={cn(
+                                              "bg-white text-black border rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate",
+                                              assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
+                                                ? "border-red-200 opacity-60"
+                                                : assignment.approved
+                                                ? "border-green-200"
+                                                : "border-gray-200"
+                                            )}
+                                            title={tooltipText}
+                                          >
+                                            {fullName}
+                                          </span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onUnassign(assignment.id, fullName);
+                                            }}
+                                            className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                            title="Unassign worker"
+                                          >
+                                            <X size={12} />
+                                          </button>
+                                        </div>
+                                        {statusMessage && (
+                                          <div className={cn(
+                                            "text-xs font-medium ml-2",
+                                            assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
+                                              ? "text-red-600"
+                                              : assignment.approved
+                                              ? "text-green-700"
+                                              : "text-gray-500"
+                                          )}>
+                                            {statusMessage}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
