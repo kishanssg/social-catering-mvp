@@ -10,7 +10,8 @@ import {
   MapPin,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import {
   format,
