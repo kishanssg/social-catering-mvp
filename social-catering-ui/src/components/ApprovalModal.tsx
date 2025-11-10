@@ -753,23 +753,41 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       const response = await apiClient.get(`/events/${event.id}/approvals`);
       const rawAssignments = response.data.data.assignments || [];
       
-      // Frontend deduplication: Remove duplicates by assignment ID
-      // This prevents showing the same assignment multiple times if API returns duplicates
-      const uniqueAssignments = Array.from(
+      // Frontend deduplication: Remove duplicates by assignment ID first
+      const uniqueById = Array.from(
         new Map(rawAssignments.map((a: AssignmentForApproval) => [a.id, a])).values()
       );
       
-      // Additional deduplication by [shift_id, worker_id] to catch edge cases
-      const finalAssignments = Array.from(
+      // Then deduplicate by [shift_id, worker_id] to catch duplicates on same shift
+      const uniqueByShiftWorker = Array.from(
         new Map(
-          uniqueAssignments.map((a: AssignmentForApproval) => [
+          uniqueById.map((a: AssignmentForApproval) => [
             `${a.shift_id}-${a.worker_id}`,
             a
           ])
         ).values()
       );
       
-      console.log(`Loaded ${rawAssignments.length} assignments, deduplicated to ${finalAssignments.length}`);
+      // Final deduplication: If same worker appears on multiple shifts with identical details,
+      // keep only the most recent one (by assignment ID, which typically reflects creation order)
+      // This handles cases where a worker is accidentally assigned to duplicate shifts
+      const finalAssignments = Array.from(
+        new Map(
+          uniqueByShiftWorker
+            .sort((a, b) => b.id - a.id) // Sort by ID descending (most recent first)
+            .map((a: AssignmentForApproval) => [
+              `${a.worker_id}-${a.shift_role}-${a.scheduled_start}-${a.scheduled_end}`,
+              a
+            ])
+        ).values()
+      );
+      
+      console.log(`Loaded ${rawAssignments.length} assignments, deduplicated to ${finalAssignments.length}`, {
+        before: rawAssignments.length,
+        afterById: uniqueById.length,
+        afterByShiftWorker: uniqueByShiftWorker.length,
+        final: finalAssignments.length
+      });
       
       setAssignments(finalAssignments);
       setCostSummary(response.data.data.cost_summary || null);
