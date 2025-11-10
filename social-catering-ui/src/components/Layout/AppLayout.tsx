@@ -45,7 +45,6 @@ export function AppLayout() {
       <div className="flex flex-col w-[261px] border-r border-primary-color/10 bg-secondary-color fixed left-0 top-0 h-screen flex-shrink-0" style={{ padding: '32px 24px' }}>
         {/* Logo */}
         <div className="flex flex-col items-center gap-2.5 self-stretch">
-        <div className="flex flex-col items-center gap-2.5 self-stretch">
           <img 
             src="/assets/icons/sc_logo.svg" 
             alt="Social Catering Logo" 
@@ -62,7 +61,7 @@ export function AppLayout() {
               const target = e.currentTarget as HTMLImageElement;
               target.src = '/assets/icons/sc_logo.png';
             }}
-          />
+        </div>
         <div className="flex flex-col items-start gap-2 self-stretch">
           {/* Dashboard */}
           <NavLink 
