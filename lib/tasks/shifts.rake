@@ -4,13 +4,14 @@ namespace :shifts do
     puts "🔍 Finding duplicate shifts..."
     
     # Find groups of duplicate shifts using raw SQL for better compatibility
-    duplicate_groups = ActiveRecord::Base.connection.execute(
-      "SELECT event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count
-       FROM shifts
-       WHERE event_id IS NOT NULL
-       GROUP BY event_id, role_needed, start_time_utc, end_time_utc, pay_rate
-       HAVING COUNT(*) > 1"
-    )
+    sql = "SELECT event_id, role_needed, start_time_utc, end_time_utc, pay_rate, COUNT(*) as count
+           FROM shifts
+           WHERE event_id IS NOT NULL
+           GROUP BY event_id, role_needed, start_time_utc, end_time_utc, pay_rate
+           HAVING COUNT(*) > 1"
+    
+    result = ActiveRecord::Base.connection.execute(sql)
+    duplicate_groups = result.to_a
     
     total_duplicates = 0
     total_assignments_moved = 0
