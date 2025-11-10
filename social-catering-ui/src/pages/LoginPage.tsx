@@ -196,11 +196,16 @@ export function LoginPage() {
                   className="mx-auto h-20 w-auto"
                   onError={(e) => {
                     // Fallback to PNG if SVG fails
-                    // @ts-ignore
-                    e.currentTarget.src = scLogo;
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.src = '/assets/icons/sc_logo.png';
                   }}
                   loading="eager"
                   decoding="async"
+                  style={{ 
+                    imageRendering: 'crisp-edges',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale'
+                  }}
                 />
           </div>
           

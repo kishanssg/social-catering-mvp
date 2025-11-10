@@ -22,12 +22,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className="h-10 w-auto"
             onError={(e) => {
               // Fallback to PNG
-              // @ts-ignore
-              e.currentTarget.src = logoIcon;
+              const target = e.currentTarget as HTMLImageElement;
+              target.src = '/assets/icons/sc_logo.png';
             }}
             loading="eager"
             decoding="async"
-            style={{ imageRendering: 'auto' }}
+            style={{ 
+              imageRendering: 'crisp-edges',
+              WebkitFontSmoothing: 'antialiased',
+              MozOsxFontSmoothing: 'grayscale'
+            }}
           />
         </div>
 
