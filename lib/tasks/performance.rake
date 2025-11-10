@@ -39,7 +39,7 @@ namespace :performance do
     
     if shift && worker
       time = Benchmark.realtime do
-        result = AssignWorkerToShift.call(shift: shift, worker: worker, assigned_by: User.first)
+        result = AssignWorkerToShift.call(shift, worker, User.first)
         # Clean up if successful
         if result[:success] && result[:assignment]
           result[:assignment].destroy
