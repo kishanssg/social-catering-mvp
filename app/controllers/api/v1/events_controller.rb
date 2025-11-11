@@ -657,19 +657,20 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
   
   def group_shifts_by_role(shifts, event = nil)
-    # Get event from parameter, first shift, or return empty if none available
-    event ||= shifts.first&.event if shifts.respond_to?(:first) && shifts.respond_to?(:empty?) && !shifts.empty? && shifts.first
-    return [] unless event
-    
-    # CRITICAL FIX: Always reload event with requirements AND shifts to ensure they're all loaded
-    # When getting event from shift.event, the associations might not be loaded or might be stale
-    # Reload to get fresh data with all requirements and shifts
     begin
-      event = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
-    rescue ActiveRecord::RecordNotFound => e
-      Rails.logger.error "Event not found in group_shifts_by_role: #{e.message}"
-      return []
-    end
+      # Get event from parameter, first shift, or return empty if none available
+      event ||= shifts.first&.event if shifts.respond_to?(:first) && shifts.respond_to?(:empty?) && !shifts.empty? && shifts.first
+      return [] unless event
+      
+      # CRITICAL FIX: Always reload event with requirements AND shifts to ensure they're all loaded
+      # When getting event from shift.event, the associations might not be loaded or might be stale
+      # Reload to get fresh data with all requirements and shifts
+      begin
+        event = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
+      rescue ActiveRecord::RecordNotFound => e
+        Rails.logger.error "Event not found in group_shifts_by_role: #{e.message}"
+        return []
+      end
     
     # Use shifts from the reloaded event to ensure we have all shifts with proper associations
     # Shifts are already included in the reload above, so convert to array safely
@@ -690,7 +691,13 @@ class Api::V1::EventsController < Api::V1::BaseController
     Rails.logger.info "Total workers needed (from model): #{event.total_workers_needed}"
     Rails.logger.info "Requirements details:"
     event.event_skill_requirements.each do |req|
-      Rails.logger.info "  - #{req.skill_name}: needed_workers=#{req.needed_workers}"
+      begin
+        skill_name = req.skill_name || "Unknown Role"
+        needed = req.needed_workers || 0
+        Rails.logger.info "  - #{skill_name}: needed_workers=#{needed}"
+      rescue => e
+        Rails.logger.error "Error logging requirement #{req.id}: #{e.message}"
+      end
     end
     Rails.logger.info "Requirements keys: #{requirements.keys.join(', ')}"
     
@@ -774,18 +781,26 @@ class Api::V1::EventsController < Api::V1::BaseController
     Rails.logger.info "Total requirements count: #{requirements.count}"
     
     requirements.each do |skill_name, requirement|
-      next if grouped[skill_name] # Already processed from shifts
-      
-      # Create empty role group for roles without shifts
-      grouped[skill_name] = {
-        role_name: skill_name,
-        skill_name: skill_name,
-        total_shifts: requirement.needed_workers || 0,
-        filled_shifts: 0,
-        pay_rate: requirement.pay_rate,
-        shifts: []
-      }
-      Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers})"
+      begin
+        next if grouped[skill_name] # Already processed from shifts
+        next unless requirement # Skip if requirement is nil
+        
+        # Create empty role group for roles without shifts
+        grouped[skill_name] = {
+          role_name: skill_name,
+          skill_name: skill_name,
+          total_shifts: requirement.needed_workers || 0,
+          filled_shifts: 0,
+          pay_rate: requirement.pay_rate,
+          shifts: []
+        }
+        Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers || 0})"
+      rescue => e
+        Rails.logger.error "Error adding requirement for role #{skill_name}: #{e.message}"
+        Rails.logger.error e.backtrace.first(5).join("\n")
+        # Continue with next requirement instead of crashing
+        next
+      end
     end
     
     Rails.logger.info "=== FINAL GROUPED RESULT ==="
@@ -795,6 +810,12 @@ class Api::V1::EventsController < Api::V1::BaseController
       Rails.logger.info "  Role: #{role_name}, shifts_count: #{role_data[:shifts].length}, total_shifts: #{role_data[:total_shifts]}"
     end
     grouped.values
+    rescue => e
+      Rails.logger.error "CRITICAL ERROR in group_shifts_by_role: #{e.message}"
+      Rails.logger.error e.backtrace.first(10).join("\n")
+      # Return empty array instead of crashing the entire request
+      []
+    end
   end
 
   def serialize_shift_as_event(shift)
