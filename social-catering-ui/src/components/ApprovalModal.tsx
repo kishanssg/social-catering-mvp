@@ -1548,7 +1548,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               Close
             </button>
             
-            {/* CHANGED: Single approve button - approves selected if any, otherwise all */}
+            {/* Approve button: Show "Approve Selected (n)" if items selected, otherwise "Approve All" */}
             {pendingCount > 0 && (
               <button
                 onClick={() => {
@@ -1559,10 +1559,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                     handleApproveAll();
                   }
                 }}
-                disabled={isApproving || selectedEligible.length === 0}
+                disabled={isApproving || (selectedEligible.length === 0 && pendingCount === 0)}
                 className={cn(
                   "px-5 py-2.5 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors",
-                  selectedEligible.length > 0
+                  (selectedEligible.length > 0 || pendingCount > 0)
                     ? "bg-green-600 hover:bg-green-700 disabled:bg-green-400"
                     : "bg-gray-400 cursor-not-allowed"
                 )}
@@ -1577,7 +1577,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                     <Check className="h-4 w-4" />
                     {selectedEligible.length > 0 
                       ? `Approve Selected (${selectedEligible.length})`
-                      : 'Approve All'
+                      : `Approve All (${pendingCount})`
                     }
                   </>
                 )}
