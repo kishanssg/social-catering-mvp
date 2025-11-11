@@ -740,6 +740,11 @@ class Api::V1::EventsController < Api::V1::BaseController
       role_counters[role] += 1
     end
     
+    grouped.values.each do |group|
+      group[:unassigned_count] = [group[:total_shifts] - group[:filled_shifts], 0].max
+      group[:sample_assignments] = group[:shifts].flat_map { |s| s[:assignments] }.first( group[:total_shifts] > 3 ? 3 : group[:total_shifts])
+    end
+    
     Rails.logger.info "Grouped result: #{grouped.keys}"
     grouped.values
   end
