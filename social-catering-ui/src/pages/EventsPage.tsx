@@ -1433,6 +1433,30 @@ function ActiveEventsTab({
                             )}
                           </div>
                         ))}
+                        {/* Placeholder rows for unassigned slots (no shift record yet) */}
+                        {Number((roleGroup as any).unassigned_count || 0) > 0 && (
+                          Array.from({ length: Number((roleGroup as any).unassigned_count) }).map((_, idx) => (
+                            <div
+                              key={`unassigned-${idx}`}
+                              className="flex items-center justify-between py-2 px-3 bg-white rounded border border-dashed border-gray-300"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 bg-gray-100 text-gray-500 rounded-md flex items-center justify-center text-xs font-medium">
+                                  •
+                                </div>
+                                <span className="text-sm text-gray-500 select-none">
+                                  Open slot (no shift generated)
+                                </span>
+                              </div>
+                              <span
+                                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                                title="Generate a shift for this role to assign a worker"
+                              >
+                                Assign
+                              </span>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   ))}
