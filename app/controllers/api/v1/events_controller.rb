@@ -669,7 +669,16 @@ class Api::V1::EventsController < Api::V1::BaseController
     # Get needed workers per role from event_skill_requirements
     requirements = event.event_skill_requirements.index_by(&:skill_name)
     
-    Rails.logger.info "Event #{event.id}: Loaded #{requirements.count} requirements: #{requirements.keys.join(', ')}"
+    Rails.logger.info "=== EVENT #{event.id} REQUIREMENTS DEBUG ==="
+    Rails.logger.info "Event title: #{event.title}"
+    Rails.logger.info "Requirements loaded: #{event.event_skill_requirements.loaded?}"
+    Rails.logger.info "Requirements count: #{requirements.count}"
+    Rails.logger.info "Total workers needed (from model): #{event.total_workers_needed}"
+    Rails.logger.info "Requirements details:"
+    event.event_skill_requirements.each do |req|
+      Rails.logger.info "  - #{req.skill_name}: needed_workers=#{req.needed_workers}"
+    end
+    Rails.logger.info "Requirements keys: #{requirements.keys.join(', ')}"
     
     Rails.logger.info "=== GROUP_SHIFTS_BY_ROLE DEBUG ==="
     Rails.logger.info "Shifts count: #{shifts.count}"
@@ -765,7 +774,12 @@ class Api::V1::EventsController < Api::V1::BaseController
       Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers})"
     end
     
-    Rails.logger.info "Final grouped result: #{grouped.keys} (#{grouped.keys.count} roles)"
+    Rails.logger.info "=== FINAL GROUPED RESULT ==="
+    Rails.logger.info "Total roles in response: #{grouped.keys.count}"
+    Rails.logger.info "Roles: #{grouped.keys.join(', ')}"
+    grouped.each do |role_name, role_data|
+      Rails.logger.info "  Role: #{role_name}, shifts_count: #{role_data[:shifts].length}, total_shifts: #{role_data[:total_shifts]}"
+    end
     grouped.values
   end
 
