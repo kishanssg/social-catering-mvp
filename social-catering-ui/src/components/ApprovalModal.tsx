@@ -60,6 +60,7 @@ interface WorkerRowProps {
   editHours: string;
   isSavingEdit: boolean;
   wasApprovedBeforeEdit: boolean;
+  validationError?: string;
   isSelected: boolean;
   canSelect: boolean;
   onToggleSelect: (assignmentId: number) => void;
@@ -80,6 +81,7 @@ function WorkerRow({
   editHours,
   isSavingEdit,
   wasApprovedBeforeEdit,
+  validationError,
   isSelected,
   canSelect,
   onToggleSelect,
