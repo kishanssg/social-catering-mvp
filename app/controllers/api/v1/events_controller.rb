@@ -681,9 +681,7 @@ class Api::V1::EventsController < Api::V1::BaseController
       role = shift.role_needed
       needed = requirements[role]&.needed_workers || 0
       
-      # Skip shifts beyond the needed amount
-      next if needed > 0 && role_counters[role] >= needed
-      
+      # Initialize the role group if it doesn't exist
       grouped[role] ||= {
         role_name: role,
         skill_name: role, # For consistency with frontend
@@ -694,6 +692,12 @@ class Api::V1::EventsController < Api::V1::BaseController
         shifts: []
       }
       
+      # Skip shifts beyond the needed amount (but still count them for total_shifts)
+      if needed > 0 && role_counters[role] >= needed
+        grouped[role][:total_shifts] += 1
+        next
+      end
+      
       grouped[role][:total_shifts] += 1
       grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
       
@@ -702,10 +706,12 @@ class Api::V1::EventsController < Api::V1::BaseController
       active_assignments = shift.assignments.select { |a| a.worker&.active? }
       filled_positions = active_assignments.count { |a| a.status.in?(['confirmed', 'assigned', 'completed']) }
       
+      # CRITICAL: Always add shift to shifts array if it's within the needed amount
+      # This ensures the frontend can see all available shifts
       grouped[role][:shifts] << {
         id: shift.id,
         role_needed: shift.role_needed,
-        capacity: shift.capacity,
+        capacity: shift.capacity || 1, # Default to 1 if capacity is nil
         filled_positions: filled_positions,
         start_time_utc: shift.start_time_utc,
         end_time_utc: shift.end_time_utc,

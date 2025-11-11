@@ -618,7 +618,13 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 isNotFullyStaffed,
                 filledShifts: roleGroup.filled_shifts,
                 totalShifts: roleGroup.total_shifts,
-                shiftsCount: roleGroup.shifts?.length || 0
+                shiftsCount: roleGroup.shifts?.length || 0,
+                shifts: roleGroup.shifts?.map((s: any) => ({
+                  id: s.id,
+                  capacity: s.capacity,
+                  filled_positions: s.filled_positions,
+                  hasCapacity: s.capacity > (s.filled_positions || 0)
+                })) || []
               });
               
               // Only include roles that match worker's skills and aren't fully staffed
@@ -627,13 +633,24 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 workerHasSkill &&
                 isNotFullyStaffed
               ) {
+                // Check if shifts array exists and has items
+                if (!roleGroup.shifts || roleGroup.shifts.length === 0) {
+                  console.log(`  ⚠️ Role "${roleName}" has no shifts array or empty shifts`);
+                  return;
+                }
+                
                 // Filter to only include shifts with available capacity
-                const availableShifts = (roleGroup.shifts || []).filter((s: any) => {
+                const availableShifts = roleGroup.shifts.filter((s: any) => {
                   const filled = s.filled_positions || 0;
-                  return s.capacity > filled;
+                  const hasCapacity = s.capacity > filled;
+                  console.log(`    Shift ${s.id}: capacity=${s.capacity}, filled=${filled}, hasCapacity=${hasCapacity}`);
+                  return hasCapacity;
                 });
                 
+                console.log(`  📊 Role "${roleName}": ${availableShifts.length} shifts with capacity out of ${roleGroup.shifts.length} total`);
+                
                 if (availableShifts.length === 0) {
+                  console.log(`  ❌ Role "${roleName}" filtered out: no shifts with available capacity`);
                   return; // Skip this role if no shifts have available capacity
                 }
                 
