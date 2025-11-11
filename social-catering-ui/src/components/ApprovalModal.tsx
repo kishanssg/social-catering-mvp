@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin, XCircle } from 'lucide-react';
+import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin, XCircle, Undo2 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
@@ -185,7 +185,8 @@ function WorkerRow({
               !isApproved && !isEditing && assignment.status === 'no_show' && "bg-red-50/30 opacity-60",
               !isApproved && !isEditing && (assignment.status === 'cancelled' || assignment.status === 'removed') && "bg-gray-50/30 opacity-60",
               !isApproved && !isEditing && assignment.status !== 'no_show' && assignment.status !== 'cancelled' && assignment.status !== 'removed' && "bg-white hover:bg-gray-50",
-              isEditing && "bg-slate-50"
+              isEditing && "bg-slate-50",
+              isSavingEdit && "opacity-60 pointer-events-none"
             )}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
@@ -444,18 +445,20 @@ function WorkerRow({
             <div className="py-2">
               {/* Neutral edit surface: soft gray panel */}
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                {/* Header */}
+                  {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-900">
                     Edit Hours Worked
                   </h4>
-                  {/* Reset to scheduled link */}
+                  {/* Reset to scheduled link with undo icon */}
                   {assignment.scheduled_hours && (
                     <button
                       onClick={() => onEditHoursChange(String(assignment.scheduled_hours))}
-                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                      className="text-xs text-gray-500 hover:text-gray-700 underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 rounded px-1"
                       type="button"
+                      aria-label={`Reset to scheduled ${assignment.scheduled_hours} hours`}
                     >
+                      <Undo2 className="h-3 w-3" />
                       Reset to scheduled ({assignment.scheduled_hours}h)
                     </button>
                   )}
@@ -475,41 +478,77 @@ function WorkerRow({
 
                 {/* Tighter spacing */}
                 <div className="space-y-2.5">
-                  {/* Hours Input with Controls */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => adjustHours(-1)}
-                      disabled={isSavingEdit}
-                      className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      type="button"
-                      title="Decrease by 1 hour"
-                    >
-                      <Minus className="h-4 w-4 text-gray-600" />
-                    </button>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="24"
-                      value={editHours}
-                      onChange={(e) => onEditHoursChange(e.target.value)}
-                      onKeyDown={onEditKeyDown}
-                      disabled={isSavingEdit}
-                      className="w-32 h-10 rounded-lg bg-white shadow-sm ring-1 ring-gray-300 focus:ring-2 focus:ring-emerald-600 focus:outline-none px-3 text-center text-base font-semibold disabled:bg-gray-100"
-                      placeholder="0.0"
-                      autoFocus
-                      aria-label="Hours worked"
-                    />
-                    <button
-                      onClick={() => adjustHours(1)}
-                      disabled={isSavingEdit}
-                      className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      type="button"
-                      title="Increase by 1 hour"
-                    >
-                      <Plus className="h-4 w-4 text-gray-600" />
-                    </button>
+                  {/* Hours Input with Controls + Updated Total on same row */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => adjustHours(-1)}
+                        disabled={isSavingEdit}
+                        className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1"
+                        type="button"
+                        aria-label="Decrease hours"
+                        title="Decrease by 1 hour"
+                      >
+                        <Minus className="h-4 w-4 text-gray-600" />
+                      </button>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="24"
+                        value={editHours}
+                        onChange={(e) => onEditHoursChange(e.target.value)}
+                        onKeyDown={onEditKeyDown}
+                        disabled={isSavingEdit}
+                        className="w-32 h-10 rounded-lg bg-white shadow-sm ring-1 ring-gray-300 focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 focus:outline-none px-3 text-center text-base font-semibold disabled:bg-gray-100"
+                        placeholder="0.0"
+                        autoFocus
+                        aria-label="Hours worked"
+                        aria-invalid={!!validationError}
+                        aria-describedby={validationError ? `error-${assignment.id}` : undefined}
+                      />
+                      <button
+                        onClick={() => adjustHours(1)}
+                        disabled={isSavingEdit}
+                        className="p-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1"
+                        type="button"
+                        aria-label="Increase hours"
+                        title="Increase by 1 hour"
+                      >
+                        <Plus className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                    
+                    {/* Updated Total + Inline Diff on right side */}
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="text-xs text-gray-500">Updated Total</div>
+                      <div 
+                        className="text-lg font-bold text-gray-900"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
+                      </div>
+                      {/* Inline diff: old → new */}
+                      <div className="text-xs text-gray-600">
+                        <span className="text-gray-400 line-through">
+                          {safeToFixed(assignment.effective_hours || assignment.scheduled_hours || 0, 1, '0.0')}h
+                        </span>
+                        <span className="mx-1">→</span>
+                        <span className="font-semibold text-gray-900">
+                          {parseFloat(editHours).toFixed(1)}h
+                        </span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Validation error message */}
+                  {validationError && (
+                    <div id={`error-${assignment.id}`} className="text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {validationError}
+                    </div>
+                  )}
 
                   {/* Ghost quick buttons */}
                   <div className="flex items-center gap-1.5">
@@ -544,18 +583,6 @@ function WorkerRow({
                     </button>
                   </div>
 
-                  {/* Updated Total Display with ARIA live */}
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500 mb-1">Updated Total</div>
-                    <div 
-                      className="text-lg font-bold text-gray-900"
-                      aria-live="polite"
-                      aria-atomic="true"
-                    >
-                      ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
-                    </div>
-                  </div>
-
                   {/* CHANGED: Compact Warning (single line, left border only) */}
                   {wasApprovedBeforeEdit && (
                     <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border-l-2 border-amber-400 rounded text-xs text-amber-800">
@@ -566,7 +593,7 @@ function WorkerRow({
 
                   {/* CHANGED: Compact Action Row (pt-3, smaller buttons) */}
                   <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                    {/* Left: Destructive actions - CHANGED: Smaller (px-2.5 py-1.5) */}
+                    {/* Left: Destructive actions - Ghost buttons until hover */}
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => {
@@ -574,7 +601,7 @@ function WorkerRow({
                           onCancelEdit();
                         }}
                         disabled={isSavingEdit}
-                        className="px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
+                        className="px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-transparent border border-transparent hover:bg-orange-50 hover:border-orange-200 rounded flex items-center gap-1 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-600 focus:ring-offset-1"
                       >
                         <AlertCircle className="h-3.5 w-3.5" />
                         No-Show
@@ -585,7 +612,7 @@ function WorkerRow({
                           onCancelEdit();
                         }}
                         disabled={isSavingEdit}
-                        className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
+                        className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-transparent border border-transparent hover:bg-red-50 hover:border-red-200 rounded flex items-center gap-1 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-1"
                       >
                         <XCircle className="h-3.5 w-3.5" />
                         Deny
@@ -885,6 +912,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const [editHours, setEditHours] = useState<string>('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [wasApprovedBeforeEdit, setWasApprovedBeforeEdit] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ [assignmentId: number]: string }>({});
   const [isApproving, setIsApproving] = useState(false);
   // Selection state for checkboxes
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<Set<number>>(new Set());
@@ -973,15 +1001,72 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     setEditingAssignmentId(assignment.id);
     setEditHours(String(assignment.effective_hours || assignment.hours_worked || assignment.scheduled_hours || '0'));
     setWasApprovedBeforeEdit(false);
+    // Clear validation error for this assignment
+    setValidationErrors(prev => {
+      const next = { ...prev };
+      delete next[assignment.id];
+      return next;
+    });
   };
 
   /**
    * Cancel editing and reset state
    */
   const handleCancelEdit = () => {
+    if (editingAssignmentId) {
+      setValidationErrors(prev => {
+        const next = { ...prev };
+        delete next[editingAssignmentId];
+        return next;
+      });
+    }
     setEditingAssignmentId(null);
     setEditHours('');
     setWasApprovedBeforeEdit(false);
+  };
+
+  /**
+   * Validate hours input
+   */
+  const validateHours = (hours: string, assignment: AssignmentForApproval): string | null => {
+    const hoursValue = parseFloat(hours);
+    
+    if (isNaN(hoursValue)) {
+      return 'Please enter a valid number';
+    }
+    
+    if (hoursValue < 0) {
+      return 'Hours cannot be negative';
+    }
+    
+    if (hoursValue > 24) {
+      return 'Hours cannot exceed 24 per shift';
+    }
+    
+    const scheduledHours = assignment.scheduled_hours || 0;
+    if (scheduledHours > 0 && hoursValue > scheduledHours) {
+      return `Hours (${hoursValue.toFixed(1)}h) exceed scheduled (${scheduledHours.toFixed(1)}h)`;
+    }
+    
+    return null;
+  };
+
+  /**
+   * Handle hours change with validation
+   */
+  const handleEditHoursChange = (hours: string) => {
+    setEditHours(hours);
+    
+    if (!editingAssignmentId) return;
+    
+    const assignment = assignments.find(a => a.id === editingAssignmentId);
+    if (!assignment) return;
+    
+    const error = validateHours(hours, assignment);
+    setValidationErrors(prev => ({
+      ...prev,
+      [editingAssignmentId]: error || ''
+    }));
   };
 
   /**
@@ -990,16 +1075,19 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const handleSaveEdit = async () => {
     if (!editingAssignmentId) return;
     
+    const assignment = assignments.find(a => a.id === editingAssignmentId);
+    if (!assignment) return;
+    
     const hoursValue = parseFloat(editHours);
     
     // Validation
-    if (isNaN(hoursValue) || hoursValue < 0) {
-      setToast({ isVisible: true, type: 'error', message: 'Please enter a valid number of hours' });
-      return;
-    }
-    
-    if (hoursValue > 24) {
-      setToast({ isVisible: true, type: 'error', message: 'Hours cannot exceed 24 per shift' });
+    const error = validateHours(editHours, assignment);
+    if (error) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [editingAssignmentId]: error
+      }));
+      setToast({ isVisible: true, type: 'error', message: error });
       return;
     }
     
@@ -1016,11 +1104,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       // Exit edit mode
       handleCancelEdit();
       
-      if (response.data?.message) {
-        setToast({ isVisible: true, type: 'success', message: response.data.message });
-      } else {
-        setToast({ isVisible: true, type: 'success', message: 'Hours updated successfully' });
-      }
+      // Show success toast
+      setToast({ 
+        isVisible: true, 
+        type: 'success', 
+        message: response.data?.message || 'Hours updated successfully' 
+      });
     } catch (error: any) {
       console.error('Error updating hours:', error);
       setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours. Please try again.' });
@@ -1377,13 +1466,14 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                       editHours={editHours}
                       isSavingEdit={isSavingEdit}
                       wasApprovedBeforeEdit={wasApprovedBeforeEdit}
+                      validationError={validationErrors[assignment.id]}
                       isSelected={selectedAssignmentIds.has(assignment.id)}
                       canSelect={canSelect}
                       onToggleSelect={toggleSelection}
                       onStartEdit={handleStartEdit}
                       onSaveEdit={handleSaveEdit}
                       onCancelEdit={handleCancelEdit}
-                      onEditHoursChange={setEditHours}
+                      onEditHoursChange={handleEditHoursChange}
                       onEditKeyDown={handleEditKeyDown}
                       calculateLiveTotal={calculateLiveTotal}
                       onNoShow={handleMarkNoShow}
@@ -1467,8 +1557,13 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                     handleApproveAll();
                   }
                 }}
-                disabled={isApproving}
-                className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors"
+                disabled={isApproving || selectedEligible.length === 0}
+                className={cn(
+                  "px-5 py-2.5 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors",
+                  selectedEligible.length > 0
+                    ? "bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+                    : "bg-gray-400 cursor-not-allowed"
+                )}
               >
                 {isApproving ? (
                   <>
@@ -1479,7 +1574,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   <>
                     <Check className="h-4 w-4" />
                     {selectedEligible.length > 0 
-                      ? 'Approve Selected'
+                      ? `Approve Selected (${selectedEligible.length})`
                       : 'Approve All'
                     }
                   </>
