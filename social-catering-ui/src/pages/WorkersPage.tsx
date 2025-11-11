@@ -640,10 +640,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 }
                 
                 // Filter to only include shifts with available capacity
+                // CRITICAL FIX: Ensure capacity is a valid number (default to 1 if undefined/null)
                 const availableShifts = roleGroup.shifts.filter((s: any) => {
+                  const capacity = s.capacity ? Number(s.capacity) : 1; // Default to 1 if undefined
                   const filled = s.filled_positions || 0;
-                  const hasCapacity = s.capacity > filled;
-                  console.log(`    Shift ${s.id}: capacity=${s.capacity}, filled=${filled}, hasCapacity=${hasCapacity}`);
+                  const hasCapacity = capacity > filled;
+                  console.log(`    Shift ${s.id}: capacity=${capacity} (raw: ${s.capacity}), filled=${filled}, hasCapacity=${hasCapacity}`);
                   return hasCapacity;
                 });
                 

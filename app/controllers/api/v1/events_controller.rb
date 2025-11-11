@@ -709,10 +709,14 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       # CRITICAL: Always add shift to shifts array if it's within the needed amount
       # This ensures the frontend can see all available shifts
+      # Ensure capacity is always a number (default to 1 if nil/0)
+      shift_capacity = shift.capacity.to_i
+      shift_capacity = 1 if shift_capacity <= 0
+      
       grouped[role][:shifts] << {
         id: shift.id,
         role_needed: shift.role_needed,
-        capacity: shift.capacity || 1, # Default to 1 if capacity is nil
+        capacity: shift_capacity, # Always ensure it's a valid number
         filled_positions: filled_positions,
         start_time_utc: shift.start_time_utc,
         end_time_utc: shift.end_time_utc,
