@@ -528,7 +528,7 @@ class Api::V1::EventsController < Api::V1::BaseController
     if ['active', 'past'].include?(tab) || filter_param == 'needs_workers'
       # Ensure shifts are loaded (they should be from includes, but double-check)
       shifts = event.shifts.loaded? ? event.shifts : event.shifts.includes(:assignments, :worker)
-      base[:shifts_by_role] = group_shifts_by_role(shifts)
+      base[:shifts_by_role] = group_shifts_by_role(shifts, event)
       Rails.logger.info "Event #{event.id}: Added shifts_by_role with #{base[:shifts_by_role].length} role groups"
     end
     
@@ -569,7 +569,7 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     # Add shifts with assignments for active/past tabs
     if ['active', 'past'].include?(tab) || event.status != 'draft'
-      base[:shifts_by_role] = group_shifts_by_role(event.shifts)
+      base[:shifts_by_role] = group_shifts_by_role(event.shifts, event)
     end
     
     base
@@ -656,15 +656,18 @@ class Api::V1::EventsController < Api::V1::BaseController
     )
   end
   
-  def group_shifts_by_role(shifts)
-    # Get event from first shift to access event_skill_requirements
-    event = shifts.first&.event
+  def group_shifts_by_role(shifts, event = nil)
+    # Get event from parameter, first shift, or return empty if none available
+    event ||= shifts.first&.event if shifts.respond_to?(:first) && shifts.first
     return [] unless event
     
-    # CRITICAL FIX: Always reload event with requirements to ensure they're loaded
-    # When getting event from shift.event, the association might not be loaded or might be stale
-    # Reload to get fresh data with all requirements
-    event = Event.includes(:event_skill_requirements).find(event.id)
+    # CRITICAL FIX: Always reload event with requirements AND shifts to ensure they're all loaded
+    # When getting event from shift.event, the associations might not be loaded or might be stale
+    # Reload to get fresh data with all requirements and shifts
+    event = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
+    
+    # Use shifts from the reloaded event to ensure we have all shifts with proper associations
+    shifts = event.shifts.to_a
     
     # Get needed workers per role from event_skill_requirements
     requirements = event.event_skill_requirements.index_by(&:skill_name)
