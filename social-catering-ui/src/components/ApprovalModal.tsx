@@ -299,14 +299,21 @@ function WorkerRow({
             <span className="text-gray-400">-</span>
           </div>
         ) : (
-          <>
-            <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
-            {assignment.edited_at && (
-              <span className="ml-1 text-xs text-orange-600" title="Edited">
-                <Edit2 className="h-3 w-3 inline" />
-              </span>
+          <div className="flex items-center justify-end gap-1.5">
+            {isEditing ? (
+              // Show inline diff: old value struck through, new value bold
+              <>
+                <span className="text-gray-400 line-through">
+                  {safeToFixed(assignment.effective_hours || assignment.scheduled_hours || 0, 2, '0.00')}h
+                </span>
+                <span className="text-gray-900 font-bold">
+                  → {editHours}h
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
             )}
-          </>
+          </div>
         )}
       </td>
 
@@ -333,9 +340,8 @@ function WorkerRow({
       {/* Status & Actions */}
       <td className="py-4 text-right">
         {isEditing ? (
-          // EDIT MODE - Show "Editing" badge
-          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">
-            <Edit2 className="h-3.5 w-3.5" />
+          // EDIT MODE - Show subtle "Editing" tag
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-sky-700 bg-sky-50 border border-sky-100 rounded">
             Editing
           </span>
         ) : (
@@ -432,22 +438,31 @@ function WorkerRow({
 
     {/* Expanded Edit Panel - Below Row */}
     {isEditing && (
-      <tr className="bg-slate-50">
+      <tr>
         <td colSpan={8} className="px-3 py-0">
           <div className="overflow-hidden transition-all duration-300 ease-in-out">
-            <div className="py-3">
-              {/* CHANGED: Softer border (slate-300), less padding (p-3) */}
-              <div className="bg-white border border-slate-300 rounded-lg p-3 shadow-sm">
+            <div className="py-2">
+              {/* Neutral edit surface: soft gray panel */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <Edit2 className="h-4 w-4 text-slate-600" />
+                <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-gray-900">
                     Edit Hours Worked
                   </h4>
+                  {/* Reset to scheduled link */}
+                  {assignment.scheduled_hours && (
+                    <button
+                      onClick={() => onEditHoursChange(String(assignment.scheduled_hours))}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                      type="button"
+                    >
+                      Reset to scheduled ({assignment.scheduled_hours}h)
+                    </button>
+                  )}
                 </div>
 
-                {/* CHANGED: Shift Context - Compact Inline (1 line, text-xs) */}
-                <div className="mb-3 flex items-center gap-2 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded">
+                {/* Shift Context - Compact Inline */}
+                <div className="mb-3 flex items-center gap-2 text-xs text-gray-600 bg-white px-2 py-1 rounded">
                   <Clock className="h-3.5 w-3.5 text-gray-400" />
                   <span>{shiftTime}</span>
                   {shiftDuration > 0 && (
@@ -458,8 +473,8 @@ function WorkerRow({
                   )}
                 </div>
 
-                {/* CHANGED: Tighter spacing (space-y-3) */}
-                <div className="space-y-3">
+                {/* Tighter spacing */}
+                <div className="space-y-2.5">
                   {/* Hours Input with Controls */}
                   <div className="flex items-center gap-3">
                     <button
@@ -473,16 +488,17 @@ function WorkerRow({
                     </button>
                     <input
                       type="number"
-                      step="0.25"
+                      step="0.5"
                       min="0"
                       max="24"
                       value={editHours}
                       onChange={(e) => onEditHoursChange(e.target.value)}
                       onKeyDown={onEditKeyDown}
                       disabled={isSavingEdit}
-                      className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-center text-base font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                      className="w-32 h-10 rounded-lg bg-white shadow-sm ring-1 ring-gray-300 focus:ring-2 focus:ring-emerald-600 focus:outline-none px-3 text-center text-base font-semibold disabled:bg-gray-100"
                       placeholder="0.0"
                       autoFocus
+                      aria-label="Hours worked"
                     />
                     <button
                       onClick={() => adjustHours(1)}
@@ -495,43 +511,47 @@ function WorkerRow({
                     </button>
                   </div>
 
-                  {/* CHANGED: Compact Quick Adjust (smaller gaps) */}
+                  {/* Ghost quick buttons */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-gray-500">Quick:</span>
                     <button
                       onClick={() => adjustHours(-1)}
                       disabled={isSavingEdit}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      className="px-2 py-1 text-xs bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors rounded"
                     >
                       -1h
                     </button>
                     <button
                       onClick={() => adjustHours(-0.5)}
                       disabled={isSavingEdit}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      className="px-2 py-1 text-xs bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors rounded"
                     >
                       -0.5h
                     </button>
                     <button
                       onClick={() => adjustHours(0.5)}
                       disabled={isSavingEdit}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      className="px-2 py-1 text-xs bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors rounded"
                     >
                       +0.5h
                     </button>
                     <button
                       onClick={() => adjustHours(1)}
                       disabled={isSavingEdit}
-                      className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      className="px-2 py-1 text-xs bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors rounded"
                     >
                       +1h
                     </button>
                   </div>
 
-                  {/* Updated Total Display */}
+                  {/* Updated Total Display with ARIA live */}
                   <div className="text-right">
                     <div className="text-xs text-gray-500 mb-1">Updated Total</div>
-                    <div className="text-lg font-bold text-blue-600">
+                    <div 
+                      className="text-lg font-bold text-gray-900"
+                      aria-live="polite"
+                      aria-atomic="true"
+                    >
                       ${calculateLiveTotal(editHours, assignment.effective_hourly_rate || 0)}
                     </div>
                   </div>
@@ -1006,14 +1026,23 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
   /**
    * Handle keyboard shortcuts in edit mode
+   * Arrow keys: step by 0.5; Shift+Arrow: step by 1
    */
-  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSaveEdit();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       handleCancelEdit();
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const current = parseFloat(editHours) || 0;
+      const step = e.shiftKey ? 1 : 0.5;
+      const newValue = e.key === 'ArrowUp' 
+        ? Math.min(24, current + step)
+        : Math.max(0, current - step);
+      setEditHours(newValue.toFixed(2));
     }
   };
 
