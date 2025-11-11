@@ -96,13 +96,20 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         )
       end
       
-      # Skip validations that might fail for restored assignments (capacity, availability, skills, certifications)
-      # These checks are not relevant when editing hours for a completed shift
+      # Skip validations that might fail when editing hours for a completed shift
+      # These checks are not relevant when just correcting hours (not reassigning workers)
+      # CRITICAL: Set skip flags for ALL hour edits, not just cancelled/no-show
+      # This prevents validation errors when editing approved assignments
       @assignment.skip_capacity_check = true
-      @assignment.skip_availability_and_skill_checks = was_cancelled_or_no_show
+      @assignment.skip_availability_and_skill_checks = true
       
       # Reload to get the updated status before running validations
       @assignment.reload
+      
+      # Ensure assigned_by_id is set if it's missing (required for update validation)
+      if @assignment.assigned_by_id.blank?
+        @assignment.assigned_by_id = Current.user&.id
+      end
       
       @assignment.update!(
         hours_worked: params[:hours_worked],
