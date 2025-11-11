@@ -342,12 +342,25 @@ function WorkerRow({
           // VIEW MODE - Status badge + action buttons
           <div className="flex items-center justify-end gap-2">
             {assignment.status === 'no_show' ? (
-              <>
+              <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700">
                   <Ban className="h-3.5 w-3.5" />
                   No-Show
                 </span>
-              </>
+                
+                {/* Action Buttons - Allow editing no-show workers - Always visible */}
+                {assignment.can_edit_hours && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onStartEdit(assignment)}
+                      className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      title="Edit Hours"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : assignment.status === 'cancelled' || assignment.status === 'removed' ? (
               <div className="flex items-center justify-end gap-3">
                 {/* Status Badge */}
