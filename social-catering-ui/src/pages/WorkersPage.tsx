@@ -580,10 +580,28 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       if (response.data.status === 'success') {
         const events = response.data.data;
         
+        // DEBUG: Log what we received
+        console.log('🔍 Schedule Worker Modal - API Response:', {
+          eventsCount: events.length,
+          workerSkills: worker.skills_json,
+          firstEvent: events[0] ? {
+            id: events[0].id,
+            title: events[0].title,
+            hasShiftsByRole: !!events[0].shifts_by_role,
+            shiftsByRoleCount: events[0].shifts_by_role?.length || 0,
+            shiftsByRole: events[0].shifts_by_role
+          } : null
+        });
+        
         // Group shifts by role per event - show only one entry per role per event
         const shifts: AvailableShift[] = [];
         events.forEach((event: any) => {
           if (event && event.shifts_by_role) {
+            console.log(`📋 Event ${event.id} (${event.title}):`, {
+              shiftsByRoleCount: event.shifts_by_role.length,
+              roleNames: event.shifts_by_role.map((r: any) => r.role_name || r.skill_name)
+            });
+            
             // Create event object once per event to ensure consistency
             const eventData = {
               id: event.id,
@@ -591,12 +609,23 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
             };
             
             event.shifts_by_role.forEach((roleGroup: any) => {
+              const roleName = roleGroup.role_name || roleGroup.skill_name;
+              const workerHasSkill = worker.skills_json && worker.skills_json.includes(roleName);
+              const isNotFullyStaffed = roleGroup.filled_shifts < roleGroup.total_shifts;
+              
+              console.log(`  🔍 Role "${roleName}":`, {
+                workerHasSkill,
+                isNotFullyStaffed,
+                filledShifts: roleGroup.filled_shifts,
+                totalShifts: roleGroup.total_shifts,
+                shiftsCount: roleGroup.shifts?.length || 0
+              });
+              
               // Only include roles that match worker's skills and aren't fully staffed
               if (
                 roleGroup &&
-                worker.skills_json && 
-                worker.skills_json.includes(roleGroup.role_name) &&
-                roleGroup.filled_shifts < roleGroup.total_shifts
+                workerHasSkill &&
+                isNotFullyStaffed
               ) {
                 // Filter to only include shifts with available capacity
                 const availableShifts = (roleGroup.shifts || []).filter((s: any) => {
@@ -632,6 +661,15 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
               }
             });
           }
+        });
+        
+        console.log('✅ Final available shifts:', {
+          count: shifts.length,
+          shifts: shifts.map(s => ({
+            event: s.event?.title,
+            role: s.role_needed,
+            available: s.available_positions
+          }))
         });
         
         setAvailableShifts(shifts);
