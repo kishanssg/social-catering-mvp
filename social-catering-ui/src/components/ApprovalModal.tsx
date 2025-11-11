@@ -1045,11 +1045,6 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       return 'Hours cannot exceed 24 per shift';
     }
     
-    const scheduledHours = assignment.scheduled_hours || 0;
-    if (scheduledHours > 0 && hoursValue > scheduledHours) {
-      return `Hours (${hoursValue.toFixed(1)}h) exceed scheduled (${scheduledHours.toFixed(1)}h)`;
-    }
-    
     return null;
   };
 
