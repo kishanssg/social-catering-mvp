@@ -248,11 +248,22 @@ export function EventsPage() {
     if (isNaN(eventId)) return;
 
     const ev = events.find(e => e.id === eventId);
-    if (ev && (!ev.shifts_by_role || ev.shifts_by_role.length === 0)) {
+    // Consider details incomplete if any role group reports more total_shifts than provided shift rows
+    let hasCompleteDetails = !!(ev?.shifts_by_role && ev.shifts_by_role.length > 0);
+    if (hasCompleteDetails) {
+      const groups: any[] = (ev as any).shifts_by_role || [];
+      const anyIncomplete = groups.some((g: any) => {
+        const total = Number(g?.total_shifts ?? (g?.shifts?.length || 0));
+        const have = (g?.shifts?.length || 0);
+        return total > have;
+      });
+      if (anyIncomplete) hasCompleteDetails = false;
+    }
+    if (!loadingEventDetails.has(eventId) && !hasCompleteDetails) {
       fetchEventDetails(eventId);
       setExpandedEvents(new Set([eventId]));
     }
-  }, [searchParams, events]);
+  }, [searchParams, events, loadingEventDetails]);
   
   async function loadEvents() {
     setLoading(true);
@@ -435,7 +446,17 @@ export function EventsPage() {
       // Always fetch details when expanding to ensure fresh data
       // Only skip if we're already loading or if we have complete data
       const isAlreadyLoading = loadingEventDetails.has(eventId);
-      const hasCompleteDetails = ev?.shifts_by_role && ev.shifts_by_role.length > 0;
+      // Consider details incomplete if any role group reports more total_shifts than provided shift rows
+      let hasCompleteDetails = !!(ev?.shifts_by_role && ev.shifts_by_role.length > 0);
+      if (hasCompleteDetails) {
+        const groups: any[] = (ev as any).shifts_by_role || [];
+        const anyIncomplete = groups.some((g: any) => {
+          const total = Number(g?.total_shifts ?? (g?.shifts?.length || 0));
+          const have = (g?.shifts?.length || 0);
+          return total > have;
+        });
+        if (anyIncomplete) hasCompleteDetails = false;
+      }
       if (!isAlreadyLoading && !hasCompleteDetails) {
         fetchEventDetails(eventId);
       }
