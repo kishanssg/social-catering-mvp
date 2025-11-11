@@ -9,6 +9,7 @@ class Api::V1::EventsController < Api::V1::BaseController
     begin
       # Eager load all associations to avoid N+1 queries
       # Includes aggregates via denormalized columns (total_hours_worked, total_pay_amount)
+      # CRITICAL: Load shifts with assignments and workers for group_shifts_by_role to work
       events = Event.includes(:venue, :event_skill_requirements, :event_schedule, 
                               shifts: { assignments: :worker })
     rescue ActiveRecord::StatementInvalid => e
@@ -92,7 +93,11 @@ class Api::V1::EventsController < Api::V1::BaseController
     if params[:filter].present?
       case params[:filter]
       when 'needs_workers'
-        events = events.select { |e| e.unfilled_roles_count > 0 }
+        # Convert to array and filter, but ensure associations are loaded first
+        events_array = events.to_a
+        # Reload associations to ensure they're available for unfilled_roles_count calculation
+        events_array.each { |e| e.association(:event_skill_requirements).load_target if e.association(:event_skill_requirements).loaded? }
+        events = events_array.select { |e| e.unfilled_roles_count > 0 }
       when 'partially_filled'
         events = events.select { |e| e.staffing_status == 'partially_staffed' }
       when 'fully_staffed'
@@ -520,7 +525,10 @@ class Api::V1::EventsController < Api::V1::BaseController
     # Add shifts_by_role for active/past tabs or when filter=needs_workers (for BulkAssignmentModal)
     # This is needed for the Schedule Worker modal to work
     if ['active', 'past'].include?(tab) || filter_param == 'needs_workers'
-      base[:shifts_by_role] = group_shifts_by_role(event.shifts)
+      # Ensure shifts are loaded (they should be from includes, but double-check)
+      shifts = event.shifts.loaded? ? event.shifts : event.shifts.includes(:assignments, :worker)
+      base[:shifts_by_role] = group_shifts_by_role(shifts)
+      Rails.logger.info "Event #{event.id}: Added shifts_by_role with #{base[:shifts_by_role].length} role groups"
     end
     
     base
