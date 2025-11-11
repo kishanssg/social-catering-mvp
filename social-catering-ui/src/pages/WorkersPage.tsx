@@ -660,6 +660,21 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                 const representativeShift = availableShifts[0];
                 if (representativeShift) {
                   const allShiftIds = availableShifts.map((s: any) => s.id);
+                  
+                  // CRITICAL FIX: Calculate positions correctly before creating object
+                  // total_positions = total capacity needed for this role (sum of all shift capacities)
+                  // filled_positions = total workers currently assigned
+                  // available_positions = sum of available slots across all shifts with capacity
+                  const totalCapacity = availableShifts.reduce((sum, s) => {
+                    const capacity = s.capacity ? Number(s.capacity) : 1;
+                    return sum + capacity;
+                  }, 0);
+                  const totalFilled = availableShifts.reduce((sum, s) => {
+                    const filled = s.filled_positions || 0;
+                    return sum + filled;
+                  }, 0);
+                  const totalAvailable = totalCapacity - totalFilled;
+                  
                   const shiftData = {
                     id: representativeShift.id,
                     event: eventData,
@@ -668,22 +683,9 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                     end_time_utc: representativeShift.end_time_utc,
                     location: event.venue?.formatted_address || 'Location TBD',
                     current_status: representativeShift.status,
-                    pay_rate: representativeShift.pay_rate, // Add pay_rate
+                    // Prefer shift-level pay_rate; fallback to role-level pay_rate from requirement
+                    pay_rate: (representativeShift.pay_rate ?? roleGroup.pay_rate ?? 0),
                     // Add metadata about positions
-                    // CRITICAL FIX: Calculate positions correctly
-                    // total_positions = total capacity needed for this role (sum of all shift capacities)
-                    // filled_positions = total workers currently assigned
-                    // available_positions = sum of available slots across all shifts with capacity
-                    const totalCapacity = availableShifts.reduce((sum, s) => {
-                      const capacity = s.capacity ? Number(s.capacity) : 1;
-                      return sum + capacity;
-                    }, 0);
-                    const totalFilled = availableShifts.reduce((sum, s) => {
-                      const filled = s.filled_positions || 0;
-                      return sum + filled;
-                    }, 0);
-                    const totalAvailable = totalCapacity - totalFilled;
-                    
                     total_positions: totalCapacity || roleGroup.total_shifts || 0,
                     filled_positions: totalFilled || 0,
                     available_positions: Math.max(0, totalAvailable),
