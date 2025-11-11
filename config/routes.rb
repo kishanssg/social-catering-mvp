@@ -94,6 +94,7 @@ Rails.application.routes.draw do
       
       # Reports
       namespace :reports do
+        get 'timesheet/preview', to: 'reports#timesheet_preview'
         get :timesheet
         get :payroll
         get :worker_hours

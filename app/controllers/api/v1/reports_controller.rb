@@ -3,6 +3,46 @@ module Api
     class ReportsController < BaseController
       before_action :authenticate_user!
       
+      # GET /api/v1/reports/timesheet/preview
+      # Returns summary of approved/pending hours for preview
+      def timesheet_preview
+        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
+        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        
+        assignments = Assignment.valid
+          .includes(:worker, shift: [event: :event_schedule])
+          .for_date_range(start_date, end_date)
+          .where(status: ['assigned', 'confirmed', 'completed', 'no_show'])
+          .joins(:worker).where(workers: { active: true })
+        
+        # Filter by event if provided
+        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
+        
+        # Filter by worker if provided
+        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        
+        # Filter by skill if provided
+        if params[:skill_name].present?
+          skill = CGI.unescape(params[:skill_name].to_s)
+          assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
+        end
+        
+        approved = assignments.select(&:approved?)
+        pending = assignments.reject { |a| a.approved? || a.status == 'no_show' }
+        no_shows = assignments.select { |a| a.status == 'no_show' }
+        
+        render json: {
+          approved_hours: approved.sum(&:effective_hours).round(2),
+          approved_pay: approved.sum(&:effective_pay).round(2),
+          pending_hours: pending.sum(&:effective_hours).round(2),
+          pending_pay: pending.sum(&:effective_pay).round(2),
+          no_shows: no_shows.count
+        }
+      rescue => e
+        Rails.logger.error("Timesheet preview failed: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")
+        render json: { status: 'error', message: 'Failed to generate preview' }, status: 500
+      end
+      
       # GET /api/v1/reports/timesheet
       # Query params: start_date, end_date, event_id, worker_id
       def timesheet
@@ -10,9 +50,11 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
-        assignments = Assignment.includes(worker: [], shift: [event: :event_schedule])
+        assignments = Assignment.valid  # Filter orphaned assignments
+                           .includes(:worker, :approved_by, shift: [event: :event_schedule])  # Include approval data
                            .for_date_range(start_date, end_date)
-                           .where(status: ['assigned', 'confirmed', 'completed'])
+                           .where(status: ['assigned', 'confirmed', 'completed', 'no_show'])  # Include no-shows for transparency
+                           .joins(:worker).where(workers: { active: true })  # Filter inactive workers
                            # Removed past-only filter to include future scheduled shifts
         
         # Filter by event if provided
@@ -45,8 +87,11 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) for payroll
-        assignments = Assignment.for_date_range(start_date, end_date)
+        assignments = Assignment.valid  # Filter orphaned assignments
+                           .includes(:worker, :approved_by, shift: [:event])  # Include approval data
+                           .for_date_range(start_date, end_date)
                            .where(status: ['assigned', 'confirmed', 'completed'])
+                           .joins(:worker).where(workers: { active: true })  # Filter inactive workers
         
         # Filter by event if provided
         assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
@@ -78,9 +123,11 @@ module Api
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
-        assignments = Assignment.includes(:worker, shift: [:event])
+        assignments = Assignment.valid  # Filter orphaned assignments
+                           .includes(:worker, :approved_by, shift: [:event])  # Include approval data
                            .for_date_range(start_date, end_date)
-                           .where(status: ['assigned', 'confirmed', 'completed'])
+                           .where(status: ['assigned', 'confirmed', 'completed', 'no_show'])  # Include no-shows for transparency
+                           .joins(:worker).where(workers: { active: true })  # Filter inactive workers
                            # Removed past-only filter to track scheduled hours for capacity planning
         
         # Filter by worker if provided
@@ -112,6 +159,7 @@ module Api
         events = Event.includes(:venue, :event_schedule, shifts: :assignments)
                       .joins(:event_schedule)
                       .where('event_schedules.start_time_utc >= ? AND event_schedules.start_time_utc <= ?', start_date, end_date)
+                      .where.not(status: 'deleted')  # Filter deleted events
                       .order('event_schedules.start_time_utc DESC')
         
         csv_data = generate_event_summary_csv(events)
@@ -140,6 +188,9 @@ module Api
             'UNPAID_BREAK',
             'TOTAL_HOURS',
             'SHIFT_SUPERVISOR',
+            'STATUS',          # NEW: Approval status
+            'APPROVED_BY',     # NEW: Who approved
+            'APPROVED_DATE',   # NEW: When approved
             'REMARKS'
           ]
           
@@ -158,6 +209,13 @@ module Api
             # Note: Break time handling is done in effective_hours calculation
             total_hours = staffing.effective_hours
             
+            # Use helper methods from Assignment model
+            status = staffing.status_display
+            approved_by_name = staffing.approved_by_name
+            
+            # Format approved date
+            approved_date = staffing.approved_at_utc&.strftime('%m/%d/%Y %I:%M %p') || ''
+            
             # Debug output
             Rails.logger.info "DEBUG: break_hours_numeric=#{break_hours_numeric}, formatted=#{sprintf('%.2f', break_hours_numeric)}"
             Rails.logger.info "DEBUG: total_hours=#{total_hours}, formatted=#{sprintf('%.2f', total_hours.round(2))}"
@@ -173,9 +231,32 @@ module Api
               sprintf('%.2f', break_hours_numeric),    # UNPAID_BREAK (2 decimals)
               sprintf('%.2f', total_hours.round(2)),    # TOTAL_HOURS (2 decimals)
               event&.supervisor_name || '',             # SHIFT_SUPERVISOR
+              status,                                   # STATUS (NEW)
+              approved_by_name,                         # APPROVED_BY (NEW)
+              approved_date,                            # APPROVED_DATE (NEW)
               staffing.notes || ''                      # REMARKS
             ]
           end
+          
+          # Add summary section at bottom
+          approved_assignments = staffing_records.select(&:approved?)
+          pending_assignments = staffing_records.reject { |a| a.approved? || a.status == 'no_show' }
+          no_show_assignments = staffing_records.select { |a| a.status == 'no_show' }
+          
+          approved_hours = approved_assignments.sum(&:effective_hours)
+          approved_pay = approved_assignments.sum(&:effective_pay)
+          pending_hours = pending_assignments.sum(&:effective_hours)
+          pending_pay = pending_assignments.sum(&:effective_pay)
+          
+          # Add summary rows
+          csv << []  # Blank row
+          csv << ['SUMMARY', '', '', '', '', '', '', '', '', '', '', '', '', '']
+          csv << ['Approved Hours', '', '', '', '', '', '', '', approved_hours.round(2), '', '', '', '']
+          csv << ['Approved Pay', '', '', '', '', '', '', '', "$#{approved_pay.round(2)}", '', '', '', '']
+          csv << ['Pending Hours', '', '', '', '', '', '', '', pending_hours.round(2), '', '', '', '']
+          csv << ['Pending Pay', '', '', '', '', '', '', '', "$#{pending_pay.round(2)}", '', '', '', '']
+          csv << ['No-Shows', '', '', '', '', '', '', '', no_show_assignments.count, '', '', '', '']
+          csv << ['Total Potential', '', '', '', '', '', '', '', (approved_hours + pending_hours).round(2), '', '', '', '']
         end
       end
       
@@ -193,7 +274,8 @@ module Api
             'Average Hourly Rate',
             'Total Compensation',
             'Number of Shifts',
-            'Events Worked'
+            'Events Worked',
+            'Status'  # NEW: Approval status
           ]
           
           grand_total_hours = 0
@@ -227,6 +309,15 @@ module Api
             
             avg_rate = rates.empty? ? 0 : (rates.sum / rates.size.to_f).round(2)
             
+            # Determine worker approval status
+            worker_status = if worker_assignments.all?(&:approved?)
+              'Approved'
+            elsif worker_assignments.any?(&:approved?)
+              'Partial'
+            else
+              'Pending'
+            end
+            
             grand_total_hours += total_hours
             grand_total_pay += total_pay
             total_shifts += worker_assignments.size
@@ -237,7 +328,8 @@ module Api
               "$#{avg_rate}",
               "$#{total_pay.round(2)}",
               worker_assignments.size,
-              events.join('; ')
+              events.join('; '),
+              worker_status  # NEW
             ]
           end
           
@@ -245,7 +337,7 @@ module Api
           csv << []
           
           # Add grand totals row
-          csv << ['GRAND TOTAL', grand_total_hours.round(2), '', "$#{grand_total_pay.round(2)}", total_shifts, '']
+          csv << ['GRAND TOTAL', grand_total_hours.round(2), '', "$#{grand_total_pay.round(2)}", total_shifts, '', '']
         end
       end
       
@@ -253,9 +345,11 @@ module Api
         require 'csv'
         
         CSV.generate(headers: true) do |csv|
-          csv << ['Worker Name', 'Event Name', 'Date', 'Role', 'Hours', 'Pay Rate', 'Payout']
+          csv << ['Worker Name', 'Event Name', 'Date', 'Role', 'Hours', 'Pay Rate', 'Payout', 'Status', 'Approved By', 'Approved Date']
           
-          assignments.includes(shift: [:event]).where.not(status: ['cancelled','no_show']).find_each do |assignment|
+          # Note: Assignment.valid scope already applied in worker_hours method above
+          # This filter is redundant but kept for explicit clarity
+          assignments.includes(shift: [:event]).where.not(status: ['cancelled']).find_each do |assignment|
             shift = assignment.shift
             event = shift.event
 
@@ -263,6 +357,13 @@ module Api
             hours = assignment.effective_hours
             rate  = assignment.effective_hourly_rate
             payout = assignment.effective_pay
+            
+            # Use helper methods from Assignment model
+            status = assignment.status_display
+            approved_by_name = assignment.approved_by_name
+            
+            # Format approved date
+            approved_date = assignment.approved_at_utc&.strftime('%m/%d/%Y %I:%M %p') || ''
 
             csv << [
               assignment.worker.full_name,
@@ -271,7 +372,10 @@ module Api
               shift.role_needed,
               hours.round(2),
               rate.round(2),
-              payout
+              payout,
+              status,          # NEW
+              approved_by_name, # NEW
+              approved_date     # NEW
             ]
           end
           
@@ -279,7 +383,7 @@ module Api
           total_hours = assignments.includes(:shift).sum(&:effective_hours)
           total_pay = assignments.includes(:shift).sum(&:effective_pay)
           csv << []
-          csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2)]
+          csv << ['TOTAL', '', '', '', total_hours.round(2), '', total_pay.round(2), '', '', '']
         end
       end
       
@@ -303,36 +407,19 @@ module Api
           ]
           
           # Data rows
+          # ✅ Use aggregate fields from Event model (denormalized columns) for performance and consistency
           events.find_each do |event|
-            needed = 0
-            assigned = 0
-            shifts_generated = 0
-            total_cost = 0.0
-
-            event.shifts.each do |s|
-              shifts_generated += 1
-              needed += (s.capacity || 0)
-
-              # ✅ SSOT: Use methods from Assignment model (Single Source of Truth)
-              s.assignments.where(status: ['assigned','confirmed','completed']).each do |a|
-                assigned += 1
-                total_cost += a.effective_pay
-              end
-            end
-
-            pct = needed.zero? ? 0 : ((assigned.to_f / needed.to_f) * 100.0).round
-
             csv << [
               event.id,
               event.title,
               event.event_schedule&.start_time_utc&.strftime('%m/%d/%Y') || '',
               event.venue&.name || '',
               event.status,
-              needed,
-              assigned,
-              "#{pct}%",
-              shifts_generated,
-              total_cost.round(2),
+              event.total_workers_needed || 0,  # Use aggregate field (sum from event_skill_requirements)
+              event.assigned_workers_count || 0,  # Use method (counts unique workers per role)
+              "#{event.staffing_percentage || 0}%",  # Use aggregate method
+              event.shifts.count,  # Simple count
+              event.total_pay_amount || 0.0,  # Use denormalized column (APPROVED hours only)
               event.supervisor_name || ''
             ]
           end

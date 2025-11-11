@@ -9,12 +9,13 @@ class Api::V1::ExportsController < ApplicationController
     end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.current
     
     # Get assignments with hours worked
-    assignments = Assignment
+    assignments = Assignment.valid  # Filter orphaned assignments
       .joins(:shift, :worker)
       .includes(shift: :location, worker: {})
       .where(shifts: { start_time_utc: start_date.beginning_of_day..end_date.end_of_day })
       .where.not(hours_worked: nil)
-      .where(status: 'completed')
+      .where(status: ['assigned', 'confirmed', 'completed'])  # Expand to include all valid statuses
+      .where(workers: { active: true })  # Filter inactive workers
       .order('shifts.start_time_utc ASC')
     
     # Generate CSV

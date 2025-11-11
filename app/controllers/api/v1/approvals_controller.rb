@@ -43,11 +43,16 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
     
     ActiveRecord::Base.transaction do
-      # If assignment was cancelled/removed, restore it to 'assigned' status when editing hours
-      was_cancelled = @assignment.status.in?(['cancelled', 'removed'])
-      if was_cancelled
+      # If assignment was cancelled/removed/no_show, restore it to 'assigned' status when editing hours
+      was_cancelled_or_no_show = @assignment.status.in?(['cancelled', 'removed', 'no_show'])
+      if was_cancelled_or_no_show
+        previous_status = @assignment.status
+        # Ensure assigned_by_id is set (required for update validation)
+        assigned_by_id = @assignment.assigned_by_id || Current.user&.id
+        
         @assignment.update_columns(
           status: 'assigned',
+          assigned_by_id: assigned_by_id,
           updated_at: Time.current
         )
         
@@ -56,9 +61,10 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           entity_type: 'Assignment',
           entity_id: @assignment.id,
           action: 'restored_from_cancelled',
+          before_json: { status: previous_status },
           after_json: {
             status: 'assigned',
-            note: 'Assignment restored from cancelled status when hours were edited'
+            note: "Assignment restored from #{previous_status} status when hours were edited"
           },
           created_at_utc: Time.current
         )
@@ -85,6 +91,14 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           created_at_utc: Time.current
         )
       end
+      
+      # Skip validations that might fail for restored assignments (capacity, availability, skills, certifications)
+      # These checks are not relevant when editing hours for a completed shift
+      @assignment.skip_capacity_check = true
+      @assignment.skip_availability_and_skill_checks = was_cancelled_or_no_show
+      
+      # Reload to get the updated status before running validations
+      @assignment.reload
       
       @assignment.update!(
         hours_worked: params[:hours_worked],

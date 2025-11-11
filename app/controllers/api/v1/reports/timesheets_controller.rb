@@ -59,7 +59,7 @@ class Api::V1::Reports::TimesheetsController < ApplicationController
   end
   
   def fetch_assignments
-    assignments = Assignment
+    assignments = Assignment.valid  # Filter orphaned assignments
       .joins(:shift, :worker)
       .includes(
         shift: :location,
@@ -67,6 +67,7 @@ class Api::V1::Reports::TimesheetsController < ApplicationController
       )
       .for_date_range(@start_date.beginning_of_day, @end_date.end_of_day)
       .with_hours
+      .where(workers: { active: true })  # Filter inactive workers
     
     assignments = assignments.where(worker_id: @worker_id) if @worker_id.present?
     assignments = assignments.where(shifts: { location_id: @location_id }) if @location_id.present?

@@ -38,6 +38,16 @@ export function ReportsPage() {
   const [workers, setWorkers] = useState<Array<{ id: number; name: string; skills_json?: string[] }>>([]);
   const [events, setEvents] = useState<Array<{ id: number; title: string }>>([]);
   const [skills, setSkills] = useState<string[]>([]);
+  
+  // Timesheet preview state
+  const [timesheetPreview, setTimesheetPreview] = useState<{
+    approved_hours: number;
+    approved_pay: number;
+    pending_hours: number;
+    pending_pay: number;
+    no_shows: number;
+  } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -75,6 +85,30 @@ export function ReportsPage() {
       }
     })();
   }, []);
+  
+  // Fetch timesheet preview when date range or filters change
+  React.useEffect(() => {
+    const fetchPreview = async () => {
+      setLoadingPreview(true);
+      try {
+        const dateRange = getDateRange();
+        let endpoint = `/reports/timesheet/preview?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+        if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
+        if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
+        if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
+        
+        const response = await apiClient.get(endpoint);
+        setTimesheetPreview(response.data);
+      } catch (error) {
+        console.error('Failed to fetch timesheet preview:', error);
+        setTimesheetPreview(null);
+      } finally {
+        setLoadingPreview(false);
+      }
+    };
+    
+    fetchPreview();
+  }, [datePreset, customDateRange, selectedEventId, selectedWorkerId, selectedSkill]);
   
   // Calculate date range based on preset
   const getDateRange = (): DateRange => {
@@ -216,6 +250,8 @@ export function ReportsPage() {
               handleExport('timesheet');
             }}
             exporting={exporting}
+            preview={timesheetPreview}
+            loadingPreview={loadingPreview}
           />
           
           {/* Payroll Report */}
@@ -597,9 +633,17 @@ interface ReportCardProps {
   lastExport: string;
   onExport: () => void;
   exporting: boolean;
+  preview?: {
+    approved_hours: number;
+    approved_pay: number;
+    pending_hours: number;
+    pending_pay: number;
+    no_shows: number;
+  } | null;
+  loadingPreview?: boolean;
 }
 
-function ReportCard({ icon, title, description, color, lastExport, onExport, exporting }: ReportCardProps) {
+function ReportCard({ icon, title, description, color, lastExport, onExport, exporting, preview, loadingPreview }: ReportCardProps) {
   const colorClasses = {
     teal: 'bg-teal-100 text-teal-600',
     indigo: 'bg-indigo-100 text-indigo-600',
@@ -641,6 +685,40 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
       <p className="text-sm text-gray-600 mb-4">
         {description}
       </p>
+      
+      {/* Preview summary for timesheet */}
+      {preview !== undefined && (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2 border border-gray-200">
+          {loadingPreview ? (
+            <div className="text-sm text-gray-500">Loading preview...</div>
+          ) : preview ? (
+            <>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Approved for Payout:</span>
+                <span className="font-semibold text-green-600">
+                  ${preview.approved_pay.toFixed(2)} ({preview.approved_hours.toFixed(1)}h)
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Pending Approval:</span>
+                <span className="font-semibold text-amber-600">
+                  ${preview.pending_pay.toFixed(2)} ({preview.pending_hours.toFixed(1)}h)
+                </span>
+              </div>
+              {preview.no_shows > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">No-Shows:</span>
+                  <span className="font-semibold text-red-600">
+                    {preview.no_shows} {preview.no_shows === 1 ? 'worker' : 'workers'}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-gray-500">No data available</div>
+          )}
+        </div>
+      )}
       
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <Calendar size={16} />

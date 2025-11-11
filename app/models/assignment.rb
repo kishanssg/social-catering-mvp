@@ -1,6 +1,8 @@
 class Assignment < ApplicationRecord
   # Allows certain state transitions to bypass capacity validation
   attr_accessor :skip_capacity_check
+  # Skip availability and skill validations when editing hours for restored assignments
+  attr_accessor :skip_availability_and_skill_checks
   include Auditable
   # Include Single Source of Truth concerns
   include HoursCalculations
@@ -155,6 +157,7 @@ class Assignment < ApplicationRecord
 
   def worker_available_for_shift
     return if shift.nil? || worker.nil?
+    return if skip_availability_and_skill_checks
 
     unless shift.can_assign_worker?(worker)
       reason = shift.conflict_reason(worker)
@@ -198,6 +201,7 @@ class Assignment < ApplicationRecord
 
   def worker_has_required_skills
     return if shift.nil? || worker.nil?
+    return if skip_availability_and_skill_checks
     
     # Determine required skill based on shift type
     required_skill = nil
@@ -227,6 +231,7 @@ class Assignment < ApplicationRecord
 
   def worker_has_valid_certification
     return if shift.nil? || worker.nil? || shift.required_cert_id.blank?
+    return if skip_availability_and_skill_checks
 
     req_name = shift.required_cert&.name || 'required certification'
     wc = worker.worker_certifications.find_by(certification_id: shift.required_cert_id)
@@ -372,8 +377,21 @@ class Assignment < ApplicationRecord
     shift&.end_time_utc && shift.end_time_utc < Time.current
   end
 
+  # Display-friendly status for reports
+  def status_display
+    return 'No-Show' if status == 'no_show'
+    return 'Removed' if status == 'cancelled' || status == 'removed'
+    return 'Approved' if approved?
+    return 'Pending'
+  end
+
+  # Short username for display (e.g., "natalie" instead of "natalie@socialcatering.com")
+  def approved_by_name
+    approved_by&.email&.split('@')&.first || ''
+  end
+
   # Ensure controller visibility
-  public :can_edit_hours?, :can_approve?, :approve!, :mark_no_show!, :remove_from_job!
+  public :can_edit_hours?, :can_approve?, :approve!, :mark_no_show!, :remove_from_job!, :status_display, :approved_by_name
 
   private
 

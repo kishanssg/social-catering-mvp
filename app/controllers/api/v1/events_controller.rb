@@ -117,9 +117,11 @@ class Api::V1::EventsController < Api::V1::BaseController
       end
     
     # Use lightweight serializer for list views (faster)
+    # Pass filter parameter so serializer knows to include shifts_by_role for BulkAssignmentModal
+    filter_param = params[:filter]
     render json: {
       status: 'success',
-      data: events.map { |event| serialize_event_lightweight(event, tab_param) }
+      data: events.map { |event| serialize_event_lightweight(event, tab_param, filter_param) }
     }
   end
 
@@ -467,14 +469,14 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # Lightweight serializer for list views (faster, less data)
   # Always includes aggregates (no lazy loading)
-  def serialize_event_lightweight(event, tab = nil)
+  def serialize_event_lightweight(event, tab = nil, filter_param = nil)
     # Auto-recalculate totals if they're NULL (fixes stale data)
     if event.total_pay_amount.nil? || (event.total_pay_amount.zero? && event.shifts.joins(:assignments).where.not(assignments: { status: ['cancelled', 'no_show'] }).exists?)
       event.recalculate_totals!
       event.reload
     end
     
-    {
+    base = {
       id: event.id,
       title: event.title,
       status: event.status,
@@ -513,10 +515,15 @@ class Api::V1::EventsController < Api::V1::BaseController
       } : nil,
       
       created_at: event.created_at_utc
-      
-      # DON'T include: full shifts array, full assignments, etc.
-      # Those are loaded only when viewing event detail (show action)
     }
+    
+    # Add shifts_by_role for active/past tabs or when filter=needs_workers (for BulkAssignmentModal)
+    # This is needed for the Schedule Worker modal to work
+    if ['active', 'past'].include?(tab) || filter_param == 'needs_workers'
+      base[:shifts_by_role] = group_shifts_by_role(event.shifts)
+    end
+    
+    base
   end
 
   def serialize_event(event, tab = nil)
@@ -682,18 +689,23 @@ class Api::V1::EventsController < Api::V1::BaseController
       grouped[role][:total_shifts] += 1
       grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
       
+      # Filter assignments to only include active workers (consistent with recent changes)
+      # Use loaded associations to avoid N+1 queries
+      active_assignments = shift.assignments.select { |a| a.worker&.active? }
+      filled_positions = active_assignments.count { |a| a.status.in?(['confirmed', 'assigned', 'completed']) }
+      
       grouped[role][:shifts] << {
         id: shift.id,
         role_needed: shift.role_needed,
         capacity: shift.capacity,
-        filled_positions: shift.assignments.where(status: ['confirmed', 'assigned', 'completed']).count,
+        filled_positions: filled_positions,
         start_time_utc: shift.start_time_utc,
         end_time_utc: shift.end_time_utc,
         status: shift.current_status,
         staffing_progress: shift.staffing_progress,
         fully_staffed: shift.fully_staffed?,
         pay_rate: shift.pay_rate,
-        assignments: shift.assignments.map { |a|
+        assignments: active_assignments.map { |a|
           {
             id: a.id,
             worker: {
