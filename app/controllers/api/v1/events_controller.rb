@@ -658,16 +658,27 @@ class Api::V1::EventsController < Api::V1::BaseController
   
   def group_shifts_by_role(shifts, event = nil)
     # Get event from parameter, first shift, or return empty if none available
-    event ||= shifts.first&.event if shifts.respond_to?(:first) && shifts.first
+    event ||= shifts.first&.event if shifts.respond_to?(:first) && shifts.respond_to?(:empty?) && !shifts.empty? && shifts.first
     return [] unless event
     
     # CRITICAL FIX: Always reload event with requirements AND shifts to ensure they're all loaded
     # When getting event from shift.event, the associations might not be loaded or might be stale
     # Reload to get fresh data with all requirements and shifts
-    event = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
+    begin
+      event = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
+    rescue ActiveRecord::RecordNotFound => e
+      Rails.logger.error "Event not found in group_shifts_by_role: #{e.message}"
+      return []
+    end
     
     # Use shifts from the reloaded event to ensure we have all shifts with proper associations
-    shifts = event.shifts.to_a
+    # Shifts are already included in the reload above, so convert to array safely
+    begin
+      shifts = event.shifts.to_a
+    rescue => e
+      Rails.logger.error "Error loading shifts for event #{event.id}: #{e.message}"
+      shifts = []
+    end
     
     # Get needed workers per role from event_skill_requirements
     requirements = event.event_skill_requirements.index_by(&:skill_name)
