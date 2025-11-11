@@ -1153,7 +1153,7 @@ function ActiveEventsTab({
   
   return (
     <div className="space-y-4">
-      {events.map((event) => {
+      {events.filter((e:any) => e.status !== 'completed').map((event) => {
         const isExpanded = expandedEvents.has(event.id);
         
         return (
