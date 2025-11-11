@@ -696,13 +696,13 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Approved for Payout:</span>
                 <span className="font-semibold text-green-600">
-                  ${preview.approved_pay.toFixed(2)} ({preview.approved_hours.toFixed(1)}h)
+                  ${Number(preview.approved_pay || 0).toFixed(2)} ({Number(preview.approved_hours || 0).toFixed(1)}h)
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Pending Approval:</span>
                 <span className="font-semibold text-amber-600">
-                  ${preview.pending_pay.toFixed(2)} ({preview.pending_hours.toFixed(1)}h)
+                  ${Number(preview.pending_pay || 0).toFixed(2)} ({Number(preview.pending_hours || 0).toFixed(1)}h)
                 </span>
               </div>
               {preview.no_shows > 0 && (
