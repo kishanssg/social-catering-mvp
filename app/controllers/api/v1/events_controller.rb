@@ -702,13 +702,14 @@ class Api::V1::EventsController < Api::V1::BaseController
     Rails.logger.info "Requirements keys: #{requirements.keys.join(', ')}"
     
     Rails.logger.info "=== GROUP_SHIFTS_BY_ROLE DEBUG ==="
-    Rails.logger.info "Shifts count: #{shifts.count}"
+    Rails.logger.info "Shifts count: #{shifts.length}"
     shifts.each_with_index do |shift, index|
       Rails.logger.info "Shift #{index + 1}: ID=#{shift.id}, role_needed=#{shift.role_needed.inspect}, capacity=#{shift.capacity.inspect}"
     end
     
     # ORDER shifts by ID ASC to ensure consistent ordering - first created = first displayed
-    sorted_shifts = shifts.order(:id)
+    # shifts is already an array, so use sort_by instead of order
+    sorted_shifts = shifts.sort_by(&:id)
     
     grouped = {}
     
