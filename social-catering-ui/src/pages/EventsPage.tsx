@@ -1524,22 +1524,22 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
         // Prefer lightweight serializer fields, fallback to detailed serializer
         // Guard: Only show hours/cost if there are valid assignments (not just no-shows/cancellations)
         const hasValidAssignments = event.approval_status && event.approval_status.total > 0;
-        const approvedHours = event.cost_summary 
-          ? (event.cost_summary.approved_cost / (event.cost_summary.approved_count > 0 ? event.cost_summary.approved_count : 1)) * (event.total_hours_worked || 0) / (event.cost_summary.total_estimated_cost || 1)
-          : (event.total_hours ?? event.total_hours_worked ?? 0);
-        const pendingHours = event.cost_summary && event.approval_status?.pending > 0
-          ? ((event.cost_summary.pending_cost / (event.cost_summary.total_estimated_cost || 1)) * (event.total_hours_worked || 0))
-          : 0;
         const totalHours = safeNumber(event.total_hours ?? event.total_hours_worked ?? 0);
-        const approvedCost = event.cost_summary?.approved_cost ?? (event.total_pay_amount ?? 0);
-        const pendingCost = event.cost_summary?.pending_cost ?? 0;
         const totalCost = event.cost_summary?.total_estimated_cost ?? event.total_pay_amount ?? 0;
+        const approvedCost = event.cost_summary?.approved_cost ?? 0;
+        const pendingCost = event.cost_summary?.pending_cost ?? 0;
         const pendingCount = event.approval_status?.pending ?? 0;
         
-        // Calculate approved hours from cost ratio if available
-        const calculatedApprovedHours = event.cost_summary && event.cost_summary.total_estimated_cost > 0
-          ? (approvedCost / event.cost_summary.total_estimated_cost) * totalHours
+        // Calculate approved hours from cost ratio (simplified: assume proportional hours to cost)
+        // If cost_summary exists, use ratio; otherwise show total hours as approved
+        const calculatedApprovedHours = event.cost_summary && totalCost > 0 && totalHours > 0
+          ? (approvedCost / totalCost) * totalHours
           : totalHours;
+        
+        // Calculate pending hours from cost ratio
+        const calculatedPendingHours = event.cost_summary && totalCost > 0 && totalHours > 0 && pendingCost > 0
+          ? (pendingCost / totalCost) * totalHours
+          : 0;
         
         return (
           <div 
@@ -1602,9 +1602,9 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   {hasValidAssignments ? (
                     <>
                       <span>{safeToFixed(calculatedApprovedHours, 2, '0.00')}</span>
-                      {pendingCount > 0 && pendingHours > 0 && (
+                      {pendingCount > 0 && calculatedPendingHours > 0 && (
                         <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                          +{safeToFixed(pendingHours, 2, '0.0')}h pending
+                          +{safeToFixed(calculatedPendingHours, 2, '0.0')}h pending
                         </span>
                       )}
                     </>
