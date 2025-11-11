@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../lib/api';
-import { Filter, Calendar, User, FileText, Clock } from 'lucide-react';
+import { 
+  Filter, 
+  Calendar, 
+  User, 
+  FileText, 
+  Clock,
+  UserPlus,
+  UserMinus,
+  Edit,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  Ban,
+  Calculator,
+  Plus,
+  Minus,
+  AlertCircle,
+  Settings
+} from 'lucide-react';
 
 interface ActivityLogEntry {
   id: number;
@@ -90,34 +108,53 @@ export const ActivityLog: React.FC = () => {
   const getActionColor = (action: string) => {
     switch (action) {
       case 'created':
-        return 'bg-green-100 text-green-700';
+        return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'updated':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'deleted':
-        return 'bg-red-100 text-red-700';
+        return 'bg-red-100 text-red-700 border-red-200';
       case 'assigned_worker':
-        return 'bg-purple-100 text-purple-700';
+        return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'unassigned_worker':
-        return 'bg-orange-100 text-orange-700';
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'marked_no_show':
+        return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'removed_from_job':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'totals_recalculated':
+        return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+      case 'approved':
+        return 'bg-green-100 text-green-700 border-green-200';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
-  const getActionIcon = (action: string) => {
+  const getActionIcon = (action: string, entityType: string) => {
+    // Use professional lucide-react icons
     switch (action) {
       case 'created':
-        return '+';
+        if (entityType === 'Worker') return <UserPlus className="w-4 h-4" />;
+        if (entityType === 'Event') return <Plus className="w-4 h-4" />;
+        return <Plus className="w-4 h-4" />;
       case 'updated':
-        return '✎';
+        return <Edit className="w-4 h-4" />;
       case 'deleted':
-        return '×';
+        return <Trash2 className="w-4 h-4" />;
       case 'assigned_worker':
-        return '→';
+        return <UserPlus className="w-4 h-4" />;
       case 'unassigned_worker':
-        return '←';
+        return <UserMinus className="w-4 h-4" />;
+      case 'marked_no_show':
+        return <Ban className="w-4 h-4" />;
+      case 'removed_from_job':
+        return <XCircle className="w-4 h-4" />;
+      case 'totals_recalculated':
+        return <Calculator className="w-4 h-4" />;
+      case 'approved':
+        return <CheckCircle className="w-4 h-4" />;
       default:
-        return '•';
+        return <AlertCircle className="w-4 h-4" />;
     }
   };
 
@@ -213,17 +250,24 @@ export const ActivityLog: React.FC = () => {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
     
-    if (diffSecs < 60) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    // For older entries, show actual date
-    return d.toLocaleDateString('en-US', {
+    // Always show full timestamp with date, month, year, and time
+    const fullTimestamp = d.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     });
+    
+    // Also show relative time for recent entries
+    if (diffSecs < 60) return `Just now • ${fullTimestamp}`;
+    if (diffMins < 60) return `${diffMins}m ago • ${fullTimestamp}`;
+    if (diffHours < 24) return `${diffHours}h ago • ${fullTimestamp}`;
+    if (diffDays < 7) return `${diffDays}d ago • ${fullTimestamp}`;
+    
+    // For older entries, just show full timestamp
+    return fullTimestamp;
   };
 
   const getDetailChips = (details: Record<string, any>) => {
@@ -232,10 +276,13 @@ export const ActivityLog: React.FC = () => {
     const order = ['worker_name', 'event_name', 'shift_name', 'role', 'pay_rate', 'notes', 'email', 'phone'];
     const items = Object.entries(details)
       .filter(([k, v]) => {
-        // Filter out technical fields and empty values
-        return v != null && v !== '' && !k.includes('_id') && !k.includes('json') && !k.includes('Changes');
+        // Filter out technical fields and empty values, but include 'changes' array
+        return (k === 'changes' || (v != null && v !== '' && !k.includes('_id') && !k.includes('json') && !k.includes('Changes')));
       })
       .sort((a, b) => {
+        // Put 'changes' at the end
+        if (a[0] === 'changes') return 1;
+        if (b[0] === 'changes') return -1;
         const aIdx = order.indexOf(a[0]);
         const bIdx = order.indexOf(b[0]);
         if (aIdx === -1 && bIdx === -1) return 0;
@@ -245,8 +292,27 @@ export const ActivityLog: React.FC = () => {
       });
 
     return items.map(([key, value]) => {
-      const displayKey = key.replace(/_/g, ' ');
-      let displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      // Special handling for changes array - show "from X to Y" format
+      if (key === 'changes' && Array.isArray(value) && value.length > 0) {
+        return (
+          <div key={key} className="w-full space-y-2">
+            {value.map((change: any, idx: number) => (
+              <div
+                key={idx}
+                className="px-3 py-2 text-xs bg-blue-50 text-blue-900 rounded-lg border border-blue-200 flex items-start gap-2"
+              >
+                <Edit className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <span className="font-semibold capitalize">{change.field}:</span>
+                  <span className="ml-1 text-blue-700">
+                    from <span className="font-medium line-through opacity-75">{change.from}</span> to <span className="font-semibold">{change.to}</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
       
       // Special handling for changes_summary - show as a note/badge
       if (key === 'changes_summary') {
@@ -256,10 +322,13 @@ export const ActivityLog: React.FC = () => {
             className="px-3 py-2 text-xs bg-blue-50 text-blue-700 rounded-lg border border-blue-200 flex items-start gap-2 w-full"
           >
             <span className="font-semibold">Changed:</span>
-            <span>{displayValue}</span>
+            <span>{String(value)}</span>
           </div>
         );
       }
+      
+      const displayKey = key.replace(/_/g, ' ');
+      let displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
       
       return (
         <span
@@ -399,11 +468,11 @@ export const ActivityLog: React.FC = () => {
                   <div className="flex items-start gap-4">
                     {/* Action Icon */}
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-lg ${getActionColor(
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border-2 ${getActionColor(
                         log.action
                       )}`}
                     >
-                      {getActionIcon(log.action)}
+                      {getActionIcon(log.action, log.entity_type)}
                     </div>
 
                     {/* Content */}
@@ -434,11 +503,11 @@ export const ActivityLog: React.FC = () => {
 
                         {/* Action Badge */}
                         <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${getActionColor(
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold border ${getActionColor(
                             log.action
                           )}`}
                         >
-                          {log.action.replace('_', ' ').toUpperCase()}
+                          {log.action.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                         </span>
                       </div>
 

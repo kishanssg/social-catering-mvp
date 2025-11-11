@@ -39,15 +39,40 @@ class ActivityLogPresenter
     when ["Worker", "created"]
       "#{actor_name} added #{entity_name}"
     when ["Worker", "updated"]
-      "#{actor_name} updated #{entity_name}"
+      changes_summary = get_changes_summary
+      if changes_summary.present?
+        "#{actor_name} updated #{entity_name}#{changes_summary}"
+      else
+        "#{actor_name} updated #{entity_name}"
+      end
     when ["Worker", "deleted"]
       "#{actor_name} removed #{entity_name}"
     when ["Shift", "created"]
       "#{actor_name} added shift for #{entity_name}"
     when ["Shift", "updated"]
-      "#{actor_name} updated shift for #{entity_name}"
+      changes_summary = get_changes_summary
+      if changes_summary.present?
+        "#{actor_name} updated shift for #{entity_name}#{changes_summary}"
+      else
+        "#{actor_name} updated shift for #{entity_name}"
+      end
     when ["Shift", "deleted"]
       "#{actor_name} removed shift #{entity_name}"
+    when ["Event", "totals_recalculated"]
+      event_title = fetch_event_title || entity_name
+      after = log.after_json || {}
+      hours = after['total_hours_worked'] || after[:total_hours_worked]
+      pay = after['total_pay_amount'] || after[:total_pay_amount]
+      
+      details = []
+      details << "#{hours.round(2)}h" if hours
+      details << "$#{pay.round(2)}" if pay
+      
+      if details.any?
+        "#{actor_name} recalculated totals for \"#{event_title}\" (#{details.join(', ')})"
+      else
+        "#{actor_name} recalculated totals for \"#{event_title}\""
+      end
     else
       "#{actor_name} #{log.action.humanize.downcase} #{entity_name}"
     end
@@ -97,24 +122,94 @@ class ActivityLogPresenter
       worker_name = dj(:first_name) && dj(:last_name) ? "#{dj(:first_name)} #{dj(:last_name)}" : nil
       details = { name: worker_name }.compact
       
-      # Show friendly changes instead of raw JSON
-      changes = format_changes_nicely
-      details[:changes_summary] = changes if changes.present?
+      # Show detailed changes with "from X to Y" format
+      if log.before_json && log.after_json
+        changes = []
+        (log.before_json.keys & log.after_json.keys).each do |key|
+          next if %w[updated_at lock_version updated_at_utc created_at created_at_utc].include?(key.to_s)
+          
+          before_val = log.before_json[key]
+          after_val = log.after_json[key.to_sym] || log.after_json[key]
+          
+          if before_val != after_val
+            field_name = format_field_name(key.to_s)
+            old_display = format_field_value(key.to_s, before_val)
+            new_display = format_field_value(key.to_s, after_val)
+            changes << { field: field_name, from: old_display, to: new_display }
+          end
+        end
+        details[:changes] = changes if changes.any?
+      end
       
       details
-    when ["Event", "created"], ["Event", "updated"]
+    when ["Event", "created"]
       {
         title: dj(:title),
         venue: dj(:venue_name),
         date: format_date(dj(:start_time_utc))
       }.compact
-    when ["Shift", "created"], ["Shift", "updated"], ["Shift", "deleted"]
+    when ["Event", "updated"]
+      details = {
+        title: dj(:title),
+        venue: dj(:venue_name),
+        date: format_date(dj(:start_time_utc))
+      }.compact
+      
+      # Show detailed changes with "from X to Y" format
+      if log.before_json && log.after_json
+        changes = []
+        (log.before_json.keys & log.after_json.keys).each do |key|
+          next if %w[updated_at lock_version updated_at_utc created_at created_at_utc].include?(key.to_s)
+          
+          before_val = log.before_json[key]
+          after_val = log.after_json[key.to_sym] || log.after_json[key]
+          
+          if before_val != after_val
+            field_name = format_field_name(key.to_s)
+            old_display = format_field_value(key.to_s, before_val)
+            new_display = format_field_value(key.to_s, after_val)
+            changes << { field: field_name, from: old_display, to: new_display }
+          end
+        end
+        details[:changes] = changes if changes.any?
+      end
+      
+      details
+    when ["Shift", "created"], ["Shift", "deleted"]
       {
         client_name: dj(:client_name),
         event_name: dj(:event_name),
         role: dj(:role_needed),
         time: format_time_range(dj(:start_time_utc), dj(:end_time_utc))
       }.compact
+    when ["Shift", "updated"]
+      details = {
+        client_name: dj(:client_name),
+        event_name: dj(:event_name),
+        role: dj(:role_needed),
+        time: format_time_range(dj(:start_time_utc), dj(:end_time_utc))
+      }.compact
+      
+      # Show detailed changes with "from X to Y" format
+      if log.before_json && log.after_json
+        changes = []
+        (log.before_json.keys & log.after_json.keys).each do |key|
+          next if %w[updated_at lock_version updated_at_utc created_at created_at_utc].include?(key.to_s)
+          
+          before_val = log.before_json[key]
+          after_val = log.after_json[key.to_sym] || log.after_json[key]
+          
+          if before_val != after_val
+            field_name = format_field_name(key.to_s)
+            old_display = format_field_value(key.to_s, before_val)
+            new_display = format_field_value(key.to_s, after_val)
+            changes << { field: field_name, from: old_display, to: new_display }
+          end
+        end
+        details[:changes] = changes if changes.any?
+      end
+      
+      details
     else
       {}
     end
@@ -356,28 +451,83 @@ class ActivityLogPresenter
     after = log.after_json
     
     # Filter out tracking fields
-    tracking_fields = ['updated_at_utc', 'lock_version', 'updated_at']
+    tracking_fields = ['updated_at_utc', 'lock_version', 'updated_at', 'created_at', 'created_at_utc']
     before = before.reject { |k, _| tracking_fields.include?(k.to_s) }
     after = after.reject { |k, _| tracking_fields.include?(k.to_s) }
     
-    # Find changed fields
+    # Find changed fields with humanized "from → to" format
     changed_fields = []
     before.each do |key, old_value|
       new_value = after[key.to_sym] || after[key.to_s]
       if new_value && old_value != new_value
-        # Format the change nicely
-        field_name = key.to_s.humanize.downcase
-        if key.to_s == 'status'
-          changed_fields << "#{field_name}: #{old_value} → #{new_value}"
-        else
-          changed_fields << "#{field_name}"
-        end
+        field_name = format_field_name(key.to_s)
+        old_display = format_field_value(key.to_s, old_value)
+        new_display = format_field_value(key.to_s, new_value)
+        changed_fields << "#{field_name} from #{old_display} to #{new_display}"
       end
     end
     
     return '' if changed_fields.empty?
     
-    ' (changed: ' + changed_fields.join(', ') + ')'
+    ' (' + changed_fields.join(', ') + ')'
+  end
+  
+  def format_field_name(key)
+    # Humanize field names
+    case key
+    when 'status' then 'status'
+    when 'active' then 'active status'
+    when 'first_name' then 'first name'
+    when 'last_name' then 'last name'
+    when 'email' then 'email'
+    when 'phone' then 'phone'
+    when 'title' then 'title'
+    when 'venue_name' then 'venue'
+    when 'start_time_utc' then 'start time'
+    when 'end_time_utc' then 'end time'
+    when 'pay_rate' then 'pay rate'
+    when 'hours_worked' then 'hours worked'
+    when 'total_pay' then 'total pay'
+    when 'capacity' then 'capacity'
+    when 'role_needed' then 'role'
+    when 'skills_json' then 'skills'
+    else key.humanize.downcase
+    end
+  end
+  
+  def format_field_value(key, value)
+    return 'empty' if value.nil? || value == ''
+    
+    case key
+    when 'active'
+      value == true || value == 'true' || value == 1 ? 'active' : 'inactive'
+    when 'status'
+      value.to_s.humanize
+    when 'pay_rate', 'total_pay', 'hourly_rate'
+      "$#{value.to_f.round(2)}"
+    when 'hours_worked'
+      "#{value.to_f.round(2)}h"
+    when 'start_time_utc', 'end_time_utc'
+      begin
+        Time.parse(value.to_s).strftime("%b %d, %Y at %I:%M %p")
+      rescue
+        value.to_s
+      end
+    when 'skills_json'
+      if value.is_a?(Array)
+        value.join(', ')
+      elsif value.is_a?(String)
+        begin
+          JSON.parse(value).join(', ')
+        rescue
+          value
+        end
+      else
+        value.to_s
+      end
+    else
+      value.to_s
+    end
   end
 end
 
