@@ -293,18 +293,7 @@ function WorkerRow({
       {/* Hours */}
       <td className="py-4 px-3 text-sm font-medium text-right">
         {assignment.status === 'no_show' ? (
-          <div className="flex items-center justify-end gap-1.5">
-            <span className="text-red-600">0h</span>
-            {assignment.can_edit_hours && (
-              <button
-                onClick={() => onStartEdit(assignment)}
-                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                title="Edit Hours"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <span className="text-red-600">0h</span>
         ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
           <div className="flex items-center justify-end gap-1.5">
             <span className="text-gray-400">-</span>
@@ -785,18 +774,7 @@ function WorkerRow({
                   <div className="text-xs text-gray-500">Hours</div>
                   <div className="font-medium flex items-center gap-1.5">
                     {assignment.status === 'no_show' ? (
-                      <>
-                        <span className="text-red-600">0h</span>
-                        {assignment.can_edit_hours && (
-                          <button
-                            onClick={() => onStartEdit(assignment)}
-                            className="p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
-                            title="Edit Hours"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </>
+                      <span className="text-red-600">0h</span>
                     ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
                       <span className="text-gray-400">-</span>
                     ) : (
