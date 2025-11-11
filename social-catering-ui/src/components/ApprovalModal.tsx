@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin } from 'lucide-react';
+import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin, XCircle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
@@ -248,7 +248,7 @@ function WorkerRow({
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
-                    <X className="h-3 w-3" />
+                    <XCircle className="h-3 w-3" />
                     <span>Denied</span>
                   </span>
                 )}
@@ -295,28 +295,10 @@ function WorkerRow({
         {assignment.status === 'no_show' ? (
           <div className="flex items-center justify-end gap-1.5">
             <span className="text-red-600">0h</span>
-            {assignment.can_edit_hours && (
-              <button
-                onClick={() => onStartEdit(assignment)}
-                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                title="Edit Hours"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
-            )}
           </div>
         ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
           <div className="flex items-center justify-end gap-1.5">
             <span className="text-gray-400">-</span>
-            {assignment.can_edit_hours && (
-              <button
-                onClick={() => onStartEdit(assignment)}
-                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                title="Edit Hours"
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </button>
-            )}
           </div>
         ) : (
           <>
@@ -426,7 +408,7 @@ function WorkerRow({
                       className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                       title="Deny"
                     >
-                      <X className="h-4 w-4" />
+                      <XCircle className="h-4 w-4" />
                     </button>
                   </div>
                 )}
@@ -674,7 +656,7 @@ function WorkerRow({
                     </span>
                   ) : (
                     <span className="flex items-center gap-1">
-                      <X className="h-3 w-3" />
+                      <XCircle className="h-3 w-3" />
                       <span>Denied</span>
                     </span>
                   )}
@@ -807,27 +789,9 @@ function WorkerRow({
                         )}
                       </>
                     ) : (assignment.status === 'cancelled' || assignment.status === 'removed') ? (
-                      <>
-                        <span className="text-gray-400">-</span>
-                        {assignment.can_edit_hours && (
-                          <button
-                            onClick={() => onStartEdit(assignment)}
-                            className="p-0.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
-                            title="Edit Hours"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </>
+                      <span className="text-gray-400">-</span>
                     ) : (
-                      <>
-                        <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
-                        {assignment.edited_at && (
-                          <span className="text-xs text-orange-600" title="Edited">
-                            <Edit2 className="h-3 w-3 inline" />
-                          </span>
-                        )}
-                      </>
+                      <span className="text-gray-900">{safeToFixed(assignment.effective_hours, 2, '0.00')}h</span>
                     )}
                   </div>
                 </div>
@@ -871,7 +835,7 @@ function WorkerRow({
                         onClick={() => onRemove(assignment)}
                         className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors flex items-center gap-1"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <XCircle className="h-3.5 w-3.5" />
                         Deny
                       </button>
                     </>
