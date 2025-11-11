@@ -587,12 +587,12 @@ function WorkerRow({
                         disabled={isSavingEdit}
                         className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <XCircle className="h-3.5 w-3.5" />
                         Deny
                       </button>
                     </div>
 
-                    {/* Right: Save/Cancel - CHANGED: py-1.5 instead of py-2 */}
+                    {/* Right: Save/Cancel - Primary only when dirty */}
                     <div className="flex items-center gap-2">
                       <button
                         onClick={onCancelEdit}
@@ -603,8 +603,13 @@ function WorkerRow({
                       </button>
                       <button
                         onClick={onSaveEdit}
-                        disabled={isSavingEdit}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
+                        disabled={isSavingEdit || parseFloat(editHours) === (assignment.effective_hours || assignment.scheduled_hours || 0)}
+                        className={cn(
+                          "px-3 py-1.5 text-sm font-medium rounded-lg shadow-sm flex items-center gap-1.5 transition-colors",
+                          parseFloat(editHours) !== (assignment.effective_hours || assignment.scheduled_hours || 0)
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        )}
                       >
                         {isSavingEdit ? (
                           <>
