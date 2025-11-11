@@ -1,6 +1,6 @@
 class Api::V1::ApprovalsController < Api::V1::BaseController
   before_action :authenticate_user!
-  before_action :set_event, only: [:show, :approve_event]
+  before_action :set_event, only: [:show, :approve_event, :approve_selected]
   before_action :set_assignment, only: [:update_hours, :mark_no_show, :remove]
 
   # GET /api/v1/events/:event_id/approvals
@@ -31,7 +31,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # PATCH /api/v1/approvals/:id/update_hours
   def update_hours
-    unless @assignment.can_edit_hours?
+    # CRITICAL: Allow editing hours for no-show/cancelled workers even if shift hasn't ended
+    # This is needed to restore and correct hours for workers who were marked no-show
+    can_edit = @assignment.can_edit_hours? || @assignment.status.in?(['no_show', 'cancelled', 'removed'])
+    
+    unless can_edit
       return render json: {
         status: 'error',
         message: 'Cannot edit hours for this assignment. Shift must be completed.'
@@ -187,6 +191,67 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     end
 
     render json: { status: 'success', message: 'Assignment removed' }
+  rescue => e
+    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+  end
+
+  # POST /api/v1/events/:event_id/approve_selected
+  def approve_selected
+    assignment_ids = params[:assignment_ids] || []
+    return render json: { status: 'error', message: 'No assignments selected' }, status: :bad_request if assignment_ids.empty?
+
+    approved_count = 0
+    failed_count = 0
+    errors = []
+
+    ActiveRecord::Base.transaction do
+      assignments = Assignment.where(id: assignment_ids)
+        .joins(:shift)
+        .where(shifts: { event_id: @event.id })
+        .includes(:worker, :shift)
+
+      assignments.each do |assignment|
+        # CRITICAL: Allow approval of restored no-show/cancelled workers
+        # They should be in 'assigned' status after hours are edited
+        if assignment.status.in?(['assigned', 'confirmed', 'completed']) && !assignment.approved?
+          if assignment.can_approve?
+            assignment.approve!(Current.user)
+            approved_count += 1
+          else
+            failed_count += 1
+            errors << "Assignment #{assignment.id}: Cannot approve (shift not ended)"
+          end
+        else
+          failed_count += 1
+          errors << "Assignment #{assignment.id}: Invalid status (#{assignment.status}) or already approved"
+        end
+      end
+
+      if approved_count > 0
+        ActivityLog.create!(
+          actor_user_id: Current.user&.id,
+          entity_type: 'Event',
+          entity_id: @event.id,
+          action: 'event_hours_approved_selected',
+          after_json: { 
+            approved_count: approved_count,
+            failed_count: failed_count,
+            assignment_ids: assignment_ids
+          },
+          created_at_utc: Time.current
+        )
+      end
+    end
+
+    render json: {
+      status: 'success',
+      message: "Approved #{approved_count} assignment#{approved_count != 1 ? 's' : ''}#{failed_count > 0 ? ". #{failed_count} failed." : ''}",
+      data: { 
+        approved_count: approved_count,
+        failed_count: failed_count,
+        errors: errors
+      }
+    }
   rescue => e
     render json: { status: 'error', message: e.message }, status: :unprocessable_entity
   end

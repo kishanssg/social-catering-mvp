@@ -64,6 +64,7 @@ Rails.application.routes.draw do
           # Approvals
           get :approvals, to: 'approvals#show'
           post :approve_all, to: 'approvals#approve_event'
+          post :approve_selected, to: 'approvals#approve_selected'
         end
         resources :event_skill_requirements, only: [:create, :update, :destroy]
       end
