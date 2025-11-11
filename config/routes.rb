@@ -93,8 +93,10 @@ Rails.application.routes.draw do
       end
       
       # Reports
+      # Preview endpoint (outside namespace to avoid routing conflicts)
+      get 'reports/timesheet/preview', to: 'reports#timesheet_preview'
+      
       namespace :reports do
-        get 'timesheet/preview', to: 'reports#timesheet_preview'
         get :timesheet
         get :payroll
         get :worker_hours
