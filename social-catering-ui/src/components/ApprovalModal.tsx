@@ -238,9 +238,6 @@ function WorkerRow({
                     <span>No-Show</span>
                   </span>
                 )}
-                {assignment.approval_notes && (
-                  <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
-                )}
               </div>
             )}
             {(assignment.status === 'cancelled' || assignment.status === 'removed') && !isEditing && (
@@ -254,9 +251,6 @@ function WorkerRow({
                     <Trash2 className="h-3 w-3" />
                     <span>Removed</span>
                   </span>
-                )}
-                {assignment.approval_notes && (
-                  <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
                 )}
               </div>
             )}
@@ -670,9 +664,6 @@ function WorkerRow({
                       <span>No-Show</span>
                     </span>
                   )}
-                  {assignment.approval_notes && (
-                    <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
-                  )}
                 </div>
               )}
               {(assignment.status === 'cancelled' || assignment.status === 'removed') && !isEditing && (
@@ -686,9 +677,6 @@ function WorkerRow({
                       <Trash2 className="h-3 w-3" />
                       <span>Removed</span>
                     </span>
-                  )}
-                  {assignment.approval_notes && (
-                    <span className="block mt-0.5 text-gray-400">• {assignment.approval_notes}</span>
                   )}
                 </div>
               )}
