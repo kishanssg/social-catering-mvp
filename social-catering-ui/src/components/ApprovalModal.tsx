@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, Trash2, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin } from 'lucide-react';
+import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
@@ -248,8 +248,8 @@ function WorkerRow({
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
-                    <Trash2 className="h-3 w-3" />
-                    <span>Removed</span>
+                    <X className="h-3 w-3" />
+                    <span>Denied</span>
                   </span>
                 )}
               </div>
@@ -426,7 +426,7 @@ function WorkerRow({
                       className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                       title="Deny"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 )}
@@ -574,8 +574,8 @@ function WorkerRow({
                         disabled={isSavingEdit}
                         className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Remove
+                        <X className="h-3.5 w-3.5" />
+                        Deny
                       </button>
                     </div>
 
@@ -674,8 +674,8 @@ function WorkerRow({
                     </span>
                   ) : (
                     <span className="flex items-center gap-1">
-                      <Trash2 className="h-3 w-3" />
-                      <span>Removed</span>
+                      <X className="h-3 w-3" />
+                      <span>Denied</span>
                     </span>
                   )}
                 </div>
@@ -871,7 +871,7 @@ function WorkerRow({
                         onClick={() => onRemove(assignment)}
                         className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors flex items-center gap-1"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <X className="h-3.5 w-3.5" />
                         Deny
                       </button>
                     </>
@@ -1122,10 +1122,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         try {
           await apiClient.delete(`/approvals/${assignment.id}/remove`, { data: { notes: noteToSend } });
           await loadAssignments();
-          setToast({ isVisible: true, type: 'success', message: 'Assignment removed' });
+          setToast({ isVisible: true, type: 'success', message: 'Assignment denied' });
         } catch (error: any) {
           console.error('Error removing assignment:', error);
-          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to remove assignment' });
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to deny assignment' });
         }
       }
     });
@@ -1426,7 +1426,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               )}
               {removedAssignments.length > 0 && (
                 <div>
-                  <div className="text-gray-500 text-xs">Removed</div>
+                  <div className="text-gray-500 text-xs">Denied</div>
                   <div className="text-base font-semibold text-gray-500">
                     {removedAssignments.length}
                   </div>
