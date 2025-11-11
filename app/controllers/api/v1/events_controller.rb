@@ -682,15 +682,19 @@ class Api::V1::EventsController < Api::V1::BaseController
     end
     
     # Get needed workers per role from event_skill_requirements
-    requirements = event.event_skill_requirements.index_by(&:skill_name)
+    # Filter out any requirements with nil/blank skill_name for safety
+    valid_requirements = event.event_skill_requirements.reject { |req| req.skill_name.blank? }
+    requirements = valid_requirements.index_by(&:skill_name)
     
     Rails.logger.info "=== EVENT #{event.id} REQUIREMENTS DEBUG ==="
     Rails.logger.info "Event title: #{event.title}"
     Rails.logger.info "Requirements loaded: #{event.event_skill_requirements.loaded?}"
-    Rails.logger.info "Requirements count: #{requirements.count}"
+    Rails.logger.info "Total requirements in DB: #{event.event_skill_requirements.count}"
+    Rails.logger.info "Valid requirements (non-blank skill_name): #{valid_requirements.count}"
+    Rails.logger.info "Requirements count in hash: #{requirements.count}"
     Rails.logger.info "Total workers needed (from model): #{event.total_workers_needed}"
     Rails.logger.info "Requirements details:"
-    event.event_skill_requirements.each do |req|
+    valid_requirements.each do |req|
       begin
         skill_name = req.skill_name || "Unknown Role"
         needed = req.needed_workers || 0
@@ -717,19 +721,21 @@ class Api::V1::EventsController < Api::V1::BaseController
       role = shift.role_needed
       
       # Initialize the role group if it doesn't exist
-      grouped[role] ||= {
-        role_name: role,
-        skill_name: role, # For consistency with frontend
-        total_shifts: 0,
-        filled_shifts: 0,
-        # Include pay_rate from EventSkillRequirement (Single Source of Truth)
-        pay_rate: requirements[role]&.pay_rate,
-        shifts: []
-      }
+      if grouped[role].nil?
+        # Get needed_workers from requirements (Single Source of Truth)
+        needed_workers = requirements[role]&.needed_workers || 0
+        grouped[role] = {
+          role_name: role,
+          skill_name: role, # For consistency with frontend
+          total_shifts: needed_workers, # Use needed_workers from requirements, not shift count
+          filled_shifts: 0,
+          # Include pay_rate from EventSkillRequirement (Single Source of Truth)
+          pay_rate: requirements[role]&.pay_rate,
+          shifts: []
+        }
+      end
       
-      # CRITICAL FIX: Show ALL shifts, not just up to "needed" amount
-      # This ensures existing events with more shifts than needed_workers still show all shifts
-      grouped[role][:total_shifts] += 1
+      # Count filled shifts (shifts that are 100% staffed)
       grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
       
       # Filter assignments to only include active workers (consistent with recent changes)
@@ -783,21 +789,33 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     requirements.each do |skill_name, requirement|
       begin
-        next if grouped[skill_name] # Already processed from shifts
         next unless requirement # Skip if requirement is nil
         
-        # Create empty role group for roles without shifts
-        grouped[skill_name] = {
-          role_name: skill_name,
-          skill_name: skill_name,
-          total_shifts: requirement.needed_workers || 0,
-          filled_shifts: 0,
-          pay_rate: requirement.pay_rate,
-          shifts: []
-        }
-        Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers || 0})"
+        if grouped[skill_name]
+          # Role already exists from shifts - update total_shifts from requirement (SSOT)
+          needed_workers = requirement.needed_workers || 0
+          if grouped[skill_name][:total_shifts] != needed_workers
+            Rails.logger.info "Updating role #{skill_name}: total_shifts from #{grouped[skill_name][:total_shifts]} to #{needed_workers}"
+            grouped[skill_name][:total_shifts] = needed_workers
+          end
+          # Also update pay_rate if it's missing or different
+          if grouped[skill_name][:pay_rate].nil? && requirement.pay_rate.present?
+            grouped[skill_name][:pay_rate] = requirement.pay_rate
+          end
+        else
+          # Role doesn't exist - create empty role group for roles without shifts
+          grouped[skill_name] = {
+            role_name: skill_name,
+            skill_name: skill_name,
+            total_shifts: requirement.needed_workers || 0,
+            filled_shifts: 0,
+            pay_rate: requirement.pay_rate,
+            shifts: []
+          }
+          Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers || 0})"
+        end
       rescue => e
-        Rails.logger.error "Error adding requirement for role #{skill_name}: #{e.message}"
+        Rails.logger.error "Error processing requirement for role #{skill_name}: #{e.message}"
         Rails.logger.error e.backtrace.first(5).join("\n")
         # Continue with next requirement instead of crashing
         next
