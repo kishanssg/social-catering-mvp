@@ -1520,6 +1520,24 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
     return format(date, 'h:mm a');
   };
   
+  // Compute pending approvals directly from assignments if detailed data is present
+  const getPendingCount = (event: any): number => {
+    if (event?.shifts_by_role && Array.isArray(event.shifts_by_role)) {
+      const allAssignments: any[] = event.shifts_by_role.flatMap((rg: any) =>
+        (rg.shifts || []).flatMap((s: any) => s.assignments || [])
+      );
+      if (allAssignments.length > 0) {
+        const pending = allAssignments.filter((a: any) => {
+          const status = a.status;
+          const resolved = a.approved || status === 'no_show' || status === 'cancelled' || status === 'removed';
+          return !resolved;
+        }).length;
+        return pending;
+      }
+    }
+    return event?.approval_status?.pending ?? 0;
+  };
+  
   if (events.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -1543,12 +1561,13 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
         // Use aggregates from API (SSOT - no lazy calculation)
         // Prefer lightweight serializer fields, fallback to detailed serializer
         // Guard: Only show hours/cost if there are valid assignments (not just no-shows/cancellations)
-        const hasValidAssignments = event.approval_status && event.approval_status.total > 0;
+        const hasValidAssignments = (event.shifts_by_role && event.shifts_by_role.some((rg: any) => (rg.shifts || []).some((s: any) => (s.assignments || []).length > 0)))
+          || (event.approval_status && event.approval_status.total > 0);
         const totalHours = safeNumber(event.total_hours ?? event.total_hours_worked ?? 0);
         const totalCost = event.cost_summary?.total_estimated_cost ?? event.total_pay_amount ?? 0;
         const approvedCost = event.cost_summary?.approved_cost ?? 0;
         const pendingCost = event.cost_summary?.pending_cost ?? 0;
-        const pendingCount = event.approval_status?.pending ?? 0;
+        const pendingCount = getPendingCount(event);
         
         // Calculate approved hours from cost ratio (simplified: assume proportional hours to cost)
         // If cost_summary exists, use ratio; otherwise show total hours as approved
@@ -1688,7 +1707,8 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
               {onApproveHours && (() => {
                 const totalNeeded = event.total_workers_needed || 0;
                 const assigned = event.assigned_workers_count || 0;
-                const hasAssignments = event.approval_status && event.approval_status.total > 0;
+                const hasAssignments = (event.shifts_by_role && event.shifts_by_role.some((rg: any) => (rg.shifts || []).some((s: any) => (s.assignments || []).length > 0)))
+                  || (event.approval_status && event.approval_status.total > 0);
                 
                 // Hide button for unstaffed events with no assignments
                 if (totalNeeded === 0 && assigned === 0 && !hasAssignments) {
