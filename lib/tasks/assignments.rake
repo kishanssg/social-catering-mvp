@@ -52,4 +52,62 @@ namespace :assignments do
     
     puts "✅ Cleanup complete! Cancelled #{total_removed} duplicate assignment(s)"
   end
+
+  desc "Backfill approved_by_id and approved_at_utc for existing no-show/removed assignments"
+  task backfill_approval_fields: :environment do
+    puts "🔍 Backfilling approved_by_id and approved_at_utc for existing no-show/removed assignments..."
+    
+    # Find assignments that are no-show or removed but don't have approved_by_id set
+    assignments_to_fix = Assignment.where(status: ['no_show', 'cancelled', 'removed'])
+                                    .where(approved_by_id: nil)
+    
+    puts "📋 Found #{assignments_to_fix.count} assignments to backfill"
+    
+    if assignments_to_fix.empty?
+      puts "✅ No assignments need backfilling!"
+      exit 0
+    end
+    
+    updated_count = 0
+    skipped_count = 0
+    
+    assignments_to_fix.find_each do |assignment|
+      approved_by_id = nil
+      approved_at_utc = nil
+      
+      # Strategy 1: Look for activity log with 'marked_no_show' or 'removed_from_job' action
+      activity_log = ActivityLog.where(
+        entity_type: 'Assignment',
+        entity_id: assignment.id,
+        action: assignment.status == 'no_show' ? 'marked_no_show' : 'removed_from_job'
+      ).order(created_at_utc: :desc).first
+      
+      if activity_log && activity_log.actor_user_id
+        approved_by_id = activity_log.actor_user_id
+        approved_at_utc = activity_log.created_at_utc
+        puts "  ✅ Assignment #{assignment.id}: Found activity log (user: #{approved_by_id}, time: #{approved_at_utc})"
+      elsif assignment.edited_by_id && assignment.edited_at_utc
+        # Strategy 2: Fall back to edited_by_id and edited_at_utc
+        approved_by_id = assignment.edited_by_id
+        approved_at_utc = assignment.edited_at_utc
+        puts "  ⚠️  Assignment #{assignment.id}: Using edited_by/edited_at as fallback (user: #{approved_by_id}, time: #{approved_at_utc})"
+      else
+        puts "  ❌ Assignment #{assignment.id}: No user/time data found - skipping"
+        skipped_count += 1
+        next
+      end
+      
+      # Update the assignment
+      assignment.update_columns(
+        approved_by_id: approved_by_id,
+        approved_at_utc: approved_at_utc,
+        updated_at: Time.current
+      )
+      updated_count += 1
+    end
+    
+    puts "\n✅ Backfill complete!"
+    puts "   Updated: #{updated_count} assignments"
+    puts "   Skipped: #{skipped_count} assignments (no user/time data found)"
+  end
 end
