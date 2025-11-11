@@ -693,12 +693,6 @@ class Api::V1::EventsController < Api::V1::BaseController
         shifts: []
       }
       
-      # Skip shifts beyond the needed amount (but still count them for total_shifts)
-      if needed > 0 && role_counters[role] >= needed
-        grouped[role][:total_shifts] += 1
-        next
-      end
-      
       grouped[role][:total_shifts] += 1
       grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
       
