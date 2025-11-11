@@ -661,12 +661,15 @@ class Api::V1::EventsController < Api::V1::BaseController
     event = shifts.first&.event
     return [] unless event
     
-    # CRITICAL FIX: Reload event with requirements to ensure they're loaded
-    # When getting event from shift.event, the association might not be loaded
-    event = Event.includes(:event_skill_requirements).find(event.id) unless event.event_skill_requirements.loaded?
+    # CRITICAL FIX: Always reload event with requirements to ensure they're loaded
+    # When getting event from shift.event, the association might not be loaded or might be stale
+    # Reload to get fresh data with all requirements
+    event = Event.includes(:event_skill_requirements).find(event.id)
     
     # Get needed workers per role from event_skill_requirements
     requirements = event.event_skill_requirements.index_by(&:skill_name)
+    
+    Rails.logger.info "Event #{event.id}: Loaded #{requirements.count} requirements: #{requirements.keys.join(', ')}"
     
     Rails.logger.info "=== GROUP_SHIFTS_BY_ROLE DEBUG ==="
     Rails.logger.info "Shifts count: #{shifts.count}"
