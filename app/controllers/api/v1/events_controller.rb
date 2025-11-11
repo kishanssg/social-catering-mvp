@@ -661,6 +661,10 @@ class Api::V1::EventsController < Api::V1::BaseController
     event = shifts.first&.event
     return [] unless event
     
+    # CRITICAL FIX: Reload event with requirements to ensure they're loaded
+    # When getting event from shift.event, the association might not be loaded
+    event = Event.includes(:event_skill_requirements).find(event.id) unless event.event_skill_requirements.loaded?
+    
     # Get needed workers per role from event_skill_requirements
     requirements = event.event_skill_requirements.index_by(&:skill_name)
     
@@ -675,12 +679,8 @@ class Api::V1::EventsController < Api::V1::BaseController
     
     grouped = {}
     
-    # Track how many shifts we've processed per role
-    role_counters = Hash.new(0)
-    
     sorted_shifts.each do |shift|
       role = shift.role_needed
-      needed = requirements[role]&.needed_workers || 0
       
       # Initialize the role group if it doesn't exist
       grouped[role] ||= {
@@ -693,6 +693,8 @@ class Api::V1::EventsController < Api::V1::BaseController
         shifts: []
       }
       
+      # CRITICAL FIX: Show ALL shifts, not just up to "needed" amount
+      # This ensures existing events with more shifts than needed_workers still show all shifts
       grouped[role][:total_shifts] += 1
       grouped[role][:filled_shifts] += 1 if shift.staffing_progress[:percentage] == 100
       
@@ -701,8 +703,8 @@ class Api::V1::EventsController < Api::V1::BaseController
       active_assignments = shift.assignments.select { |a| a.worker&.active? }
       filled_positions = active_assignments.count { |a| a.status.in?(['confirmed', 'assigned', 'completed']) }
       
-      # CRITICAL: Always add shift to shifts array if it's within the needed amount
-      # This ensures the frontend can see all available shifts
+      # CRITICAL: Always add ALL shifts to shifts array (no limit based on needed_workers)
+      # This ensures the frontend can see all available shifts, even if more than needed
       # Ensure capacity is always a number (default to 1 if nil/0)
       shift_capacity = shift.capacity.to_i
       shift_capacity = 1 if shift_capacity <= 0
@@ -736,16 +738,31 @@ class Api::V1::EventsController < Api::V1::BaseController
           }
         }
       }
+    end
+    
+    # CRITICAL FIX: Include ALL roles from event_skill_requirements, even if they have no shifts yet
+    # This ensures the frontend shows all roles (e.g., "4 of 13 roles filled" means all 13 should be visible)
+    Rails.logger.info "=== ROLE INCLUSION DEBUG ==="
+    Rails.logger.info "Roles from shifts: #{grouped.keys}"
+    Rails.logger.info "Roles from requirements: #{requirements.keys}"
+    Rails.logger.info "Total requirements count: #{requirements.count}"
+    
+    requirements.each do |skill_name, requirement|
+      next if grouped[skill_name] # Already processed from shifts
       
-      role_counters[role] += 1
+      # Create empty role group for roles without shifts
+      grouped[skill_name] = {
+        role_name: skill_name,
+        skill_name: skill_name,
+        total_shifts: requirement.needed_workers || 0,
+        filled_shifts: 0,
+        pay_rate: requirement.pay_rate,
+        shifts: []
+      }
+      Rails.logger.info "Added missing role: #{skill_name} (needed_workers: #{requirement.needed_workers})"
     end
     
-    grouped.values.each do |group|
-      group[:unassigned_count] = [group[:total_shifts] - group[:filled_shifts], 0].max
-      group[:sample_assignments] = group[:shifts].flat_map { |s| s[:assignments] }.first( group[:total_shifts] > 3 ? 3 : group[:total_shifts])
-    end
-    
-    Rails.logger.info "Grouped result: #{grouped.keys}"
+    Rails.logger.info "Final grouped result: #{grouped.keys} (#{grouped.keys.count} roles)"
     grouped.values
   end
 
