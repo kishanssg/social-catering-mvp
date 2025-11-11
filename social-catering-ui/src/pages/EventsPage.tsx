@@ -130,7 +130,10 @@ export function EventsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const initialTab = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
-  const initialFilter = (searchParams.get('filter') as FilterType) || 'needs_workers'; // Default to needs_workers filter
+  // Only default to needs_workers for active tab, otherwise 'all'
+  const initialFilter = initialTab === 'active' 
+    ? ((searchParams.get('filter') as FilterType) || 'needs_workers')
+    : ((searchParams.get('filter') as FilterType) || 'all');
   
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [filterStatus, setFilterStatus] = useState<FilterType>(initialFilter);
@@ -258,7 +261,9 @@ export function EventsPage() {
       const dateParam = searchParams.get('date');
       
       let url = `/events?tab=${tabForApi}`;
-      if (filterStatus !== 'all') {
+      // CRITICAL FIX: Don't send filter=needs_workers for completed/past events
+      // This filter only makes sense for active events
+      if (filterStatus !== 'all' && (activeTab === 'active' || activeTab === 'draft')) {
         url += `&filter=${filterStatus}`;
       }
       if (dateParam) {
@@ -338,6 +343,11 @@ export function EventsPage() {
       }
     } catch (error) {
       console.error('Failed to load events:', error);
+      // Don't clear events on error - keep previous data to prevent "no events" flash
+      // Only clear if we have no events at all (first load)
+      if (events.length === 0) {
+        setEvents([]);
+      }
     } finally {
       setLoading(false);
     }

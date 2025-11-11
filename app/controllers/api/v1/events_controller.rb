@@ -90,7 +90,8 @@ class Api::V1::EventsController < Api::V1::BaseController
     end
     
     # Additional filters for active tab (only apply if filter parameter is explicitly provided)
-    if params[:filter].present?
+    # CRITICAL: Don't apply these filters to completed/past events - they don't make sense
+    if params[:filter].present? && tab_param != 'completed' && tab_param != 'past'
       case params[:filter]
       when 'needs_workers'
         # Convert to array and filter, but ensure associations are loaded first
