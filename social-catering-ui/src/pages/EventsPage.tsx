@@ -1522,12 +1522,33 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
       {events.map((event) => {
         // Use aggregates from API (SSOT - no lazy calculation)
         // Prefer lightweight serializer fields, fallback to detailed serializer
+        // Guard: Only show hours/cost if there are valid assignments (not just no-shows/cancellations)
+        const hasValidAssignments = event.approval_status && event.approval_status.total > 0;
+        const approvedHours = event.cost_summary 
+          ? (event.cost_summary.approved_cost / (event.cost_summary.approved_count > 0 ? event.cost_summary.approved_count : 1)) * (event.total_hours_worked || 0) / (event.cost_summary.total_estimated_cost || 1)
+          : (event.total_hours ?? event.total_hours_worked ?? 0);
+        const pendingHours = event.cost_summary && event.approval_status?.pending > 0
+          ? ((event.cost_summary.pending_cost / (event.cost_summary.total_estimated_cost || 1)) * (event.total_hours_worked || 0))
+          : 0;
         const totalHours = safeNumber(event.total_hours ?? event.total_hours_worked ?? 0);
+        const approvedCost = event.cost_summary?.approved_cost ?? (event.total_pay_amount ?? 0);
+        const pendingCost = event.cost_summary?.pending_cost ?? 0;
+        const totalCost = event.cost_summary?.total_estimated_cost ?? event.total_pay_amount ?? 0;
+        const pendingCount = event.approval_status?.pending ?? 0;
+        
+        // Calculate approved hours from cost ratio if available
+        const calculatedApprovedHours = event.cost_summary && event.cost_summary.total_estimated_cost > 0
+          ? (approvedCost / event.cost_summary.total_estimated_cost) * totalHours
+          : totalHours;
         
         return (
           <div 
             key={event.id}
-            className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 hover:shadow-sm transition-all"
+            onClick={() => onApproveHours && hasValidAssignments && onApproveHours(event)}
+            className={cn(
+              "border border-gray-200 rounded-lg p-5 transition-all cursor-pointer",
+              hasValidAssignments && "hover:border-gray-300 hover:shadow-md"
+            )}
           >
             {/* Header Row */}
             <div className="flex items-start justify-between mb-3">
@@ -1557,48 +1578,62 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                 </div>
               </div>
               
-              {/* Status Badges */}
+              {/* Status Badge - Only "Completed", no pending pill */}
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
                   Completed
                 </span>
-                {event.approval_status && event.approval_status.pending > 0 && (
-                  <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded">
-                    {event.approval_status.pending} Pending
-                  </span>
-                )}
               </div>
             </div>
             
             {/* Stats Grid - Clean & Minimal */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
-                    <div>
+              <div>
                 <div className="text-xs text-gray-500 mb-1">Workers</div>
                 <div className="text-lg font-semibold text-gray-900">
                   {event.assigned_workers_count || 0}
-                    </div>
-                    </div>
-                    <div>
+                </div>
+              </div>
+              
+              {/* Hours - Right-aligned with tabular-nums, show approved + pending chip */}
+              <div className="text-right">
                 <div className="text-xs text-gray-500 mb-1">Hours</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  {safeToFixed(totalHours, 2, '0.00')}
+                <div className="text-lg font-semibold text-gray-900 tabular-nums flex items-center justify-end gap-1.5">
+                  {hasValidAssignments ? (
+                    <>
+                      <span>{safeToFixed(calculatedApprovedHours, 2, '0.00')}</span>
+                      {pendingCount > 0 && pendingHours > 0 && (
+                        <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                          +{safeToFixed(pendingHours, 2, '0.0')}h pending
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </div>
-                    </div>
-                    <div>
+              </div>
+              
+              {/* Cost - Right-aligned with tabular-nums, inline amber badge for pending */}
+              <div className="text-right">
                 <div className="text-xs text-gray-500 mb-1">Cost</div>
-                <div className="text-lg font-semibold text-gray-900">
-                  ${event.cost_summary?.total_estimated_cost 
-                    ? safeToFixed(event.cost_summary.total_estimated_cost, 2, '0.00')
-                    : event.total_pay_amount 
-                    ? safeToFixed(event.total_pay_amount, 2, '0.00')
-                    : '0.00'}
-                    </div>
-                {event.approval_status && event.approval_status.pending > 0 && event.cost_summary && (
-                  <div className="text-xs text-amber-600 font-medium mt-0.5">
-                    ${safeToFixed(event.cost_summary.pending_cost, 2, '0.00')} pending
-                  </div>
-                )}
+                <div className="text-lg font-semibold text-gray-900 tabular-nums flex items-center justify-end gap-1.5">
+                  {hasValidAssignments ? (
+                    <>
+                      <span>${safeToFixed(approvedCost, 2, '0.00')}</span>
+                      {pendingCost > 0 && (
+                        <span className="text-xs font-medium text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                          +${safeToFixed(pendingCost, 2, '0.00')}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </div>
+              </div>
+              
+              {/* Staffing - Color by text only (0 gray, 1-99 amber, 100 green) */}
               <div>
                 <div className="text-xs text-gray-500 mb-1">Staffing</div>
                 {(() => {
@@ -1619,17 +1654,17 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   return (
                     <div className={cn(
                       "text-lg font-semibold",
-                      percentage === 100 ? "text-green-600" : percentage > 0 ? "text-yellow-600" : "text-red-600"
+                      percentage === 0 ? "text-gray-500" : percentage === 100 ? "text-green-600" : "text-amber-600"
                     )}>
                       {percentage}%
                     </div>
                   );
                 })()}
               </div>
-                              </div>
+            </div>
                               
-            {/* Action Button */}
-            <div className="mt-4 flex justify-end">
+            {/* Action Button - Renamed to "Review & Approve (n)" */}
+            <div className="mt-4 flex justify-end" onClick={(e) => e.stopPropagation()}>
               {onApproveHours && (() => {
                 const totalNeeded = event.total_workers_needed || 0;
                 const assigned = event.assigned_workers_count || 0;
@@ -1643,9 +1678,15 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                 return (
                   <button
                     onClick={() => onApproveHours(event)}
+                    aria-label={pendingCount > 0 
+                      ? `Review and approve ${pendingCount} pending assignment${pendingCount !== 1 ? 's' : ''}`
+                      : hasAssignments 
+                        ? 'View approved assignments'
+                        : 'No assignments to review'
+                    }
                     className={cn(
                       "px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors shadow-sm",
-                      event.approval_status && event.approval_status.pending > 0
+                      pendingCount > 0
                         ? "bg-amber-600 hover:bg-amber-700 text-white"
                         : event.approval_status && event.approval_status.approved === event.approval_status.total && hasAssignments
                         ? "bg-green-600 hover:bg-green-700 text-white"
@@ -1655,10 +1696,10 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                     )}
                     disabled={!hasAssignments}
                   >
-                    {event.approval_status && event.approval_status.pending > 0 ? (
+                    {pendingCount > 0 ? (
                       <>
                         <Clock className="h-4 w-4" />
-                        Approve Hours ({event.approval_status.pending})
+                        Review & Approve ({pendingCount})
                       </>
                     ) : hasAssignments ? (
                       <>
@@ -1675,7 +1716,7 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   </button>
                 );
               })()}
-                      </div>
+            </div>
           </div>
         );
       })}
