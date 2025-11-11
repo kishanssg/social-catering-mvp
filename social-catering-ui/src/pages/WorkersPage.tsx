@@ -670,9 +670,23 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                     current_status: representativeShift.status,
                     pay_rate: representativeShift.pay_rate, // Add pay_rate
                     // Add metadata about positions
-                    total_positions: roleGroup.total_shifts,
-                    filled_positions: roleGroup.filled_shifts,
-                    available_positions: availableShifts.reduce((sum, s) => sum + (s.capacity - (s.filled_positions || 0)), 0),
+                    // CRITICAL FIX: Calculate positions correctly
+                    // total_positions = total capacity needed for this role (sum of all shift capacities)
+                    // filled_positions = total workers currently assigned
+                    // available_positions = sum of available slots across all shifts with capacity
+                    const totalCapacity = availableShifts.reduce((sum, s) => {
+                      const capacity = s.capacity ? Number(s.capacity) : 1;
+                      return sum + capacity;
+                    }, 0);
+                    const totalFilled = availableShifts.reduce((sum, s) => {
+                      const filled = s.filled_positions || 0;
+                      return sum + filled;
+                    }, 0);
+                    const totalAvailable = totalCapacity - totalFilled;
+                    
+                    total_positions: totalCapacity || roleGroup.total_shifts || 0,
+                    filled_positions: totalFilled || 0,
+                    available_positions: Math.max(0, totalAvailable),
                     all_shift_ids: allShiftIds
                   };
                   shifts.push(shiftData);
@@ -1177,11 +1191,11 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                                   }`}>
                                     {shift.role_needed}
                                   </span>
-                                  {shift.total_positions && shift.total_positions > 1 && (
+                                  {shift.total_positions && shift.total_positions > 0 && (
                                     <span className={`text-xs ${
                                       isDisabled ? 'text-gray-400' : 'text-gray-500'
                                     }`}>
-                                      {shift.available_positions} of {shift.total_positions} positions available
+                                      {shift.available_positions ?? 0} of {shift.total_positions} positions available
                                     </span>
                                   )}
                                   {hasConflict && !isSelected && (
