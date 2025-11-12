@@ -1176,16 +1176,16 @@ function MobileAssignmentCard({
                     }}
                     disabled={changingStatus === assignment.id}
                     className={cn(
-                      "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed",
-                      currentStatus === 'no_show' && "bg-red-50"
+                      "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                      currentStatus === 'no_show' && "bg-amber-50"
                     )}
                   >
                     {changingStatus === assignment.id ? (
-                      <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-red-600" />
+                      <Undo2 className="h-4 w-4 text-amber-600" />
                     )}
-                    <span className="text-sm font-medium text-red-700">
+                    <span className="text-sm font-medium text-amber-700">
                       {changingStatus === assignment.id ? 'Updating...' : 'Cancel No Show'}
                     </span>
                   </button>
@@ -1233,6 +1233,29 @@ function MobileAssignmentCard({
                         )}
                         <span className="text-sm font-medium text-gray-700">
                           {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
+                        </span>
+                      </button>
+                    )}
+                    
+                    {/* No Show (if not already no-show) */}
+                    {currentStatus !== 'no_show' && (
+                      <button
+                        onClick={async () => {
+                          await onStatusChange(assignment.id, 'no_show');
+                          setShowActionMenu(false);
+                        }}
+                        disabled={changingStatus === assignment.id}
+                        className={cn(
+                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed border-t"
+                        )}
+                      >
+                        {changingStatus === assignment.id ? (
+                          <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        )}
+                        <span className="text-sm font-medium text-red-700">
+                          {changingStatus === assignment.id ? 'Updating...' : 'No Show'}
                         </span>
                       </button>
                     )}
@@ -2186,15 +2209,15 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         items.push({
           value: 'cancel_no_show',
           label: 'Cancel No Show',
-          icon: XCircle,
-          color: 'text-red-600',
-          hoverBg: 'hover:bg-red-50',
+          icon: Undo2, // Use undo icon to indicate restoration
+          color: 'text-amber-600',
+          hoverBg: 'hover:bg-amber-50',
           disabled: false
         });
         return items; // Only show cancel option for no-show
       }
       
-      // For all other statuses, show Approve and Reject
+      // For all other statuses, show Approve, Reject, and No Show
       // Approve (if not already approved)
       if (currentStatus !== 'approved') {
         items.push({
@@ -2215,6 +2238,18 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           icon: Ban,
           color: 'text-gray-600',
           hoverBg: 'hover:bg-gray-50',
+          disabled: false
+        });
+      }
+      
+      // No Show (if not already no-show)
+      if (currentStatus !== 'no_show') {
+        items.push({
+          value: 'no_show',
+          label: 'No Show',
+          icon: XCircle,
+          color: 'text-red-600',
+          hoverBg: 'hover:bg-red-50',
           disabled: false
         });
       }
