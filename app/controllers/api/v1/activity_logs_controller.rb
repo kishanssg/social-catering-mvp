@@ -71,6 +71,11 @@ module Api
           actor_email = log.actor_user&.email || 'System'
           actor_name = extract_first_name(actor_email)
           
+          # Always use presenter to generate humanized summary
+          # This ensures we get the latest format even if database summary is outdated
+          presenter = ActivityLogPresenter.new(log)
+          humanized_summary = presenter.summary
+          
           {
             id: log.id,
             when: log.created_at_utc&.iso8601,
@@ -80,9 +85,9 @@ module Api
             entity_id: log.entity_id,
             entity_name: extract_entity_name(log),
             action: log.action,
-            summary: log.summary || build_action_description(log, actor_name),
-            details: log.details_json || {},
-            details_json: log.details_json || {}, # Alias for frontend compatibility
+            summary: humanized_summary,
+            details: log.details_json || presenter.curated_details || {},
+            details_json: log.details_json || presenter.curated_details || {}, # Alias for frontend compatibility
             created_at: log.created_at_utc&.iso8601, # Alias for frontend compatibility
             created_at_utc: log.created_at_utc&.iso8601, # Alias for frontend compatibility
             before_json: log.before_json || {},
