@@ -572,10 +572,30 @@ class ActivityLogPresenter
   def format_worker_list(names)
     return '' if names.empty?
     
-    if names.length <= 3
-      names.join(', ')
+    # Format names as "First LastInitial." (e.g., "Riley A., Charlie W.")
+    formatted_names = names.map do |name|
+      if name.is_a?(String)
+        # If already formatted as "Riley A.", use as-is
+        if name.match?(/^[A-Z][a-z]+ [A-Z]\.$/)
+          name
+        else
+          # Try to parse full name and format it
+          parts = name.split(/\s+/)
+          if parts.length >= 2
+            "#{parts[0].capitalize} #{parts[1][0].upcase}."
+          else
+            name
+          end
+        end
+      else
+        name.to_s
+      end
+    end
+    
+    if formatted_names.length <= 3
+      formatted_names.join(', ')
     else
-      "#{names[0..2].join(', ')}, and #{names.length - 3} more"
+      "#{formatted_names[0..2].join(', ')}, and #{formatted_names.length - 3} more"
     end
   end
 
@@ -586,7 +606,13 @@ class ActivityLogPresenter
 
   def format_hours(hours)
     return '0h' if hours.nil? || hours == 0
-    "#{hours.to_f.round(2)}h"
+    # Format as "5.5h" (one decimal place, no trailing zero if whole number)
+    h = hours.to_f
+    if h == h.to_i
+      "#{h.to_i}h"
+    else
+      "#{h.round(1)}h"
+    end
   end
 
   def format_status(status)
