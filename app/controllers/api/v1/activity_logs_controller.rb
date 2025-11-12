@@ -75,12 +75,18 @@ module Api
             id: log.id,
             when: log.created_at_utc&.iso8601,
             actor: actor_name,
+            actor_name: actor_name, # Alias for frontend compatibility
             entity_type: log.entity_type,
             entity_id: log.entity_id,
             entity_name: extract_entity_name(log),
             action: log.action,
             summary: log.summary || build_action_description(log, actor_name),
-            details: log.details_json || {}
+            details: log.details_json || {},
+            details_json: log.details_json || {}, # Alias for frontend compatibility
+            created_at: log.created_at_utc&.iso8601, # Alias for frontend compatibility
+            created_at_utc: log.created_at_utc&.iso8601, # Alias for frontend compatibility
+            before_json: log.before_json || {},
+            after_json: log.after_json || {}
           }
         end
       end

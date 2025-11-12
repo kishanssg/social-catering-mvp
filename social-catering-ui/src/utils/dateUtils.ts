@@ -129,3 +129,56 @@ export function getAssignmentStatusMessage(assignment: {
   }
   return null;
 }
+
+/**
+ * Format relative time (e.g., "Just now", "42m ago", "2h ago")
+ */
+export function formatRelativeTime(dateString: string): string {
+  try {
+    const date = parseISO(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSeconds < 60) {
+      return 'Just now';
+    }
+    
+    if (diffMinutes < 60) {
+      return `${diffMinutes}m ago`;
+    }
+    
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    
+    if (diffDays === 1) {
+      return 'Yesterday';
+    }
+    
+    if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    }
+    
+    return format(date, 'MMM d');
+  } catch (error) {
+    console.error('Error formatting relative time:', error);
+    return dateString;
+  }
+}
+
+/**
+ * Format full date and time
+ */
+export function formatFullDateTime(dateString: string): string {
+  try {
+    const date = parseISO(dateString);
+    return format(date, 'MMM d, yyyy, h:mm a');
+  } catch (error) {
+    console.error('Error formatting full date time:', error);
+    return dateString;
+  }
+}
