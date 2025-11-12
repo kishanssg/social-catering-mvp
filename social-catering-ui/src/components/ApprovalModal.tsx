@@ -1171,96 +1171,111 @@ function MobileAssignmentCard({
             
             {showActionMenu && (
               <div className="mt-2 border border-gray-200 rounded-lg bg-white shadow-lg overflow-hidden">
-                {/* 1. APPROVE (primary positive) */}
-                <button
-                  onClick={async () => {
-                    await onStatusChange(assignment.id, 'approved');
-                    setShowActionMenu(false);
-                  }}
-                  disabled={currentStatus === 'approved' || changingStatus === assignment.id}
-                  className={cn(
-                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed",
-                    currentStatus === 'approved' && "bg-green-50"
-                  )}
-                >
-                  {changingStatus === assignment.id ? (
-                    <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  )}
-                  <span className="text-sm font-medium text-green-700">
-                    {changingStatus === assignment.id ? 'Updating...' : 'Approve'}
-                  </span>
-                  {currentStatus === 'approved' && (
-                    <Check className="h-4 w-4 ml-auto text-green-600" />
-                  )}
-                </button>
-                
-                {/* 2. REJECT (primary negative) */}
-                <button
-                  onClick={async () => {
-                    await onStatusChange(assignment.id, 'denied');
-                    setShowActionMenu(false);
-                  }}
-                  disabled={currentStatus === 'denied' || changingStatus === assignment.id}
-                  className={cn(
-                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed border-t",
-                    currentStatus === 'denied' && "bg-red-50"
-                  )}
-                >
-                  {changingStatus === assignment.id ? (
-                    <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
-                  ) : (
-                    <Ban className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className="text-sm font-medium text-red-700">
-                    {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
-                  </span>
-                  {currentStatus === 'denied' && (
-                    <Check className="h-4 w-4 ml-auto text-red-600" />
-                  )}
-                </button>
-                
-                {/* SEPARATOR */}
-                <div className="border-t-2 border-gray-300 my-1" />
-                
-                {/* 3. UNAPPROVE or CANCEL NO SHOW (secondary/undo) */}
-                <button
-                  onClick={async () => {
-                    await onStatusChange(assignment.id, currentStatus === 'no_show' ? 'cancel_no_show' : 'pending');
-                    setShowActionMenu(false);
-                  }}
-                  disabled={currentStatus === 'pending' || changingStatus === assignment.id}
-                  className={cn(
-                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
-                    currentStatus === 'pending' && "bg-amber-50"
-                  )}
-                >
-                  {changingStatus === assignment.id ? (
-                    <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
-                  ) : currentStatus === 'no_show' ? (
-                    <Undo2 className="h-4 w-4 text-amber-600" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-amber-600" />
-                  )}
-                  <span className="text-sm font-medium text-amber-700">
-                    {changingStatus === assignment.id 
-                      ? 'Updating...' 
-                      : currentStatus === 'no_show' 
-                        ? 'Cancel No Show' 
-                        : 'Unapprove'}
-                  </span>
-                  {currentStatus === 'pending' && (
-                    <Check className="h-4 w-4 ml-auto text-amber-600" />
-                  )}
-                </button>
-                
-                {/* 4. NO SHOW (destructive - only show if NOT already no-show) */}
-                {currentStatus !== 'no_show' && (
+                {/* If status is "no_show", ONLY show "Cancel No Show" */}
+                {currentStatus === 'no_show' ? (
+                  <button
+                    onClick={async () => {
+                      await onStatusChange(assignment.id, 'cancel_no_show');
+                      setShowActionMenu(false);
+                    }}
+                    disabled={changingStatus === assignment.id}
+                    className={cn(
+                      "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    )}
+                  >
+                    {changingStatus === assignment.id ? (
+                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+                    ) : (
+                      <Undo2 className="h-4 w-4 text-amber-600" />
+                    )}
+                    <span className="text-sm font-medium text-amber-700">
+                      {changingStatus === assignment.id ? 'Updating...' : 'Cancel No Show'}
+                    </span>
+                  </button>
+                ) : (
                   <>
+                    {/* 1. APPROVE (primary positive) */}
+                    <button
+                      onClick={async () => {
+                        await onStatusChange(assignment.id, 'approved');
+                        setShowActionMenu(false);
+                      }}
+                      disabled={currentStatus === 'approved' || changingStatus === assignment.id}
+                      className={cn(
+                        "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                        currentStatus === 'approved' && "bg-green-50"
+                      )}
+                    >
+                      {changingStatus === assignment.id ? (
+                        <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      )}
+                      <span className="text-sm font-medium text-green-700">
+                        {changingStatus === assignment.id ? 'Updating...' : 'Approve'}
+                      </span>
+                      {currentStatus === 'approved' && (
+                        <Check className="h-4 w-4 ml-auto text-green-600" />
+                      )}
+                    </button>
+                    
+                    {/* 2. REJECT (primary negative) */}
+                    <button
+                      onClick={async () => {
+                        await onStatusChange(assignment.id, 'denied');
+                        setShowActionMenu(false);
+                      }}
+                      disabled={currentStatus === 'denied' || changingStatus === assignment.id}
+                      className={cn(
+                        "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed border-t",
+                        currentStatus === 'denied' && "bg-red-50"
+                      )}
+                    >
+                      {changingStatus === assignment.id ? (
+                        <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                      ) : (
+                        <Ban className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-sm font-medium text-red-700">
+                        {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
+                      </span>
+                      {currentStatus === 'denied' && (
+                        <Check className="h-4 w-4 ml-auto text-red-600" />
+                      )}
+                    </button>
+                    
                     {/* SEPARATOR */}
                     <div className="border-t-2 border-gray-300 my-1" />
                     
+                    {/* 3. UNAPPROVE (secondary/undo) */}
+                    <button
+                      onClick={async () => {
+                        await onStatusChange(assignment.id, 'pending');
+                        setShowActionMenu(false);
+                      }}
+                      disabled={currentStatus === 'pending' || changingStatus === assignment.id}
+                      className={cn(
+                        "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                        currentStatus === 'pending' && "bg-amber-50"
+                      )}
+                    >
+                      {changingStatus === assignment.id ? (
+                        <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-amber-600" />
+                      )}
+                      <span className="text-sm font-medium text-amber-700">
+                        {changingStatus === assignment.id ? 'Updating...' : 'Unapprove'}
+                      </span>
+                      {currentStatus === 'pending' && (
+                        <Check className="h-4 w-4 ml-auto text-amber-600" />
+                      )}
+                    </button>
+                    
+                    {/* SEPARATOR */}
+                    <div className="border-t-2 border-gray-300 my-1" />
+                    
+                    {/* 4. NO SHOW (destructive - last) */}
                     <button
                       onClick={() => {
                         // Show confirmation on mobile too
@@ -2207,6 +2222,20 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
 
     // ✅ FINAL MENU ORDER: Approve, Reject, Unapprove/Cancel No Show, No Show (last)
     const menuItems = React.useMemo(() => {
+      // If status is "no_show", ONLY show "Cancel No Show"
+      if (currentStatus === 'no_show') {
+        return [{
+          value: 'cancel_no_show',
+          label: 'Cancel No Show',
+          icon: Undo2,
+          color: 'text-amber-600',
+          hoverBg: 'hover:bg-amber-50',
+          disabled: false,
+          hidden: false,
+          separator: false
+        }];
+      }
+      
       const items = [];
       
       // 1. APPROVE (primary positive)
@@ -2233,11 +2262,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         separator: false
       });
       
-      // 3. UNAPPROVE or CANCEL NO SHOW (secondary/undo)
+      // 3. UNAPPROVE (secondary/undo)
       items.push({
-        value: currentStatus === 'no_show' ? 'cancel_no_show' : 'pending',
-        label: currentStatus === 'no_show' ? 'Cancel No Show' : 'Unapprove',
-        icon: currentStatus === 'no_show' ? Undo2 : Clock,
+        value: 'pending',
+        label: 'Unapprove',
+        icon: Clock,
         color: 'text-amber-600',
         hoverBg: 'hover:bg-amber-50',
         disabled: currentStatus === 'pending',
@@ -2245,7 +2274,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         separator: true  // ✅ Add separator before this (visual break)
       });
       
-      // 4. NO SHOW (destructive - last, hidden if already no-show)
+      // 4. NO SHOW (destructive - last)
       items.push({
         value: 'no_show',
         label: 'No Show',
@@ -2253,12 +2282,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         color: 'text-gray-600',
         hoverBg: 'hover:bg-gray-50',
         disabled: false,
-        hidden: currentStatus === 'no_show',  // ✅ Hide if already no-show
+        hidden: false,
         separator: true,  // ✅ Visual separator (destructive action)
         confirm: true  // ✅ Requires confirmation
       });
       
-      return items.filter(item => !item.hidden);
+      return items;
     }, [currentStatus]);
 
     // Calculate menu position when opening
