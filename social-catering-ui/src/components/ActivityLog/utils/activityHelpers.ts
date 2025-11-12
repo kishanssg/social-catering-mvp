@@ -39,38 +39,36 @@ export function groupByEntity(activities: ActivityLogType[]): GroupedByEntity {
     let entityName: string;
     let entityType: string;
 
-    // Determine entity based on details
-    if (activity.details?.event_name) {
-      entityKey = `event-${activity.details.event_id || activity.entity_id}`;
-      entityName = activity.details.event_name;
-      entityType = 'Event';
-    } else if (activity.details?.worker_name) {
-      entityKey = `worker-${activity.details.worker_id || activity.entity_id}`;
-      entityName = activity.details.worker_name;
-      entityType = 'Worker';
-    } else if (activity.entity_type === 'Assignment') {
-      // For assignments, create a user-friendly name using worker and event
-      const workerName = activity.details?.worker_name || activity.after_json?.worker_name || activity.before_json?.worker_name;
-      const eventName = activity.details?.event_name || activity.after_json?.event_name || activity.before_json?.event_name || activity.after_json?.shift_name || activity.before_json?.shift_name;
+    // Check for Assignment FIRST (before checking event_name which would group under Event)
+    if (activity.entity_type === 'Assignment') {
+      // For assignments, extract event name from all possible sources
+      const eventName = activity.details?.event_name || 
+                       activity.after_json?.event_name || 
+                       activity.before_json?.event_name ||
+                       activity.after_json?.shift_name || 
+                       activity.before_json?.shift_name;
       
-      if (workerName && eventName) {
-        entityKey = `assignment-${activity.entity_id}`;
-        entityName = `${workerName} - ${eventName}`;
-        entityType = 'Assignment';
-      } else if (workerName) {
-        entityKey = `assignment-${activity.entity_id}`;
-        entityName = `${workerName} - Assignment`;
-        entityType = 'Assignment';
-      } else if (eventName) {
-        entityKey = `assignment-${activity.entity_id}`;
-        entityName = `${eventName} - Assignment`;
+      if (eventName) {
+        // Group by event name: "Assignment of [Event Name]"
+        entityKey = `assignment-event-${eventName}`;
+        entityName = `Assignment of ${eventName}`;
         entityType = 'Assignment';
       } else {
-        // Fallback for assignments without details
+        // Fallback for assignments without event name
         entityKey = `assignment-${activity.entity_id}`;
         entityName = `Assignment #${activity.entity_id}`;
         entityType = 'Assignment';
       }
+    } else if (activity.details?.event_name) {
+      // Group events by event name
+      entityKey = `event-${activity.details.event_id || activity.entity_id}`;
+      entityName = activity.details.event_name;
+      entityType = 'Event';
+    } else if (activity.details?.worker_name) {
+      // Group workers by worker name
+      entityKey = `worker-${activity.details.worker_id || activity.entity_id}`;
+      entityName = activity.details.worker_name;
+      entityType = 'Worker';
     } else {
       // Fallback to entity type
       entityKey = `${activity.entity_type.toLowerCase()}-${activity.entity_id}`;
