@@ -289,7 +289,9 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
       if approved_count > 0
         # Collect worker names for summary (first name + last initial)
-        worker_names = assignments.includes(:worker).map do |a|
+        # Only include workers whose assignments were actually approved
+        approved_assignments = assignments.select { |a| a.approved? }
+        worker_names = approved_assignments.map do |a|
           if a.worker
             "#{a.worker.first_name} #{a.worker.last_name[0]}."
           else
@@ -332,10 +334,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   # POST /api/v1/events/:event_id/approve_all
   def approve_event
     approved_count = 0
+    approved_assignments = []
 
     ActiveRecord::Base.transaction do
       assignments = @event.shifts
-        .includes(:assignments)
+        .includes(assignments: :worker)
         .flat_map(&:assignments)
         .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) && !a.approved? }
 
@@ -343,8 +346,18 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         if assignment.can_approve?
           assignment.approve!(Current.user)
           approved_count += 1
+          approved_assignments << assignment
         end
       end
+
+      # Collect worker names for summary (first name + last initial)
+      worker_names = approved_assignments.map do |a|
+        if a.worker
+          "#{a.worker.first_name} #{a.worker.last_name[0]}."
+        else
+          'Unknown Worker'
+        end
+      end.compact
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
@@ -355,7 +368,8 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           event_name: @event.title,
           event_id: @event.id,
           approved_count: approved_count,
-          worker_count: approved_count
+          worker_count: approved_count,
+          worker_names: worker_names
         },
         created_at_utc: Time.current
       )
@@ -441,5 +455,6 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     }
   end
 end
+
 
 

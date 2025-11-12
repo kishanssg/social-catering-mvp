@@ -275,7 +275,8 @@ class ActivityLogPresenter
       worker_count = dj(:approved_count) || dj(:worker_count) || 0
       worker_names = dj(:worker_names) || []
       
-      if worker_names.any? && worker_names.length <= 5
+      # Always show worker names if available (they're already formatted as "First LastInitial.")
+      if worker_names.any?
         workers_list = format_worker_list(worker_names)
         "#{actor_name} approved hours for #{worker_count} workers on #{event_name} (#{workers_list})"
       else
@@ -285,7 +286,15 @@ class ActivityLogPresenter
     when 'event_hours_approved'
       event_name = dj(:event_name) || fetch_event_title || 'event'
       worker_count = dj(:approved_count) || dj(:worker_count) || 0
-      "#{actor_name} approved hours for all #{worker_count} workers on #{event_name}"
+      worker_names = dj(:worker_names) || []
+      
+      # Show worker names if available
+      if worker_names.any?
+        workers_list = format_worker_list(worker_names)
+        "#{actor_name} approved hours for #{worker_count} workers on #{event_name} (#{workers_list})"
+      else
+        "#{actor_name} approved hours for all #{worker_count} workers on #{event_name}"
+      end
 
     when 'totals_recalculated'
       event_name = dj(:event_name) || fetch_event_title || 'event'

@@ -85,10 +85,14 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <div>
               <div className="text-xs text-gray-500">Hours</div>
               <div className="font-medium text-gray-900">
-                {activity.details.before_hours.toFixed(1)}h → {activity.details.after_hours.toFixed(1)}h
+                {Number(activity.details.before_hours || 0).toFixed(1)}h → {Number(activity.details.after_hours || 0).toFixed(1)}h
                 <span className="text-xs text-gray-500 ml-1">
-                  ({activity.details.after_hours - activity.details.before_hours > 0 ? '+' : ''}
-                  {(activity.details.after_hours - activity.details.before_hours).toFixed(1)}h)
+                  {(() => {
+                    const before = Number(activity.details.before_hours || 0);
+                    const after = Number(activity.details.after_hours || 0);
+                    const diff = after - before;
+                    return diff > 0 ? `+${diff.toFixed(1)}h` : `${diff.toFixed(1)}h`;
+                  })()}
                 </span>
               </div>
             </div>
@@ -102,10 +106,14 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <div>
               <div className="text-xs text-gray-500">Pay</div>
               <div className="font-medium text-gray-900">
-                ${activity.details.before_pay.toFixed(2)} → ${activity.details.after_pay.toFixed(2)}
+                ${Number(activity.details.before_pay || 0).toFixed(2)} → ${Number(activity.details.after_pay || 0).toFixed(2)}
                 <span className="text-xs text-gray-500 ml-1">
-                  ({activity.details.after_pay - activity.details.before_pay > 0 ? '+' : ''}
-                  ${(activity.details.after_pay - activity.details.before_pay).toFixed(2)})
+                  {(() => {
+                    const before = Number(activity.details.before_pay || 0);
+                    const after = Number(activity.details.after_pay || 0);
+                    const diff = after - before;
+                    return diff > 0 ? `+$${diff.toFixed(2)}` : `$${diff.toFixed(2)}`;
+                  })()}
                 </span>
               </div>
             </div>
@@ -119,7 +127,7 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <div>
               <div className="text-xs text-gray-500">Hourly Rate</div>
               <div className="font-medium text-gray-900">
-                ${activity.details.before_rate.toFixed(2)}/h → ${activity.details.after_rate.toFixed(2)}/h
+                ${Number(activity.details.before_rate || 0).toFixed(2)}/h → ${Number(activity.details.after_rate || 0).toFixed(2)}/h
               </div>
             </div>
           </div>
