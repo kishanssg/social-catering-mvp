@@ -247,12 +247,12 @@ function WorkerRow({
               <div className="mt-1 text-xs text-red-600 font-medium">
                 {assignment.approved_by_name ? (
                   <span>
-                    Denied by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
+                    Rejected by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
                     <XCircle className="h-3 w-3" />
-                    <span>Denied</span>
+                    <span>Rejected</span>
                   </span>
                 )}
               </div>
@@ -717,12 +717,12 @@ function WorkerRow({
                 <div className="text-xs text-red-600 mt-1 ml-10 font-medium">
                   {assignment.approved_by_name ? (
                     <span>
-                      Denied by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
+                      Rejected by {assignment.approved_by_name.split('@')[0]} on {assignment.approved_at ? formatDateTime(assignment.approved_at) : 'N/A'}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1">
                       <XCircle className="h-3 w-3" />
-                      <span>Denied</span>
+                      <span>Rejected</span>
                     </span>
                   )}
                 </div>
@@ -1025,7 +1025,7 @@ function MobileAssignmentCard({
             {currentStatus === 'denied' && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
                 <Ban className="h-3 w-3" />
-                Denied
+                Rejected
               </span>
             )}
             
@@ -2007,10 +2007,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         try {
           await apiClient.delete(`/approvals/${assignment.id}/remove`, { data: { notes: noteToSend } });
           await loadAssignments();
-          setToast({ isVisible: true, type: 'success', message: 'Assignment denied' });
+          setToast({ isVisible: true, type: 'success', message: 'Assignment rejected' });
         } catch (error: any) {
           console.error('Error removing assignment:', error);
-          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to deny assignment' });
+          setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to reject assignment' });
         }
       }
     });
@@ -2182,7 +2182,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       },
       denied: {
         icon: Ban,
-        label: 'Denied',
+        label: 'Rejected',
         dotColor: 'bg-gray-500',
         textColor: 'text-gray-700',
         bgColor: 'bg-gray-50',
@@ -2522,7 +2522,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             </span>
             <span className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-red-500" />
-              <span className="font-medium">{totals.deniedCount} Denied</span>
+              <span className="font-medium">{totals.deniedCount} Rejected</span>
             </span>
             <span className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-amber-500" />
@@ -2776,7 +2776,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                         {currentStatus === 'denied' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
                             <Ban className="h-3.5 w-3.5" />
-                            Denied
+                            Rejected
                           </span>
                         )}
                       </td>
