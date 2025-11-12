@@ -7,9 +7,10 @@ import { formatDateGroup } from './utils/activityHelpers';
 interface TimelineGroupProps {
   date: string;
   activities: ActivityLog[];
+  searchQuery?: string;
 }
 
-export default function TimelineGroup({ date, activities }: TimelineGroupProps) {
+export default function TimelineGroup({ date, activities, searchQuery = '' }: TimelineGroupProps) {
   return (
     <div>
       {/* Date Header */}
@@ -27,7 +28,7 @@ export default function TimelineGroup({ date, activities }: TimelineGroupProps) 
       {/* Activities */}
       <div className="space-y-3 ml-6">
         {activities.map(activity => (
-          <ActivityCard key={activity.id} activity={activity} />
+          <ActivityCard key={activity.id} activity={activity} searchQuery={searchQuery} />
         ))}
       </div>
     </div>

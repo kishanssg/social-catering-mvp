@@ -48,6 +48,29 @@ export function groupByEntity(activities: ActivityLogType[]): GroupedByEntity {
       entityKey = `worker-${activity.details.worker_id || activity.entity_id}`;
       entityName = activity.details.worker_name;
       entityType = 'Worker';
+    } else if (activity.entity_type === 'Assignment') {
+      // For assignments, create a user-friendly name using worker and event
+      const workerName = activity.details?.worker_name || activity.after_json?.worker_name || activity.before_json?.worker_name;
+      const eventName = activity.details?.event_name || activity.after_json?.event_name || activity.before_json?.event_name || activity.after_json?.shift_name || activity.before_json?.shift_name;
+      
+      if (workerName && eventName) {
+        entityKey = `assignment-${activity.entity_id}`;
+        entityName = `${workerName} - ${eventName}`;
+        entityType = 'Assignment';
+      } else if (workerName) {
+        entityKey = `assignment-${activity.entity_id}`;
+        entityName = `${workerName} - Assignment`;
+        entityType = 'Assignment';
+      } else if (eventName) {
+        entityKey = `assignment-${activity.entity_id}`;
+        entityName = `${eventName} - Assignment`;
+        entityType = 'Assignment';
+      } else {
+        // Fallback for assignments without details
+        entityKey = `assignment-${activity.entity_id}`;
+        entityName = `Assignment #${activity.entity_id}`;
+        entityType = 'Assignment';
+      }
     } else {
       // Fallback to entity type
       entityKey = `${activity.entity_type.toLowerCase()}-${activity.entity_id}`;

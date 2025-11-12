@@ -106,6 +106,7 @@ export default function ActivityLog() {
             key={date} 
             date={date} 
             activities={activities}
+            searchQuery={searchQuery}
           />
         ))}
       </div>
@@ -123,6 +124,7 @@ export default function ActivityLog() {
             entityType={data.type}
             entityName={data.name}
             activities={data.activities}
+            searchQuery={searchQuery}
           />
         ))}
       </div>

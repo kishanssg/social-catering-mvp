@@ -9,36 +9,54 @@ import ActivityCardExpanded from './ActivityCardExpanded';
 
 interface ActivityCardProps {
   activity: ActivityLog;
+  searchQuery?: string;
 }
 
-export default function ActivityCard({ activity }: ActivityCardProps) {
+export default function ActivityCard({ activity, searchQuery = '' }: ActivityCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
 
   const { icon: Icon, bgColor, textColor, borderColor } = getActivityIcon(activity.action);
 
-  // Parse summary to make entities clickable
+  // Parse summary to make entities clickable and highlight search
   const renderSummary = () => {
-    const summary = activity.summary;
+    let summary = activity.summary;
     const details = activity.details;
-
-    // Make worker names clickable
-    let rendered = summary;
+    const query = searchQuery.trim();
+    
+    // Step 1: Make worker names clickable first (before highlighting)
     if (details?.worker_name) {
-      const workerRegex = new RegExp(details.worker_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-      rendered = rendered.replace(
+      const workerName = details.worker_name;
+      const workerRegex = new RegExp(`\\b${workerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      summary = summary.replace(
         workerRegex,
-        `<span class="font-semibold text-teal-600 hover:underline cursor-pointer" data-worker-id="${details.worker_id || ''}">${details.worker_name}</span>`
+        `<span class="font-semibold text-teal-600 hover:underline cursor-pointer" data-worker-id="${details.worker_id || ''}">${workerName}</span>`
       );
     }
 
-    // Make event names clickable
+    // Step 2: Make event names clickable (before highlighting)
     if (details?.event_name) {
-      const eventRegex = new RegExp(details.event_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-      rendered = rendered.replace(
+      const eventName = details.event_name;
+      const eventRegex = new RegExp(`\\b${eventName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      summary = summary.replace(
         eventRegex,
-        `<span class="font-semibold text-blue-600 hover:underline cursor-pointer" data-event-id="${details.event_id || ''}">${details.event_name}</span>`
+        `<span class="font-semibold text-blue-600 hover:underline cursor-pointer" data-event-id="${details.event_id || ''}">${eventName}</span>`
       );
+    }
+
+    // Step 3: Highlight search matches (works on plain text and preserves HTML tags)
+    let rendered = summary;
+    if (query) {
+      // Split by HTML tags, highlight text nodes, then reassemble
+      const parts = rendered.split(/(<[^>]+>)/);
+      rendered = parts.map((part, index) => {
+        // Skip HTML tags
+        if (part.startsWith('<')) return part;
+        
+        // Highlight text content
+        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return part.replace(regex, '<mark class="bg-yellow-200 font-semibold">$1</mark>');
+      }).join('');
     }
 
     return (

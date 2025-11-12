@@ -8,9 +8,10 @@ interface EntityGroupProps {
   entityType: string;
   entityName: string;
   activities: ActivityLog[];
+  searchQuery?: string;
 }
 
-export default function EntityGroup({ entityType, entityName, activities }: EntityGroupProps) {
+export default function EntityGroup({ entityType, entityName, activities, searchQuery = '' }: EntityGroupProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getEntityIcon = () => {
@@ -75,7 +76,7 @@ export default function EntityGroup({ entityType, entityName, activities }: Enti
       {isExpanded && (
         <div className="border-t border-gray-200 p-4 bg-gray-50 space-y-3">
           {activities.map(activity => (
-            <ActivityCard key={activity.id} activity={activity} />
+            <ActivityCard key={activity.id} activity={activity} searchQuery={searchQuery} />
           ))}
         </div>
       )}
