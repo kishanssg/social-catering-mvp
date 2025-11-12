@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { safeToFixed } from '../utils/number';
 
 type ReportType = 'timesheet' | 'payroll' | 'worker_hours' | 'event_summary';
 type DatePreset = 'today' | 'yesterday' | 'last_7_days' | 'last_30_days' | 'this_month' | 'last_month' | 'custom';
@@ -98,7 +99,9 @@ export function ReportsPage() {
         if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
         
         const response = await apiClient.get(endpoint);
-        setTimesheetPreview(response.data);
+        // Handle both wrapped and unwrapped responses
+        const previewData = response.data?.data || response.data;
+        setTimesheetPreview(previewData);
       } catch (error) {
         console.error('Failed to fetch timesheet preview:', error);
         setTimesheetPreview(null);
@@ -696,13 +699,13 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Approved for Payout:</span>
                 <span className="font-semibold text-green-600">
-                  ${Number(preview.approved_pay || 0).toFixed(2)} ({Number(preview.approved_hours || 0).toFixed(1)}h)
+                  ${safeToFixed(preview.approved_pay, 2, '0.00')} ({safeToFixed(preview.approved_hours, 1, '0.0')}h)
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Pending Approval:</span>
                 <span className="font-semibold text-amber-600">
-                  ${Number(preview.pending_pay || 0).toFixed(2)} ({Number(preview.pending_hours || 0).toFixed(1)}h)
+                  ${safeToFixed(preview.pending_pay, 2, '0.00')} ({safeToFixed(preview.pending_hours, 1, '0.0')}h)
                 </span>
               </div>
               {preview.no_shows > 0 && (

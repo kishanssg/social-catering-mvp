@@ -319,7 +319,11 @@ export function AppLayout() {
             </div>
             <div className="flex flex-col justify-center items-start flex-1">
               <span className="text-sm font-semibold font-manrope leading-[140%] text-font-primary">
-                {user?.email?.split('@')[0] || 'User'}
+                {(() => {
+                  const username = user?.email?.split('@')[0];
+                  if (!username) return 'User';
+                  return username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+                })()}
               </span>
               <span className="text-sm font-normal font-manrope leading-[140%] text-font-primary">
                 Administrator

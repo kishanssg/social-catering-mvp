@@ -55,7 +55,8 @@ interface AvailableShift {
   end_time_utc: string;
   location: string;
   current_status: string;
-  pay_rate?: number; // Add pay_rate field
+  pay_rate?: number;
+  default_pay_rate?: number; // From roleGroup.pay_rate (SSOT)
   total_positions?: number;
   filled_positions?: number;
   available_positions?: number;
@@ -562,6 +563,29 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
     }
   }, [worker?.id, availableShifts]);
   
+  // Initialize pay rates from roleGroup when shifts load
+  useEffect(() => {
+    if (availableShifts.length > 0) {
+      const initialRates: { [shiftId: number]: number } = {};
+      
+      availableShifts.forEach(shift => {
+        // Safely convert to number - use default_pay_rate (from roleGroup) if shift pay_rate is 0 or missing
+        const shiftRate = Number(shift.pay_rate) || 0;
+        const defaultRate = Number(shift.default_pay_rate) || 0;
+        const rate = (shiftRate > 0) ? shiftRate : defaultRate;
+        
+        if (rate > 0) {
+          initialRates[shift.id] = rate;
+        }
+      });
+      
+      // Only update if we have rates to set
+      if (Object.keys(initialRates).length > 0) {
+        setShiftPayRates(prev => ({ ...prev, ...initialRates }));
+      }
+    }
+  }, [availableShifts]);
+  
   async function loadAvailableShifts() {
     if (!worker || !worker.id) {
       return;
@@ -683,8 +707,9 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                     end_time_utc: representativeShift.end_time_utc,
                     location: event.venue?.formatted_address || 'Location TBD',
                     current_status: representativeShift.status,
-                    // Prefer shift-level pay_rate; fallback to role-level pay_rate from requirement
-                    pay_rate: (representativeShift.pay_rate ?? roleGroup.pay_rate ?? 0),
+                    // Use roleGroup.pay_rate (SSOT) as primary source - ensure it's a number
+                    pay_rate: Number(roleGroup.pay_rate) || Number(representativeShift.pay_rate) || 0,
+                    default_pay_rate: Number(roleGroup.pay_rate) || 0, // Store for input initialization
                     // Add metadata about positions
                     total_positions: totalCapacity || roleGroup.total_shifts || 0,
                     filled_positions: totalFilled || 0,
@@ -878,7 +903,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
       // Create assignments with pay rates
       const assignments = uniqueShiftIds.map(shiftId => {
         const shift = availableShifts.find(s => s.all_shift_ids?.includes(shiftId));
-        const payRate = shiftPayRates[shiftId] || (Number(shift?.pay_rate) || 0);
+        const payRate = Number(shiftPayRates[shiftId]) || Number(shift?.pay_rate) || Number(shift?.default_pay_rate) || 0;
         return {
           shift_id: shiftId,
           worker_id: worker.id,
@@ -1236,7 +1261,7 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                           {/* Pay Rate Section - Right Side */}
                           <div className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-2">
-                              {shiftPayRates[shift.id] && shiftPayRates[shift.id] !== (Number(shift.pay_rate) || 0) && (
+                              {shiftPayRates[shift.id] && Number(shiftPayRates[shift.id]) !== (Number(shift.pay_rate) || Number(shift.default_pay_rate) || 0) && (
                                 <span className="text-xs text-amber-600 font-medium">
                                   (custom)
                                 </span>
@@ -1248,8 +1273,12 @@ function BulkAssignmentModal({ worker, onClose, onSuccess }: BulkAssignmentModal
                                 type="number"
                                 step="1"
                                 min="0"
-                                placeholder={(Number(shift.pay_rate) || 0).toString()}
-                                value={shiftPayRates[shift.id] !== undefined ? shiftPayRates[shift.id] : (Number(shift.pay_rate) || 0)}
+                                placeholder={(Number(shift.pay_rate) || Number(shift.default_pay_rate) || 0).toString()}
+                                value={
+                                  shiftPayRates[shift.id] !== undefined 
+                                    ? Number(shiftPayRates[shift.id]) || 0
+                                    : Number(shift.pay_rate) || Number(shift.default_pay_rate) || 0
+                                }
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   // Only allow numbers, decimal point, and empty string

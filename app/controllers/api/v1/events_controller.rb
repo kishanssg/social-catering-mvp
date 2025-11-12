@@ -523,9 +523,9 @@ class Api::V1::EventsController < Api::V1::BaseController
       created_at: event.created_at_utc
     }
     
-    # Add shifts_by_role for active/past tabs or when filter=needs_workers (for BulkAssignmentModal)
-    # This is needed for the Schedule Worker modal to work
-    if ['active', 'past'].include?(tab) || filter_param == 'needs_workers'
+    # CRITICAL: Always include shifts_by_role for published events (not just active/past tabs)
+    # This ensures expanded events show all roles/shifts in the UI
+    if event.status == 'published' || event.status == 'completed' || filter_param == 'needs_workers'
       # Ensure shifts are loaded (they should be from includes, but double-check)
       shifts = event.shifts.loaded? ? event.shifts : event.shifts.includes(:assignments, :worker)
       base[:shifts_by_role] = group_shifts_by_role(shifts, event)

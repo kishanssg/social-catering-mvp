@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
@@ -16,7 +16,9 @@ import {
   Check,
   X,
   AlertCircle,
-  Award
+  Award,
+  ClipboardCheck,
+  CheckCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { getAssignmentStatusMessage } from '../utils/dateUtils';
@@ -90,6 +92,7 @@ interface ShiftsByRole {
   role_name: string;
   total_shifts: number;
   filled_shifts: number;
+  pay_rate?: number; // From EventSkillRequirement (SSOT)
   shifts: Shift[];
 }
 
@@ -125,15 +128,139 @@ interface Assignment {
   effective_pay?: number;
 }
 
+// Check if all assignments for an event are resolved (approved, no_show, cancelled, removed, denied)
+const isEventFullyReviewed = (event: Event): boolean => {
+  // Prefer server-provided aggregate if available
+  if (event.cost_summary) {
+    const { all_approved, total_count = 0, pending_count = 0 } = event.cost_summary;
+    const hasAssignments = total_count > 0 || (event.assigned_workers_count ?? 0) > 0;
+    if (typeof all_approved === 'boolean' && all_approved) {
+      return true;
+    }
+    if (pending_count === 0 && hasAssignments) {
+      return true;
+    }
+  }
+
+  if (event.approval_status) {
+    const { total = 0, pending = 0 } = event.approval_status;
+    const hasAssignments =
+      total > 0 ||
+      (event.cost_summary?.total_count ?? 0) > 0 ||
+      (event.assigned_workers_count ?? 0) > 0;
+    if (pending === 0 && hasAssignments) {
+      return true;
+    }
+  }
+ 
+  // Fallback: infer from loaded shifts/assignments if present
+  const shiftsFromRoles = event.shifts_by_role?.flatMap(r => r.shifts || []) || [];
+  const anyShifts =
+    (Array.isArray(shiftsFromRoles) && shiftsFromRoles.length > 0);
+  if (!anyShifts) {
+    return false; // No shifts loaded to infer; treat as not fully reviewed
+  }
+  
+  const allAssignments = shiftsFromRoles.flatMap(s => s.assignments || []);
+  if (allAssignments.length === 0) {
+    return false; // No assignments = can't be reviewed
+  }
+  
+  // Check if ALL assignments have been acted upon
+  return allAssignments.every(assignment => {
+    return (
+      assignment.approved === true ||           // Approved
+      assignment.status === 'no_show' ||         // Marked as no-show
+      assignment.status === 'cancelled' ||       // Cancelled
+      assignment.status === 'removed' ||         // Removed
+      assignment.status === 'denied' ||          // Denied
+      (assignment as any).denied === true        // Denied (alternative field)
+    );
+  });
+};
+
+// Alias for backward compatibility
+const isEventFullyApproved = isEventFullyReviewed;
+
+// Count how many assignments still need review
+const getPendingReviewCount = (event: Event): number => {
+  // Prefer server-provided count if available
+  if (event.approval_status?.pending !== undefined) {
+    return event.approval_status.pending;
+  }
+  if (event.cost_summary?.pending_count !== undefined) {
+    return event.cost_summary.pending_count;
+  }
+  
+  // Fallback: count from loaded shifts/assignments
+  const shiftsFromRoles = event.shifts_by_role?.flatMap(r => r.shifts || []) || [];
+  if (shiftsFromRoles.length === 0) {
+    return 0;
+  }
+  
+  const allAssignments = shiftsFromRoles.flatMap(s => s.assignments || []);
+  if (allAssignments.length === 0) {
+    return 0;
+  }
+  
+  return allAssignments.filter(assignment => {
+    // Not reviewed if it's not approved, denied, no-show, cancelled, or removed
+    return !(
+      assignment.approved === true ||
+      assignment.status === 'no_show' ||
+      assignment.status === 'cancelled' ||
+      assignment.status === 'removed' ||
+      assignment.status === 'denied' ||
+      (assignment as any).denied === true
+    );
+  }).length;
+};
+
+// Helper to safely get event schedule times
+const getEventSchedule = (event: any) => {
+  // Try different possible locations for schedule data
+  const schedule = event.schedule || event.event_schedule || {};
+  const start = schedule.start_time_utc || schedule.start_time || event.start_time_utc;
+  const end = schedule.end_time_utc || schedule.end_time || event.end_time_utc;
+  return { start, end };
+};
+
+// Check if event has ended (past end time)
+const hasEventEnded = (event: any, now: Date = new Date()): boolean => {
+  const { end } = getEventSchedule(event);
+  if (!end) return false; // No end time = treat as ongoing
+  
+  try {
+    const endTime = new Date(end);
+    if (isNaN(endTime.getTime())) return false; // Invalid date
+    return endTime < now; // True if end time is in the past
+  } catch (error) {
+    console.warn('Invalid end time for event:', event.id, end);
+    return false;
+  }
+};
+
+// Check if event is upcoming/active (hasn't ended yet)
+const isEventActive = (event: any): boolean => {
+  return event.status === 'published' && !hasEventEnded(event);
+};
+
+// Check if event is completed (ended or archived)
+const isEventCompleted = (event: any): boolean => {
+  return (
+    event.status === 'archived' || 
+    event.status === 'completed' || 
+    (event.status === 'published' && hasEventEnded(event))
+  );
+};
+
 export function EventsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const initialTab = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
-  // Only default to needs_workers for active tab, otherwise 'all'
-  const initialFilter = initialTab === 'active' 
-    ? ((searchParams.get('filter') as FilterType) || 'needs_workers')
-    : ((searchParams.get('filter') as FilterType) || 'all');
+  // Default to 'all' for all tabs so users can see all events and their shifts
+  const initialFilter = (searchParams.get('filter') as FilterType) || 'all';
   
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [filterStatus, setFilterStatus] = useState<FilterType>(initialFilter);
@@ -151,6 +278,7 @@ export function EventsPage() {
   const [assignmentModal, setAssignmentModal] = useState<{
     isOpen: boolean;
     shiftId?: number;
+    suggestedPayRate?: number;
   }>({ isOpen: false });
 
   // Toast state
@@ -247,10 +375,12 @@ export function EventsPage() {
     const eventId = parseInt(eventIdParam);
     if (isNaN(eventId)) return;
 
-    if (!loadingEventDetails.has(eventId)) {
+    const ev = events.find(e => e.id === eventId);
+    if (ev && (!ev.shifts_by_role || ev.shifts_by_role.length === 0)) {
       fetchEventDetails(eventId);
+      setExpandedEvents(new Set([eventId]));
     }
-  }, [searchParams, events, loadingEventDetails]);
+  }, [searchParams, events]);
   
   async function loadEvents() {
     setLoading(true);
@@ -432,7 +562,9 @@ export function EventsPage() {
       const ev = events.find(e => e.id === eventId);
       // Always fetch details when expanding to ensure fresh data
       // Only skip if we're already loading or if we have complete data
-      if (!loadingEventDetails.has(eventId)) {
+      const isAlreadyLoading = loadingEventDetails.has(eventId);
+      const hasCompleteDetails = ev?.shifts_by_role && ev.shifts_by_role.length > 0;
+      if (!isAlreadyLoading && !hasCompleteDetails) {
         fetchEventDetails(eventId);
       }
     }
@@ -576,8 +708,8 @@ export function EventsPage() {
     }
   }
   
-  const openAssignmentModal = (shiftId: number) => {
-    setAssignmentModal({ isOpen: true, shiftId });
+  const openAssignmentModal = (shiftId: number, suggestedPayRate?: number) => {
+    setAssignmentModal({ isOpen: true, shiftId, suggestedPayRate });
   };
   
   const closeAssignmentModal = () => {
@@ -610,49 +742,69 @@ export function EventsPage() {
     loadEvents();
   };
   
-  // Filter and sort
-  const filteredEvents = events
-    .filter(event => {
-      // Search filter (use debounced value to reduce filtering during typing)
-      if (debouncedSearchQuery) {
-        const query = debouncedSearchQuery.toLowerCase();
-        const matchesSearch = (
-          event.title.toLowerCase().includes(query) ||
-          event.venue?.name.toLowerCase().includes(query)
-        );
-        if (!matchesSearch) return false;
-      }
-      
-      // Status filter (only for active tab)
-      if (activeTab === 'active') {
-        switch (filterStatus) {
-          case 'needs_workers':
-            return event.unfilled_roles_count > 0;
-          case 'partially_filled':
-            return event.unfilled_roles_count > 0 && event.assigned_workers_count > 0;
-          case 'fully_staffed':
-            return event.unfilled_roles_count === 0 && event.assigned_workers_count > 0;
-          case 'all':
-          default:
-            return true;
+  // Filter and sort events
+  const filteredEvents = useMemo(() => {
+    return events
+      .filter(event => {
+        // 1. Search filter (use debounced value to reduce filtering during typing)
+        if (debouncedSearchQuery) {
+          const query = debouncedSearchQuery.toLowerCase();
+          const matchesSearch = (
+            event.title?.toLowerCase().includes(query) ||
+            event.venue?.name?.toLowerCase().includes(query)
+          );
+          if (!matchesSearch) return false;
         }
-      }
-      
-      return true;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.title.localeCompare(b.title);
-        case 'staffing':
-          return a.staffing_percentage - b.staffing_percentage;
-        case 'date':
-        default:
-          const dateA = a.schedule?.start_time_utc || a.created_at;
-          const dateB = b.schedule?.start_time_utc || b.created_at;
-          return new Date(dateA).getTime() - new Date(dateB).getTime();
-      }
-    });
+        
+        // 2. Tab filter (Active vs Completed)
+        if (activeTab === 'active') {
+          // Active tab: only published events that haven't ended
+          if (!isEventActive(event)) return false;
+          
+          // 3. Status filter (Fully Staffed, Partial, Needs Workers)
+          if (filterStatus && filterStatus !== 'all') {
+            switch (filterStatus) {
+              case 'needs_workers':
+                return event.unfilled_roles_count > 0;
+              case 'partially_filled':
+                return event.unfilled_roles_count > 0 && event.assigned_workers_count > 0;
+              case 'fully_staffed':
+                return event.unfilled_roles_count === 0 && event.assigned_workers_count > 0;
+              default:
+                return true;
+            }
+          }
+        }
+        
+        if (activeTab === 'completed') {
+          // Completed tab: archived, completed, or published events that ended
+          if (!isEventCompleted(event)) return false;
+        }
+        
+        return true;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'name':
+            return a.title.localeCompare(b.title);
+          case 'staffing':
+            return a.staffing_percentage - b.staffing_percentage;
+          case 'date':
+          default:
+            const aSchedule = getEventSchedule(a);
+            const bSchedule = getEventSchedule(b);
+            const aTime = aSchedule.start || aSchedule.end || a.created_at;
+            const bTime = bSchedule.start || bSchedule.end || b.created_at;
+            
+            if (!aTime && !bTime) return 0;
+            if (!aTime) return 1;
+            if (!bTime) return -1;
+            
+            // Sort ascending (closest/earliest events first)
+            return new Date(aTime).getTime() - new Date(bTime).getTime();
+        }
+      });
+  }, [events, activeTab, filterStatus, debouncedSearchQuery, sortBy]);
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -838,6 +990,7 @@ export function EventsPage() {
       {assignmentModal.isOpen && assignmentModal.shiftId && (
         <AssignmentModal
           shiftId={assignmentModal.shiftId}
+          suggestedPayRate={assignmentModal.suggestedPayRate}
           onClose={closeAssignmentModal}
           onSuccess={handleAssignmentSuccess}
         />
@@ -1065,7 +1218,7 @@ interface ActiveEventsTabProps {
   expandedEvents: Set<number>;
   loadingEventDetails: Set<number>;
   onToggleEvent: (id: number) => void;
-  onAssignWorker: (shiftId: number) => void;
+  onAssignWorker: (shiftId: number, suggestedPayRate?: number) => void;
   onUnassign: (assignmentId: number, workerName?: string) => void;
   onQuickFill: (eventId: number, roleName: string, unfilledShiftIds: number[], payRate?: number) => void;
   onPublish: (eventId: number) => void;
@@ -1153,7 +1306,7 @@ function ActiveEventsTab({
   
   return (
     <div className="space-y-4">
-      {events.filter((e:any) => e.status !== 'completed').map((event) => {
+      {events.map((event) => {
         const isExpanded = expandedEvents.has(event.id);
         
         return (
@@ -1244,6 +1397,21 @@ function ActiveEventsTab({
                 const percentage = total > 0 ? Math.round((assigned / total) * 100) : 0;
                 const unfilledCount = event.unfilled_roles_count || 0;
                 
+                // Calculate role counts if shifts_by_role is available
+                const roleCounts = (() => {
+                  if (event.shifts_by_role && event.shifts_by_role.length > 0) {
+                    const totalRoles = event.shifts_by_role.length;
+                    const filledRoles = event.shifts_by_role.filter(role => {
+                      const hasAssignments = role.shifts?.some(shift => 
+                        shift.assignments && shift.assignments.length > 0
+                      );
+                      return hasAssignments;
+                    }).length;
+                    return { totalRoles, filledRoles };
+                  }
+                  return null;
+                })();
+                
                 // Use aggregates from API (SSOT - no lazy calculation)
                 const estimatedCost = (() => {
                   // Prefer lightweight serializer fields, fallback to detailed serializer
@@ -1271,7 +1439,9 @@ function ActiveEventsTab({
                     {/* Progress Bar Row */}
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        {assigned} of {total} roles filled
+                        {roleCounts 
+                          ? `${roleCounts.filledRoles} of ${roleCounts.totalRoles} roles filled`
+                          : `${assigned} of ${total} workers hired`}
                       </span>
                       <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div 
@@ -1334,7 +1504,8 @@ function ActiveEventsTab({
                                   .filter((s) => s.staffing_progress.percentage < 100)
                                   .sort((a, b) => new Date(a.start_time_utc).getTime() - new Date(b.start_time_utc).getTime())
                                   .map((s) => s.id);
-                                const payRate = roleGroup.shifts[0]?.pay_rate;
+                                // Use roleGroup.pay_rate (from EventSkillRequirement) as primary source
+                                const payRate = safeNumber(roleGroup.pay_rate || roleGroup.shifts[0]?.pay_rate || 0);
                                 onQuickFill(event.id, roleGroup.role_name, unfilled, payRate);
                               }}
                               className="px-2.5 py-1 text-xs font-semibold bg-teal-600 text-white rounded hover:bg-teal-700"
@@ -1347,114 +1518,99 @@ function ActiveEventsTab({
                       </div>
                       
                       <div className="space-y-2">
-                        {roleGroup.shifts.map((shift, index) => (
-                          <div
-                            key={shift.id}
-                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border border-gray-200"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 h-6 bg-gray-200 text-gray-700 rounded-md flex items-center justify-center text-xs font-medium">
-                                {index + 1}
-                              </div>
-                              <span className="text-sm text-gray-700">
-                                {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
-                              </span>
-                              
-                              {shift.assignments.length > 0 && (
-                                <div className="flex flex-col gap-1.5">
-                                  {shift.assignments.map((assignment) => {
-                                    const fullName = `${assignment.worker.first_name} ${assignment.worker.last_name}`;
-                                    const rate = Number(assignment.hourly_rate || shift.pay_rate || 0);
-                                    const statusMessage = getAssignmentStatusMessage(assignment);
-                                    const tooltipText = statusMessage 
-                                      ? `${fullName} • $${safeToFixed(rate, 0, '0')}/hr • ${statusMessage}`
-                                      : `${fullName} • $${safeToFixed(rate, 0, '0')}/hr`;
-                                    return (
-                                      <div key={assignment.id} className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-1">
-                                          <span 
-                                            className={cn(
-                                              "bg-white text-black border rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate",
-                                              assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
-                                                ? "border-red-200 opacity-60"
-                                                : assignment.approved
-                                                ? "border-green-200"
-                                                : "border-gray-200"
-                                            )}
-                                            title={tooltipText}
-                                          >
-                                            {fullName}
-                                          </span>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onUnassign(assignment.id, fullName);
-                                            }}
-                                            className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
-                                            title="Unassign worker"
-                                          >
-                                            <X size={12} />
-                                          </button>
-                                        </div>
-                                        {statusMessage && (
-                                          <div className={cn(
-                                            "text-xs font-medium ml-2",
-                                            assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
-                                              ? "text-red-600"
-                                              : assignment.approved
-                                              ? "text-green-700"
-                                              : "text-gray-500"
-                                          )}>
-                                            {statusMessage}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                            
-                            {shift.staffing_progress.percentage === 100 ? (
-                              <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
-                                <Check size={16} />
-                                Assigned
-                              </span>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onAssignWorker(shift.id);
-                                }}
-                                className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
-                              >
-                                Assign Worker
-                              </button>
-                            )}
+                        {roleGroup.shifts.length === 0 ? (
+                          <div className="py-4 px-3 bg-amber-50 border border-amber-200 rounded text-center">
+                            <p className="text-sm text-amber-700 font-medium">
+                              No shifts created yet for this role. Shifts will be generated when the event is published.
+                            </p>
                           </div>
-                        ))}
-                        {/* Placeholder rows for unassigned slots (no shift record yet) */}
-                        {Number((roleGroup as any).unassigned_count || 0) > 0 && (
-                          Array.from({ length: Number((roleGroup as any).unassigned_count) }).map((_, idx) => (
-                            <div
-                              key={`unassigned-${idx}`}
-                              className="flex items-center justify-between py-2 px-3 bg-white rounded border border-dashed border-gray-300"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 bg-gray-100 text-gray-500 rounded-md flex items-center justify-center text-xs font-medium">
-                                  •
+                        ) : (
+                          roleGroup.shifts.map((shift, index) => (
+                                <div
+                                  key={shift.id}
+                                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border border-gray-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 bg-gray-200 text-gray-700 rounded-md flex items-center justify-center text-xs font-medium">
+                                      {index + 1}
+                                    </div>
+                                    <span className="text-sm text-gray-700">
+                                      {formatTime(shift.start_time_utc)} - {formatTime(shift.end_time_utc)}
+                                    </span>
+                                    
+                                    {shift.assignments && shift.assignments.length > 0 && (
+                                      <div className="flex flex-col gap-1.5">
+                                        {shift.assignments.map((assignment) => {
+                                          const fullName = `${assignment.worker.first_name} ${assignment.worker.last_name}`;
+                                          const rate = safeNumber(assignment.hourly_rate || shift.pay_rate || 0);
+                                          const statusMessage = getAssignmentStatusMessage(assignment);
+                                          const tooltipText = statusMessage 
+                                            ? `${fullName} • $${safeToFixed(rate, 0, '0')}/hr • ${statusMessage}`
+                                            : `${fullName} • $${safeToFixed(rate, 0, '0')}/hr`;
+                                          return (
+                                            <div key={assignment.id} className="flex flex-col gap-1">
+                                              <div className="flex items-center gap-1">
+                                                <span 
+                                                  className={cn(
+                                                    "bg-white text-black border rounded-full px-2.5 py-1 text-sm font-medium shadow-sm max-w-[140px] truncate",
+                                                    assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
+                                                      ? "border-red-200 opacity-60"
+                                                      : assignment.approved
+                                                      ? "border-green-200"
+                                                      : "border-gray-200"
+                                                  )}
+                                                  title={tooltipText}
+                                                >
+                                                  {fullName}
+                                                </span>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onUnassign(assignment.id, fullName);
+                                                  }}
+                                                  className="w-5 h-5 flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                                  title="Unassign worker"
+                                                >
+                                                  <X size={12} />
+                                                </button>
+                                              </div>
+                                              {statusMessage && (
+                                                <div className={cn(
+                                                  "text-xs font-medium ml-2",
+                                                  assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed'
+                                                    ? "text-red-600"
+                                                    : assignment.approved
+                                                    ? "text-green-700"
+                                                    : "text-gray-500"
+                                                )}>
+                                                  {statusMessage}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {shift.staffing_progress && shift.staffing_progress.percentage === 100 ? (
+                                    <span className="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                                      <Check size={16} />
+                                      Assigned
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Pass roleGroup pay_rate (SSOT) as suggested pay rate
+                                        onAssignWorker(shift.id, safeNumber(roleGroup.pay_rate || shift.pay_rate || 0));
+                                      }}
+                                      className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                                    >
+                                      Assign Worker
+                                    </button>
+                                  )}
                                 </div>
-                                <span className="text-sm text-gray-500 select-none">
-                                  Open slot (no shift generated)
-                                </span>
-                              </div>
-                              <span
-                                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                                title="Generate a shift for this role to assign a worker"
-                              >
-                                Assign
-                              </span>
-                            </div>
                           ))
                         )}
                       </div>
@@ -1520,24 +1676,6 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
     return format(date, 'h:mm a');
   };
   
-  // Compute pending approvals directly from assignments if detailed data is present
-  const getPendingCount = (event: any): number => {
-    if (event?.shifts_by_role && Array.isArray(event.shifts_by_role)) {
-      const allAssignments: any[] = event.shifts_by_role.flatMap((rg: any) =>
-        (rg.shifts || []).flatMap((s: any) => s.assignments || [])
-      );
-      if (allAssignments.length > 0) {
-        const pending = allAssignments.filter((a: any) => {
-          const status = a.status;
-          const resolved = a.approved || status === 'no_show' || status === 'cancelled' || status === 'removed';
-          return !resolved;
-        }).length;
-        return pending;
-      }
-    }
-    return event?.approval_status?.pending ?? 0;
-  };
-  
   if (events.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -1561,13 +1699,12 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
         // Use aggregates from API (SSOT - no lazy calculation)
         // Prefer lightweight serializer fields, fallback to detailed serializer
         // Guard: Only show hours/cost if there are valid assignments (not just no-shows/cancellations)
-        const hasValidAssignments = (event.shifts_by_role && event.shifts_by_role.some((rg: any) => (rg.shifts || []).some((s: any) => (s.assignments || []).length > 0)))
-          || (event.approval_status && event.approval_status.total > 0);
+        const hasValidAssignments = event.approval_status && event.approval_status.total > 0;
         const totalHours = safeNumber(event.total_hours ?? event.total_hours_worked ?? 0);
-        const totalCost = event.cost_summary?.total_estimated_cost ?? event.total_pay_amount ?? 0;
-        const approvedCost = event.cost_summary?.approved_cost ?? 0;
-        const pendingCost = event.cost_summary?.pending_cost ?? 0;
-        const pendingCount = getPendingCount(event);
+        const totalCost = safeNumber(event.cost_summary?.total_estimated_cost ?? event.total_pay_amount ?? 0);
+        const approvedCost = safeNumber(event.cost_summary?.approved_cost ?? 0);
+        const pendingCost = safeNumber(event.cost_summary?.pending_cost ?? 0);
+        const pendingCount = safeNumber(event.approval_status?.pending ?? 0);
         
         // Calculate approved hours from cost ratio (simplified: assume proportional hours to cost)
         // If cost_summary exists, use ratio; otherwise show total hours as approved
@@ -1622,11 +1759,17 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                 <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
                   Completed
                 </span>
+                {isEventFullyReviewed(event) && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded border border-green-200">
+                    <CheckCircle className="h-3 w-3" />
+                    Reviewed
+                  </span>
+                )}
               </div>
             </div>
             
             {/* Stats Grid - Clean & Minimal */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-3 border-y border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-3 border-y border-gray-100">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Workers</div>
                 <div className="text-lg font-semibold text-gray-900">
@@ -1671,35 +1814,6 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
                   )}
                 </div>
               </div>
-              
-              {/* Staffing - Color by text only (0 gray, 1-99 amber, 100 green) */}
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Staffing</div>
-                {(() => {
-                  const totalNeeded = event.total_workers_needed || 0;
-                  const assigned = event.assigned_workers_count || 0;
-                  
-                  // Gracefully handle unstaffed events
-                  if (totalNeeded === 0 && assigned === 0) {
-                    return (
-                      <div className="text-lg font-semibold text-gray-400">
-                        Not staffed
-                      </div>
-                    );
-                  }
-                  
-                  // Show percentage for staffed events
-                  const percentage = event.staffing_percentage || (totalNeeded > 0 ? Math.round((assigned / totalNeeded) * 100) : 0);
-                  return (
-                    <div className={cn(
-                      "text-lg font-semibold",
-                      percentage === 0 ? "text-gray-500" : percentage === 100 ? "text-green-600" : "text-amber-600"
-                    )}>
-                      {percentage}%
-                    </div>
-                  );
-                })()}
-              </div>
             </div>
                               
             {/* Action Button - Renamed to "Review & Approve (n)" */}
@@ -1707,51 +1821,58 @@ function PastEventsTab({ events, searchQuery, onApproveHours }: PastEventsTabPro
               {onApproveHours && (() => {
                 const totalNeeded = event.total_workers_needed || 0;
                 const assigned = event.assigned_workers_count || 0;
-                const hasAssignments = (event.shifts_by_role && event.shifts_by_role.some((rg: any) => (rg.shifts || []).some((s: any) => (s.assignments || []).length > 0)))
-                  || (event.approval_status && event.approval_status.total > 0);
+                const hasAssignments =
+                  (event.approval_status?.total ?? 0) > 0 ||
+                  (event.cost_summary?.total_count ?? 0) > 0 ||
+                  assigned > 0;
+                const fullyReviewed = isEventFullyReviewed(event);
+                const pendingReviewCount = getPendingReviewCount(event);
                 
                 // Hide button for unstaffed events with no assignments
                 if (totalNeeded === 0 && assigned === 0 && !hasAssignments) {
                   return null;
                 }
                 
+                if (!hasAssignments) {
+                  return (
+                    <button
+                      disabled
+                      className="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                    >
+                      <Check className="h-4 w-4" />
+                      No assignments
+                    </button>
+                  );
+                }
+                
+                const handleClick = () => onApproveHours(event);
+
+                if (fullyReviewed) {
+                  return (
+                    <button
+                      onClick={handleClick}
+                      aria-label="Review assignments (already reviewed)"
+                      className="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm"
+                      title="All assignments reviewed. Click to adjust if needed."
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Reviewed</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  );
+                }
+                
                 return (
                   <button
-                    onClick={() => onApproveHours(event)}
-                    aria-label={pendingCount > 0 
-                      ? `Review and approve ${pendingCount} pending assignment${pendingCount !== 1 ? 's' : ''}`
-                      : hasAssignments 
-                        ? 'View approved assignments'
-                        : 'No assignments to review'
+                    onClick={handleClick}
+                    aria-label={pendingReviewCount > 0 
+                      ? `Review and approve ${pendingReviewCount} pending assignment${pendingReviewCount !== 1 ? 's' : ''}`
+                      : 'Review & Approve'
                     }
-                    className={cn(
-                      "px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-colors shadow-sm",
-                      pendingCount > 0
-                        ? "bg-amber-600 hover:bg-amber-700 text-white"
-                        : event.approval_status && event.approval_status.approved === event.approval_status.total && hasAssignments
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : hasAssignments
-                        ? "bg-green-600 hover:bg-green-700 text-white"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    )}
-                    disabled={!hasAssignments}
+                    className="px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white transition-colors shadow-sm"
                   >
-                    {pendingCount > 0 ? (
-                      <>
-                        <Clock className="h-4 w-4" />
-                        Review & Approve ({pendingCount})
-                      </>
-                    ) : hasAssignments ? (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Approved
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        No assignments
-                      </>
-                    )}
+                    <ClipboardCheck className="h-4 w-4" />
+                    <span>{pendingReviewCount > 0 ? `Review & Approve (${pendingReviewCount})` : 'Review & Approve'}</span>
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 );

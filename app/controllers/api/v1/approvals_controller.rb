@@ -47,6 +47,21 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
     
     ActiveRecord::Base.transaction do
+      # Capture before state for activity log
+      worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
+      event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
+      role = @assignment.shift&.role_needed || nil
+      
+      before_state = {
+        worker_name: worker_name,
+        event_name: event_name,
+        role: role,
+        effective_hours: @assignment.effective_hours,
+        effective_pay: @assignment.effective_pay,
+        effective_hourly_rate: @assignment.effective_hourly_rate,
+        hours_worked: @assignment.hours_worked
+      }
+      
       # If assignment was cancelled/removed/no_show, restore it to 'assigned' status when editing hours
       was_cancelled_or_no_show = @assignment.status.in?(['cancelled', 'removed', 'no_show'])
       if was_cancelled_or_no_show
@@ -65,9 +80,17 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           entity_type: 'Assignment',
           entity_id: @assignment.id,
           action: 'restored_from_cancelled',
-          before_json: { status: previous_status },
+          before_json: { 
+            status: previous_status,
+            worker_name: worker_name,
+            event_name: event_name,
+            role: role
+          },
           after_json: {
             status: 'assigned',
+            worker_name: worker_name,
+            event_name: event_name,
+            role: role,
             note: "Assignment restored from #{previous_status} status when hours were edited"
           },
           created_at_utc: Time.current
@@ -88,6 +111,9 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           entity_id: @assignment.id,
           action: 'hours_reopened_for_editing',
           after_json: { 
+            worker_name: worker_name,
+            event_name: event_name,
+            role: role,
             message: "Hours re-opened for editing by #{Current.user&.email}",
             previous_approver: previous_approver,
             previous_approval_time: previous_approval_time
@@ -120,13 +146,25 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         edited_at_utc: Time.current
       )
 
+      # Capture after state for activity log
+      @assignment.reload
+      after_state = {
+        worker_name: worker_name,
+        event_name: event_name,
+        role: role,
+        effective_hours: @assignment.effective_hours,
+        effective_pay: @assignment.effective_pay,
+        effective_hourly_rate: @assignment.effective_hourly_rate,
+        hours_worked: @assignment.hours_worked
+      }
+
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
         entity_type: 'Assignment',
         entity_id: @assignment.id,
         action: was_approved ? 'hours_re_edited' : 'hours_updated',
-        before_json: { original_hours_worked: @assignment.original_hours_worked },
-        after_json: { hours_worked: @assignment.hours_worked },
+        before_json: before_state,
+        after_json: after_state,
         created_at_utc: Time.current
       )
     end
@@ -143,24 +181,39 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   # POST /api/v1/approvals/:id/mark_no_show
   def mark_no_show
     ActiveRecord::Base.transaction do
-      @assignment.mark_no_show!(Current.user, notes: params[:notes])
-
-      # Get worker and event names for activity log
+      # Capture before state (pay and hours before marking no-show)
+      before_pay = @assignment.effective_pay
+      before_hours = @assignment.effective_hours
+      before_status = @assignment.status
+      
+      # Get worker and event names for activity log (before marking no-show)
       worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
       event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
       role = @assignment.shift&.role_needed || nil
+      
+      @assignment.mark_no_show!(Current.user, notes: params[:notes])
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
         entity_type: 'Assignment',
         entity_id: @assignment.id,
         action: 'marked_no_show',
+        before_json: {
+          worker_name: worker_name,
+          event_name: event_name,
+          role: role,
+          effective_pay: before_pay,
+          effective_hours: before_hours,
+          status: before_status
+        },
         after_json: { 
           status: 'no_show', 
           notes: params[:notes],
           worker_name: worker_name,
           event_name: event_name,
-          role: role
+          role: role,
+          effective_pay: 0,
+          effective_hours: 0
         },
         created_at_utc: Time.current
       )
@@ -235,15 +288,28 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       end
 
       if approved_count > 0
+        # Collect worker names for summary (first name + last initial)
+        worker_names = assignments.includes(:worker).map do |a|
+          if a.worker
+            "#{a.worker.first_name} #{a.worker.last_name[0]}."
+          else
+            'Unknown Worker'
+          end
+        end.compact
+
         ActivityLog.create!(
           actor_user_id: Current.user&.id,
           entity_type: 'Event',
           entity_id: @event.id,
           action: 'event_hours_approved_selected',
           after_json: { 
+            event_name: @event.title,
+            event_id: @event.id,
             approved_count: approved_count,
+            worker_count: approved_count,
             failed_count: failed_count,
-            assignment_ids: assignment_ids
+            assignment_ids: assignment_ids,
+            worker_names: worker_names
           },
           created_at_utc: Time.current
         )
@@ -285,7 +351,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         entity_type: 'Event',
         entity_id: @event.id,
         action: 'event_hours_approved',
-        after_json: { approved_count: approved_count },
+        after_json: { 
+          event_name: @event.title,
+          event_id: @event.id,
+          approved_count: approved_count,
+          worker_count: approved_count
+        },
         created_at_utc: Time.current
       )
     end

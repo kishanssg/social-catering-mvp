@@ -73,14 +73,26 @@ class Events::RecalculateTotals
   def log_recalculation_activity
     return unless Current.user
     
+    # Capture before state (if available from previous calculation)
+    before_state = {
+      event_name: @event.title,
+      total_hours_worked: @event.total_hours_worked_before_last_save || @event.total_hours_worked,
+      total_pay_amount: @event.total_pay_amount_before_last_save || @event.total_pay_amount
+    }
+    
     ActivityLog.create!(
       actor_user_id: Current.user.id,
       entity_type: 'Event',
       entity_id: @event.id,
       action: 'totals_recalculated',
+      before_json: before_state,
       after_json: {
+        event_name: @event.title,
+        event_id: @event.id,
         total_hours_worked: @event.total_hours_worked,
         total_pay_amount: @event.total_pay_amount,
+        total_hours: @event.total_hours_worked,
+        total_cost: @event.total_pay_amount,
         assigned_shifts_count: @event.assigned_shifts_count,
         total_shifts_count: @event.total_shifts_count
       },

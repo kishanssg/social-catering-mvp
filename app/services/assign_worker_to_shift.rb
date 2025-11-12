@@ -75,6 +75,7 @@ class AssignWorkerToShift < ApplicationService
     )
 
     # Log the assignment action
+    event_name = @shift.event&.title || @shift.client_name || 'Unknown Event'
     ActivityLog.create!(
       actor_user_id: @assigned_by.id,
       entity_type: "Assignment",
@@ -88,9 +89,13 @@ class AssignWorkerToShift < ApplicationService
         worker_last_name: @worker.last_name,
         shift_id: @shift.id,
         shift_name: @shift.client_name,
-        event_name: @shift.client_name,  # Alias for presenter
+        event_name: event_name,
+        event_id: @shift.event_id,
         role: @shift.role_needed,
+        role_needed: @shift.role_needed,
+        shift_role: @shift.role_needed,
         hourly_rate: @assignment.hourly_rate,
+        effective_hourly_rate: @assignment.effective_hourly_rate,
         location: @shift.location&.name,
         shift_date: @shift.start_time_utc&.strftime('%b %d, %Y')
       },

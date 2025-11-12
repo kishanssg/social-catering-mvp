@@ -37,11 +37,12 @@ interface Shift {
 
 interface AssignmentModalProps {
   shiftId: number;
+  suggestedPayRate?: number;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModalProps) {
+export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess }: AssignmentModalProps) {
   const [shift, setShift] = useState<Shift | null>(null);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
@@ -175,7 +176,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
           worker_id: selectedWorker.id,
           status: 'assigned',
           assigned_at_utc: new Date().toISOString(),
-          hourly_rate: workerPayRates[selectedWorker.id] || Number(shift.pay_rate) || 0,
+          hourly_rate: workerPayRates[selectedWorker.id] || suggestedPayRate || Number(shift.pay_rate) || 0,
         }
       });
 
@@ -318,7 +319,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                     
                     <div className="pt-2 border-t border-gray-200">
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Pay Rate:</span> ${(Number(shift.pay_rate) || 0).toFixed(2)}/hour
+                        <span className="font-medium">Pay Rate:</span> ${(suggestedPayRate || Number(shift.pay_rate) || 0).toFixed(2)}/hour
                       </div>
                       {shift.uniform_name && (
                         <div className="text-sm text-gray-600 mt-1">
@@ -446,8 +447,9 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                   <ul>
                     {filteredWorkers.map((worker) => {
                       const isSelected = selectedWorker?.id === worker.id;
-                    const workerPayRate = workerPayRates[worker.id] || (Number(shift.pay_rate) || 0);
-                    const isCustomRate = workerPayRates[worker.id] && workerPayRates[worker.id] !== (Number(shift.pay_rate) || 0);
+                    const defaultRate = suggestedPayRate || Number(shift.pay_rate) || 0;
+                    const workerPayRate = workerPayRates[worker.id] || defaultRate;
+                    const isCustomRate = workerPayRates[worker.id] && workerPayRates[worker.id] !== defaultRate;
                     
                       return (
                       <li key={worker.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
@@ -492,7 +494,7 @@ export function AssignmentModal({ shiftId, onClose, onSuccess }: AssignmentModal
                               type="number"
                               step="1"
                               min="0"
-                              placeholder={(Number(shift.pay_rate) || 0).toString()}
+                              placeholder={(suggestedPayRate || Number(shift.pay_rate) || 0).toString()}
                               value={workerPayRate || ''}
                               onChange={(e) => {
                                 const value = e.target.value;
