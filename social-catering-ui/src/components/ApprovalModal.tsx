@@ -1405,17 +1405,18 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       return edited.status;
     }
     
-    // If approved flag is true, status is approved
-    if (assignment.approved) {
-      return 'approved';
+    // CRITICAL: Check status first (cancelled/removed/no_show override approved flag)
+    // This ensures denied/no-show assignments show correctly even if approved flag is set
+    if (assignment.status === 'cancelled' || assignment.status === 'removed') {
+      return 'denied';
     }
-    
-    // Map status values to dropdown options
     if (assignment.status === 'no_show') {
       return 'no_show';
     }
-    if (assignment.status === 'cancelled' || assignment.status === 'removed') {
-      return 'denied';
+    
+    // If approved flag is true and status is not cancelled/removed/no_show, status is approved
+    if (assignment.approved) {
+      return 'approved';
     }
     
     // Default to pending
