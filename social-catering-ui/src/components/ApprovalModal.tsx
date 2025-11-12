@@ -919,6 +919,8 @@ interface MobileAssignmentCardProps {
   calculateHours: (timeIn: string, timeOut: string, breakMin: number, status: string) => string;
   getStatusValue: (assignment: AssignmentForApproval) => string;
   changingStatus: number | null;
+  setConfirmDialog: (dialog: any) => void;
+  confirmDialog: any;
 }
 
 function MobileAssignmentCard({
@@ -933,7 +935,9 @@ function MobileAssignmentCard({
   formatTimeInput,
   calculateHours,
   getStatusValue,
-  changingStatus
+  changingStatus,
+  setConfirmDialog,
+  confirmDialog
 }: MobileAssignmentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -1167,125 +1171,125 @@ function MobileAssignmentCard({
             
             {showActionMenu && (
               <div className="mt-2 border border-gray-200 rounded-lg bg-white shadow-lg overflow-hidden">
-                {/* If no-show, only show Cancel No Show */}
-                {currentStatus === 'no_show' ? (
-                  <button
-                    onClick={async () => {
-                      await onStatusChange(assignment.id, 'cancel_no_show');
-                      setShowActionMenu(false);
-                    }}
-                    disabled={changingStatus === assignment.id}
-                    className={cn(
-                      "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
-                      currentStatus === 'no_show' && "bg-amber-50"
-                    )}
-                  >
-                    {changingStatus === assignment.id ? (
-                      <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
-                    ) : (
-                      <Undo2 className="h-4 w-4 text-amber-600" />
-                    )}
-                    <span className="text-sm font-medium text-amber-700">
-                      {changingStatus === assignment.id ? 'Updating...' : 'Cancel No Show'}
-                    </span>
-                  </button>
-                ) : (
+                {/* 1. APPROVE (primary positive) */}
+                <button
+                  onClick={async () => {
+                    await onStatusChange(assignment.id, 'approved');
+                    setShowActionMenu(false);
+                  }}
+                  disabled={currentStatus === 'approved' || changingStatus === assignment.id}
+                  className={cn(
+                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                    currentStatus === 'approved' && "bg-green-50"
+                  )}
+                >
+                  {changingStatus === assignment.id ? (
+                    <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  )}
+                  <span className="text-sm font-medium text-green-700">
+                    {changingStatus === assignment.id ? 'Updating...' : 'Approve'}
+                  </span>
+                  {currentStatus === 'approved' && (
+                    <Check className="h-4 w-4 ml-auto text-green-600" />
+                  )}
+                </button>
+                
+                {/* 2. REJECT (primary negative) */}
+                <button
+                  onClick={async () => {
+                    await onStatusChange(assignment.id, 'denied');
+                    setShowActionMenu(false);
+                  }}
+                  disabled={currentStatus === 'denied' || changingStatus === assignment.id}
+                  className={cn(
+                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed border-t",
+                    currentStatus === 'denied' && "bg-red-50"
+                  )}
+                >
+                  {changingStatus === assignment.id ? (
+                    <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                  ) : (
+                    <Ban className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className="text-sm font-medium text-red-700">
+                    {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
+                  </span>
+                  {currentStatus === 'denied' && (
+                    <Check className="h-4 w-4 ml-auto text-red-600" />
+                  )}
+                </button>
+                
+                {/* SEPARATOR */}
+                <div className="border-t-2 border-gray-300 my-1" />
+                
+                {/* 3. UNAPPROVE or CANCEL NO SHOW (secondary/undo) */}
+                <button
+                  onClick={async () => {
+                    await onStatusChange(assignment.id, currentStatus === 'no_show' ? 'cancel_no_show' : 'pending');
+                    setShowActionMenu(false);
+                  }}
+                  disabled={currentStatus === 'pending' || changingStatus === assignment.id}
+                  className={cn(
+                    "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                    currentStatus === 'pending' && "bg-amber-50"
+                  )}
+                >
+                  {changingStatus === assignment.id ? (
+                    <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+                  ) : currentStatus === 'no_show' ? (
+                    <Undo2 className="h-4 w-4 text-amber-600" />
+                  ) : (
+                    <Clock className="h-4 w-4 text-amber-600" />
+                  )}
+                  <span className="text-sm font-medium text-amber-700">
+                    {changingStatus === assignment.id 
+                      ? 'Updating...' 
+                      : currentStatus === 'no_show' 
+                        ? 'Cancel No Show' 
+                        : 'Unapprove'}
+                  </span>
+                  {currentStatus === 'pending' && (
+                    <Check className="h-4 w-4 ml-auto text-amber-600" />
+                  )}
+                </button>
+                
+                {/* 4. NO SHOW (destructive - only show if NOT already no-show) */}
+                {currentStatus !== 'no_show' && (
                   <>
-                    {/* Approve (if not already approved) */}
-                    {currentStatus !== 'approved' && (
-                      <button
-                        onClick={async () => {
-                          await onStatusChange(assignment.id, 'approved');
-                          setShowActionMenu(false);
-                        }}
-                        disabled={changingStatus === assignment.id}
-                        className={cn(
-                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        )}
-                      >
-                        {changingStatus === assignment.id ? (
-                          <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
-                        ) : (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        )}
-                        <span className="text-sm font-medium text-green-700">
-                          {changingStatus === assignment.id ? 'Updating...' : 'Approve'}
-                        </span>
-                      </button>
-                    )}
+                    {/* SEPARATOR */}
+                    <div className="border-t-2 border-gray-300 my-1" />
                     
-                    {/* Reject (if not already denied) */}
-                    {currentStatus !== 'denied' && (
-                      <button
-                        onClick={async () => {
-                          await onStatusChange(assignment.id, 'denied');
-                          setShowActionMenu(false);
-                        }}
-                        disabled={changingStatus === assignment.id}
-                        className={cn(
-                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-t"
-                        )}
-                      >
-                        {changingStatus === assignment.id ? (
-                          <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
-                        ) : (
-                          <Ban className="h-4 w-4 text-gray-600" />
-                        )}
-                        <span className="text-sm font-medium text-gray-700">
-                          {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
-                        </span>
-                      </button>
-                    )}
-                    
-                    {/* No Show (if not already no-show) */}
-                    {currentStatus !== 'no_show' && (
-                      <button
-                        onClick={async () => {
-                          await onStatusChange(assignment.id, 'no_show');
-                          setShowActionMenu(false);
-                        }}
-                        disabled={changingStatus === assignment.id}
-                        className={cn(
-                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed border-t"
-                        )}
-                      >
-                        {changingStatus === assignment.id ? (
-                          <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        )}
-                        <span className="text-sm font-medium text-red-700">
-                          {changingStatus === assignment.id ? 'Updating...' : 'No Show'}
-                        </span>
-                      </button>
-                    )}
-                    
-                    {/* Unapprove (only if currently approved) */}
-                    {currentStatus === 'approved' && (
-                      <button
-                        onClick={async () => {
-                          await onStatusChange(assignment.id, 'pending');
-                          setShowActionMenu(false);
-                        }}
-                        disabled={changingStatus === assignment.id}
-                        className={cn(
-                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed border-t",
-                          currentStatus === 'approved' && "bg-amber-50"
-                        )}
-                      >
-                        {changingStatus === assignment.id ? (
-                          <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-amber-600" />
-                        )}
-                        <span className="text-sm font-medium text-amber-700">
-                          {changingStatus === assignment.id ? 'Updating...' : 'Unapprove'}
-                        </span>
-                        {currentStatus === 'approved' && changingStatus !== assignment.id && (
-                          <Check className="h-4 w-4 ml-auto text-amber-600" />
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        // Show confirmation on mobile too
+                        setConfirmDialog({
+                          open: true,
+                          title: 'Mark as No Show?',
+                          message: `Mark ${assignment.worker_name} as no-show? This will set hours to 0 and affect their reliability score.`,
+                          variant: 'warning',
+                          requireNote: true,
+                          note: '',
+                          onConfirm: async (note?: string) => {
+                            setConfirmDialog({ open: false, title: '' });
+                            await onStatusChange(assignment.id, 'no_show');
+                            setShowActionMenu(false);
+                          }
+                        });
+                      }}
+                      disabled={changingStatus === assignment.id}
+                      className="w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {changingStatus === assignment.id ? (
+                        <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-gray-600" />
+                      )}
+                      <span className="text-sm font-medium text-gray-700">
+                        {changingStatus === assignment.id ? 'Updating...' : 'No Show'}
+                      </span>
+                    </button>
                   </>
                 )}
               </div>
@@ -2195,78 +2199,66 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
   const ActionMenu = ({ assignmentId }: { assignmentId: number }) => {
     const isOpen = openActionMenu === assignmentId;
     const assignment = assignments.find(a => a.id === assignmentId);
-    const currentStatus = getStatusValue(assignment || assignments[0]);
+    if (!assignment) return null;
+    
+    const currentStatus = getStatusValue(assignment);
     const buttonRef = React.useRef<HTMLButtonElement>(null);
     const [menuPosition, setMenuPosition] = React.useState<{ top: number; right: number } | null>(null);
 
-    // Build menu items based on current status
-    // Order: Approve, Reject, Unapprove (or Cancel No Show if no-show)
+    // ✅ FINAL MENU ORDER: Approve, Reject, Unapprove/Cancel No Show, No Show (last)
     const menuItems = React.useMemo(() => {
       const items = [];
       
-      // If status is "no_show", show "Cancel No Show" instead of other options
-      if (currentStatus === 'no_show') {
-        items.push({
-          value: 'cancel_no_show',
-          label: 'Cancel No Show',
-          icon: Undo2, // Use undo icon to indicate restoration
-          color: 'text-amber-600',
-          hoverBg: 'hover:bg-amber-50',
-          disabled: false
-        });
-        return items; // Only show cancel option for no-show
-      }
+      // 1. APPROVE (primary positive)
+      items.push({
+        value: 'approved',
+        label: 'Approve',
+        icon: CheckCircle,
+        color: 'text-green-600',
+        hoverBg: 'hover:bg-green-50',
+        disabled: currentStatus === 'approved',
+        hidden: false,
+        separator: false
+      });
       
-      // For all other statuses, show Approve, Reject, and No Show
-      // Approve (if not already approved)
-      if (currentStatus !== 'approved') {
-        items.push({
-          value: 'approved',
-          label: 'Approve',
-          icon: CheckCircle,
-          color: 'text-green-600',
-          hoverBg: 'hover:bg-green-50',
-          disabled: false
-        });
-      }
+      // 2. REJECT (primary negative)
+      items.push({
+        value: 'denied',
+        label: 'Reject',
+        icon: Ban,
+        color: 'text-red-600',
+        hoverBg: 'hover:bg-red-50',
+        disabled: currentStatus === 'denied',
+        hidden: false,
+        separator: false
+      });
       
-      // Reject (if not already denied)
-      if (currentStatus !== 'denied') {
-        items.push({
-          value: 'denied',
-          label: 'Reject',
-          icon: Ban,
-          color: 'text-gray-600',
-          hoverBg: 'hover:bg-gray-50',
-          disabled: false
-        });
-      }
+      // 3. UNAPPROVE or CANCEL NO SHOW (secondary/undo)
+      items.push({
+        value: currentStatus === 'no_show' ? 'cancel_no_show' : 'pending',
+        label: currentStatus === 'no_show' ? 'Cancel No Show' : 'Unapprove',
+        icon: currentStatus === 'no_show' ? Undo2 : Clock,
+        color: 'text-amber-600',
+        hoverBg: 'hover:bg-amber-50',
+        disabled: currentStatus === 'pending',
+        hidden: false,
+        separator: true  // ✅ Add separator before this (visual break)
+      });
       
-      // No Show (if not already no-show)
-      if (currentStatus !== 'no_show') {
-        items.push({
-          value: 'no_show',
-          label: 'No Show',
-          icon: XCircle,
-          color: 'text-red-600',
-          hoverBg: 'hover:bg-red-50',
-          disabled: false
-        });
-      }
+      // 4. NO SHOW (destructive - last, hidden if already no-show)
+      items.push({
+        value: 'no_show',
+        label: 'No Show',
+        icon: XCircle,
+        color: 'text-gray-600',
+        hoverBg: 'hover:bg-gray-50',
+        disabled: false,
+        hidden: currentStatus === 'no_show',  // ✅ Hide if already no-show
+        separator: true,  // ✅ Visual separator (destructive action)
+        confirm: true  // ✅ Requires confirmation
+      });
       
-      // Unapprove (only if currently approved)
-      if (currentStatus === 'approved') {
-        items.push({
-          value: 'pending',
-          label: 'Unapprove',
-          icon: Clock,
-          color: 'text-amber-600',
-          hoverBg: 'hover:bg-amber-50',
-          disabled: false
-        });
-      }
-      
-      return items;
+      return items.filter(item => !item.hidden);
     }, [currentStatus]);
 
     // Calculate menu position when opening
@@ -2281,6 +2273,29 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         setMenuPosition(null);
       }
     }, [isOpen]);
+
+    // Handle action with confirmation for destructive actions
+    const handleAction = (item: any) => {
+      if (item.confirm && item.value === 'no_show') {
+        // Show confirmation dialog for no-show
+        setConfirmDialog({
+          open: true,
+          title: 'Mark as No Show?',
+          message: `Mark ${assignment.worker_name} as no-show? This will set hours to 0 and affect their reliability score.`,
+          requireNote: true,
+          note: '',
+          variant: 'warning',
+          onConfirm: async (note?: string) => {
+            setConfirmDialog({ open: false, title: '' });
+            await handleStatusChange(assignmentId, item.value);
+            setOpenActionMenu(null);
+          }
+        });
+      } else {
+        handleStatusChange(assignmentId, item.value);
+        setOpenActionMenu(null);
+      }
+    };
 
     return (
       <>
@@ -2319,35 +2334,43 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 right: `${menuPosition.right}px`
               }}
             >
-              {menuItems.map((item) => {
+              {menuItems.map((item, index) => {
                 const Icon = item.icon;
                 
                 return (
-                  <button
-                    key={item.value}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!item.disabled && changingStatus !== assignmentId) {
-                        handleStatusChange(assignmentId, item.value);
-                        setOpenActionMenu(null);
-                      }
-                    }}
-                    disabled={item.disabled || changingStatus === assignmentId}
-                    className={cn(
-                      "w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors",
-                      (item.disabled || changingStatus === assignmentId)
-                        ? "opacity-40 cursor-not-allowed" 
-                        : `${item.color} cursor-pointer`,
-                      item.disabled && currentStatus === item.value && "bg-gray-50"
+                  <React.Fragment key={item.value}>
+                    {/* Separator before Unapprove/Cancel No Show and No Show */}
+                    {item.separator && index > 0 && (
+                      <div className="my-1 border-t border-gray-200" />
                     )}
-                  >
-                    {changingStatus === assignmentId ? (
-                      <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
-                    ) : (
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                    )}
-                    <span>{changingStatus === assignmentId ? 'Updating...' : item.label}</span>
-                  </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!item.disabled && changingStatus !== assignmentId) {
+                          handleAction(item);
+                        }
+                      }}
+                      disabled={item.disabled || changingStatus === assignmentId}
+                      className={cn(
+                        "w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors",
+                        item.disabled || changingStatus === assignmentId
+                          ? "opacity-40 cursor-not-allowed" 
+                          : `${item.hoverBg} ${item.color} cursor-pointer`,
+                        item.disabled && currentStatus === item.value && "bg-gray-50"
+                      )}
+                    >
+                      {changingStatus === assignmentId ? (
+                        <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                      ) : (
+                        <Icon className="h-4 w-4 flex-shrink-0" />
+                      )}
+                      <span className="font-medium">{changingStatus === assignmentId ? 'Updating...' : item.label}</span>
+                      {item.disabled && currentStatus === item.value && (
+                        <Check className="h-3.5 w-3.5 ml-auto text-teal-600" />
+                      )}
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -2517,6 +2540,8 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   calculateHours={calculateHours}
                   getStatusValue={getStatusValue}
                   changingStatus={changingStatus}
+                  setConfirmDialog={setConfirmDialog}
+                  confirmDialog={confirmDialog}
                 />
               ))}
             </div>
