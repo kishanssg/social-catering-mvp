@@ -150,7 +150,15 @@ export function DashboardPage() {
         });
         
         // Load events for calendar and urgent events
-        const eventsResponse = await apiClient.get('/events');
+        // CRITICAL: Use tab=active to get only published events (not drafts)
+        // This ensures we don't hit the 50-event limit with draft events
+        // Also increase limit to 200 to capture all active events
+        const eventsResponse = await apiClient.get('/events', {
+          params: {
+            tab: 'active',
+            limit: 200  // Increased from default 50 to ensure we get all active events
+          }
+        });
         
         if (eventsResponse.data.status === 'success') {
           const events = eventsResponse.data.data;
@@ -159,6 +167,7 @@ export function DashboardPage() {
           const monthStart = startOfMonth(currentMonth);
           const monthEnd = endOfMonth(currentMonth);
           
+          // All events from active tab are already published, but filter for safety
           const publishedEvents = events.filter((e: any) => e.status === 'published');
           const daysMap: Record<string, DayData> = {};
           
@@ -215,12 +224,38 @@ export function DashboardPage() {
           // Get urgent events (upcoming with gaps, within 48h)
           const urgent = publishedEvents
             .filter((e: any) => {
-              if (!e.schedule || (e.unfilled_roles_count || 0) === 0) return false;
+              // Must have schedule
+              if (!e.schedule) {
+                console.debug(`[Urgent Queue] Event ${e.id} (${e.title}) filtered: no schedule`);
+                return false;
+              }
+              
+              // Must have unfilled roles
+              const unfilledCount = e.unfilled_roles_count || 0;
+              if (unfilledCount === 0) {
+                console.debug(`[Urgent Queue] Event ${e.id} (${e.title}) filtered: no unfilled roles (count: ${unfilledCount})`);
+                return false;
+              }
+              
+              // Must be in the future
               const eventDate = parseISO(e.schedule.start_time_utc);
               const now = new Date();
-              if (eventDate < now) return false;
+              if (eventDate < now) {
+                console.debug(`[Urgent Queue] Event ${e.id} (${e.title}) filtered: event is in the past`);
+                return false;
+              }
+              
+              // Must be within 48 hours
               const hoursUntil = (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-              return hoursUntil > 0 && hoursUntil <= 48;
+              const isWithin48h = hoursUntil > 0 && hoursUntil <= 48;
+              
+              if (!isWithin48h) {
+                console.debug(`[Urgent Queue] Event ${e.id} (${e.title}) filtered: outside 48h window (${hoursUntil.toFixed(1)}h until)`);
+                return false;
+              }
+              
+              console.debug(`[Urgent Queue] Event ${e.id} (${e.title}) included: ${hoursUntil.toFixed(1)}h until, ${unfilledCount} unfilled roles`);
+              return true;
             })
             .map((e: any) => {
               const eventDate = parseISO(e.schedule.start_time_utc);
@@ -241,6 +276,9 @@ export function DashboardPage() {
               return a.staffing_percentage - b.staffing_percentage;
             })
             .slice(0, 5); // Top 5 most urgent
+          
+          // Debug summary
+          console.debug(`[Urgent Queue] Summary: ${publishedEvents.length} published events checked, ${urgent.length} urgent events found (within 48h with unfilled roles)`);
           
           setUrgentEvents(urgent);
         }

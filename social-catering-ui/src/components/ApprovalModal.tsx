@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeToFixed } from '../utils/number';
 import { cn } from '../lib/utils';
-import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin, XCircle, Undo2 } from 'lucide-react';
+import { X, Check, Ban, AlertCircle, Clock, Edit2, User, Loader2, Plus, Minus, MapPin, XCircle, Undo2, ChevronDown, ChevronRight, CheckCircle, MoreVertical, Save } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
@@ -905,6 +905,375 @@ function WorkerRow({
   );
 }
 
+// Mobile Assignment Card Component
+interface MobileAssignmentCardProps {
+  assignment: AssignmentForApproval;
+  event: any;
+  isSelected: boolean;
+  canSelect: boolean;
+  onToggleSelect: (id: number) => void;
+  onStatusChange: (id: number, status: string) => Promise<void>;
+  editedValues: any;
+  onEditValue: (id: number, field: string, value: any) => void;
+  formatTimeInput: (date: string) => string;
+  calculateHours: (timeIn: string, timeOut: string, breakMin: number, status: string) => string;
+  getStatusValue: (assignment: AssignmentForApproval) => string;
+  changingStatus: number | null;
+}
+
+function MobileAssignmentCard({
+  assignment,
+  event,
+  isSelected,
+  canSelect,
+  onToggleSelect,
+  onStatusChange,
+  editedValues,
+  onEditValue,
+  formatTimeInput,
+  calculateHours,
+  getStatusValue,
+  changingStatus
+}: MobileAssignmentCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  
+  const edited = editedValues[assignment.id] || {};
+  const timeIn = edited.timeIn || assignment.scheduled_start;
+  const timeOut = edited.timeOut || assignment.scheduled_end;
+  const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+  const hourlyRate = edited.hourlyRate ?? assignment.effective_hourly_rate;
+  const currentStatus = getStatusValue(assignment);
+  
+  const totalHours = calculateHours(timeIn, timeOut, breakMinutes, currentStatus);
+  const totalPay = (parseFloat(totalHours) * hourlyRate).toFixed(2);
+  
+  const isDirty = Object.keys(edited).length > 0;
+
+  return (
+    <div 
+      className={cn(
+        "border rounded-lg overflow-hidden transition-all",
+        currentStatus === 'approved' && "border-green-200 bg-green-50/30",
+        currentStatus === 'no_show' && "border-red-200 bg-red-50/30",
+        currentStatus === 'denied' && "border-gray-200 bg-gray-50/30",
+        currentStatus === 'pending' && "border-amber-200 bg-white",
+        isDirty && "ring-2 ring-teal-500"
+      )}
+    >
+      {/* Card Header - Always Visible */}
+      <div 
+        className="p-4 cursor-pointer active:bg-gray-50"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-start justify-between mb-2">
+          {/* Worker Info */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {canSelect && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect(assignment.id);
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            
+            <Avatar
+              name={assignment.worker_name}
+              src={assignment.worker_profile_photo_url}
+              size={40}
+            />
+            
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-gray-900 truncate">
+                {assignment.worker_name}
+              </div>
+              <div className="text-sm text-gray-500">
+                {assignment.shift_role}
+              </div>
+            </div>
+          </div>
+          
+          {/* Status Badge */}
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            {currentStatus === 'approved' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
+                <CheckCircle className="h-3 w-3" />
+                Approved
+              </span>
+            )}
+            {currentStatus === 'pending' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                <Clock className="h-3 w-3" />
+                Pending
+              </span>
+            )}
+            {currentStatus === 'no_show' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                <XCircle className="h-3 w-3" />
+                No Show
+              </span>
+            )}
+            {currentStatus === 'denied' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                <Ban className="h-3 w-3" />
+                Denied
+              </span>
+            )}
+            
+            {/* Expand Icon */}
+            <button
+              className="p-1 hover:bg-gray-100 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              )}
+            </button>
+          </div>
+        </div>
+        
+        {/* Quick Summary (Collapsed State) */}
+        {!isExpanded && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">
+              {totalHours}h × ${safeToFixed(hourlyRate, 2, '0.00')}
+            </span>
+            <span className="font-semibold text-gray-900">
+              ${totalPay}
+            </span>
+          </div>
+        )}
+      </div>
+      
+      {/* Expanded Content */}
+      {isExpanded && (
+        <div className="border-t border-gray-200 p-4 space-y-4 bg-white">
+          {/* Time Inputs */}
+          <div className="space-y-3">
+            {/* Time In */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Time In
+              </label>
+              <input
+                type="time"
+                value={formatTimeInput(timeIn)}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                  const date = new Date(timeIn);
+                  date.setHours(hours, minutes, 0, 0);
+                  onEditValue(assignment.id, 'timeIn', date.toISOString());
+                }}
+                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
+            
+            {/* Time Out */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Time Out
+              </label>
+              <input
+                type="time"
+                value={formatTimeInput(timeOut)}
+                onChange={(e) => {
+                  const [hours, minutes] = e.target.value.split(':').map(Number);
+                  const date = new Date(timeOut);
+                  date.setHours(hours, minutes, 0, 0);
+                  onEditValue(assignment.id, 'timeOut', date.toISOString());
+                }}
+                className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+            </div>
+            
+            {/* Break & Rate */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Break (min)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="15"
+                  value={breakMinutes}
+                  onChange={(e) => onEditValue(assignment.id, 'breakMinutes', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  = {(breakMinutes / 60).toFixed(2)}h
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Rate
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={hourlyRate}
+                    onChange={(e) => onEditValue(assignment.id, 'hourlyRate', parseFloat(e.target.value) || 0)}
+                    className="w-full pl-7 pr-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Calculation Summary */}
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Total Hours:</span>
+              <span className="text-lg font-semibold text-gray-900">{totalHours}h</span>
+            </div>
+            <div className="text-xs text-gray-500 mb-3 text-right">
+              ({formatTimeInput(timeIn)} - {formatTimeInput(timeOut)} - {breakMinutes}min)
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+              <span className="text-sm text-gray-600">Total Pay:</span>
+              <span className="text-xl font-bold text-gray-900">${totalPay}</span>
+            </div>
+            <div className="text-xs text-gray-500 text-right">
+              ({totalHours}h × ${safeToFixed(hourlyRate, 2, '0.00')})
+            </div>
+          </div>
+          
+          {/* Status Change Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowActionMenu(!showActionMenu)}
+              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center justify-between text-sm font-medium"
+            >
+              <span>Change Status</span>
+              <ChevronDown className={cn(
+                "h-4 w-4 transition-transform",
+                showActionMenu && "rotate-180"
+              )} />
+            </button>
+            
+            {showActionMenu && (
+              <div className="mt-2 border border-gray-200 rounded-lg bg-white shadow-lg overflow-hidden">
+                {/* If no-show, only show Cancel No Show */}
+                {currentStatus === 'no_show' ? (
+                  <button
+                    onClick={async () => {
+                      await onStatusChange(assignment.id, 'cancel_no_show');
+                      setShowActionMenu(false);
+                    }}
+                    disabled={changingStatus === assignment.id}
+                    className={cn(
+                      "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed",
+                      currentStatus === 'no_show' && "bg-red-50"
+                    )}
+                  >
+                    {changingStatus === assignment.id ? (
+                      <Loader2 className="h-4 w-4 text-red-600 animate-spin" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className="text-sm font-medium text-red-700">
+                      {changingStatus === assignment.id ? 'Updating...' : 'Cancel No Show'}
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    {/* Approve (if not already approved) */}
+                    {currentStatus !== 'approved' && (
+                      <button
+                        onClick={async () => {
+                          await onStatusChange(assignment.id, 'approved');
+                          setShowActionMenu(false);
+                        }}
+                        disabled={changingStatus === assignment.id}
+                        className={cn(
+                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        {changingStatus === assignment.id ? (
+                          <Loader2 className="h-4 w-4 text-green-600 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        )}
+                        <span className="text-sm font-medium text-green-700">
+                          {changingStatus === assignment.id ? 'Updating...' : 'Approve'}
+                        </span>
+                      </button>
+                    )}
+                    
+                    {/* Reject (if not already denied) */}
+                    {currentStatus !== 'denied' && (
+                      <button
+                        onClick={async () => {
+                          await onStatusChange(assignment.id, 'denied');
+                          setShowActionMenu(false);
+                        }}
+                        disabled={changingStatus === assignment.id}
+                        className={cn(
+                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed border-t"
+                        )}
+                      >
+                        {changingStatus === assignment.id ? (
+                          <Loader2 className="h-4 w-4 text-gray-600 animate-spin" />
+                        ) : (
+                          <Ban className="h-4 w-4 text-gray-600" />
+                        )}
+                        <span className="text-sm font-medium text-gray-700">
+                          {changingStatus === assignment.id ? 'Updating...' : 'Reject'}
+                        </span>
+                      </button>
+                    )}
+                    
+                    {/* Unapprove (only if currently approved) */}
+                    {currentStatus === 'approved' && (
+                      <button
+                        onClick={async () => {
+                          await onStatusChange(assignment.id, 'pending');
+                          setShowActionMenu(false);
+                        }}
+                        disabled={changingStatus === assignment.id}
+                        className={cn(
+                          "w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed border-t",
+                          currentStatus === 'approved' && "bg-amber-50"
+                        )}
+                      >
+                        {changingStatus === assignment.id ? (
+                          <Loader2 className="h-4 w-4 text-amber-600 animate-spin" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-amber-600" />
+                        )}
+                        <span className="text-sm font-medium text-amber-700">
+                          {changingStatus === assignment.id ? 'Updating...' : 'Unapprove'}
+                        </span>
+                        {currentStatus === 'approved' && changingStatus !== assignment.id && (
+                          <Check className="h-4 w-4 ml-auto text-amber-600" />
+                        )}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: ApprovalModalProps) {
   const [assignments, setAssignments] = useState<AssignmentForApproval[]>([]);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
@@ -928,13 +1297,44 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     onConfirm?: (note?: string) => Promise<void> | void;
     variant?: 'default' | 'warning' | 'danger';
   }>({ open: false, title: '', variant: 'default' });
+  
+  // Spreadsheet-style inline editing state
+  const [editedValues, setEditedValues] = useState<{
+    [assignmentId: number]: {
+      timeIn?: string;
+      timeOut?: string;
+      breakMinutes?: number;
+      hourlyRate?: number;
+      notes?: string;
+      status?: string;
+      approved?: boolean;
+    }
+  }>({});
+  
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Loading state for status changes
+  const [changingStatus, setChangingStatus] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen && event) {
       loadAssignments();
       setSelectedAssignmentIds(new Set()); // Reset selection when modal opens
+      setEditedValues({}); // Reset edited values when modal opens
     }
   }, [isOpen, event]);
+  
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // 768px = md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const loadAssignments = async () => {
     if (!event?.id) return;
@@ -996,6 +1396,361 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     }
   };
 
+  // Get the current status value (handles approved flag + status field + edited values)
+  const getStatusValue = (assignment: AssignmentForApproval): string => {
+    const edited = editedValues[assignment.id];
+    
+    // If edited, use edited status
+    if (edited?.status) {
+      return edited.status;
+    }
+    
+    // If approved flag is true, status is approved
+    if (assignment.approved) {
+      return 'approved';
+    }
+    
+    // Map status values to dropdown options
+    if (assignment.status === 'no_show') {
+      return 'no_show';
+    }
+    if (assignment.status === 'cancelled' || assignment.status === 'removed') {
+      return 'denied';
+    }
+    
+    // Default to pending
+    return 'pending';
+  };
+
+  // Calculate hours for an assignment (with edited values) - returns number for calculations
+  const calculateHoursForAssignment = (assignment: AssignmentForApproval): number => {
+    const edited = editedValues[assignment.id] || {};
+    const status = getStatusValue(assignment);
+    
+    const timeIn = edited.timeIn || assignment.scheduled_start;
+    const timeOut = edited.timeOut || assignment.scheduled_end;
+    const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+    
+    const hoursString = calculateHours(timeIn, timeOut, breakMinutes, status);
+    return parseFloat(hoursString);
+  };
+
+  // Calculate pay for an assignment
+  const calculatePayForAssignment = (assignment: AssignmentForApproval): number => {
+    const edited = editedValues[assignment.id] || {};
+    const hours = calculateHoursForAssignment(assignment);
+    const rate = edited.hourlyRate ?? assignment.effective_hourly_rate;
+    return hours * rate;
+  };
+
+  // Format time for input field (HH:MM)
+  const formatTimeInput = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toTimeString().slice(0, 5); // "09:00"
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '09:00';
+    }
+  };
+
+  // Format time (12-hour format: "1:00 PM")
+  const formatTime = (dateString: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '';
+    }
+  };
+
+  // Calculate scheduled hours from event schedule
+  const calculateScheduledHours = (schedule: any): string => {
+    if (!schedule?.start_time_utc || !schedule?.end_time_utc) return '0.00';
+    
+    try {
+      const start = new Date(schedule.start_time_utc);
+      const end = new Date(schedule.end_time_utc);
+      const durationMs = end.getTime() - start.getTime();
+      const durationHours = durationMs / (1000 * 60 * 60);
+      const breakHours = (schedule.break_minutes || 0) / 60;
+      
+      return Math.max(0, durationHours - breakHours).toFixed(2);
+    } catch (error) {
+      console.error('Error calculating scheduled hours:', error);
+      return '0.00';
+    }
+  };
+
+  // Handle time input changes
+  const handleTimeChange = (
+    assignmentId: number, 
+    field: 'timeIn' | 'timeOut', 
+    value: string,
+    originalTime: string
+  ) => {
+    // Parse the time input (HH:MM)
+    const [hours, minutes] = value.split(':').map(Number);
+    
+    // Use the original date but update time
+    const date = new Date(originalTime);
+    date.setHours(hours, minutes, 0, 0);
+    
+    setEditedValues(prev => ({
+      ...prev,
+      [assignmentId]: {
+        ...prev[assignmentId],
+        [field]: date.toISOString()
+      }
+    }));
+  };
+
+  // Calculate total hours (simple and clear)
+  const calculateHours = (
+    timeIn: string, 
+    timeOut: string, 
+    breakMinutes: number,
+    status: string
+  ): string => {
+    // No-show and denied = 0 hours
+    if (status === 'no_show' || status === 'denied') {
+      return '0.00';
+    }
+    
+    try {
+      const start = new Date(timeIn);
+      const end = new Date(timeOut);
+      
+      // Calculate duration in hours
+      const durationMs = end.getTime() - start.getTime();
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      // Subtract break time
+      const breakHours = breakMinutes / 60;
+      
+      // Return net hours (can't be negative)
+      return Math.max(0, durationHours - breakHours).toFixed(2);
+    } catch (error) {
+      console.error('Error calculating hours:', error);
+      return '0.00';
+    }
+  };
+
+  // Handle cell edit (for break and hourly rate)
+  const handleCellEdit = (assignmentId: number, field: 'breakMinutes' | 'hourlyRate', value: any) => {
+    setEditedValues(prev => ({
+      ...prev,
+      [assignmentId]: {
+        ...prev[assignmentId],
+        [field]: value
+      }
+    }));
+  };
+
+  // Handle status change - Save immediately
+  const handleStatusChange = async (assignmentId: number, newStatus: string) => {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+    
+    // Prevent multiple simultaneous changes
+    if (changingStatus === assignmentId) return;
+    
+    setChangingStatus(assignmentId);
+    try {
+      if (newStatus === 'cancel_no_show') {
+        // Cancel no-show: restore assignment to pending/assigned status by updating hours
+        // This will restore status from no_show to 'assigned' and recalculate hours
+        const edited = editedValues[assignmentId] || {};
+        const timeIn = edited.timeIn || assignment.scheduled_start;
+        const timeOut = edited.timeOut || assignment.scheduled_end;
+        const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+        
+        // Calculate hours from time in/out (use 'pending' status so hours are calculated)
+        const hoursString = calculateHours(timeIn, timeOut, breakMinutes, 'pending');
+        const calculatedHours = parseFloat(hoursString);
+        
+        // Update hours - this will restore status from no_show to 'assigned' and set hours
+        await apiClient.patch(`/approvals/${assignmentId}/update_hours`, {
+          hours_worked: calculatedHours
+        });
+      } else if (newStatus === 'approved') {
+        // If assignment is no_show, cancelled, or removed, we need to restore it first
+        // by updating hours (which restores status to 'assigned' and recalculates hours)
+        if (assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed') {
+          // First, restore the assignment and recalculate hours
+          const edited = editedValues[assignmentId] || {};
+          const timeIn = edited.timeIn || assignment.scheduled_start;
+          const timeOut = edited.timeOut || assignment.scheduled_end;
+          const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+          
+          // Calculate hours from time in/out
+          const hoursString = calculateHours(timeIn, timeOut, breakMinutes, 'approved');
+          const calculatedHours = parseFloat(hoursString);
+          
+          // Update hours - this will restore status from no_show to 'assigned' and set hours
+          await apiClient.patch(`/approvals/${assignmentId}/update_hours`, {
+            hours_worked: calculatedHours
+          });
+        }
+        
+        // Now approve the assignment (it should be in 'assigned' status now)
+        await apiClient.post(`/events/${event.id}/approve_selected`, {
+          assignment_ids: [assignmentId]
+        });
+      } else if (newStatus === 'no_show') {
+        // Mark as no-show
+        await apiClient.post(`/approvals/${assignmentId}/mark_no_show`, {
+          notes: ''
+        });
+      } else if (newStatus === 'denied') {
+        // Remove/deny the assignment
+        await apiClient.delete(`/approvals/${assignmentId}/remove`, {
+          data: { notes: '' }
+        });
+      } else if (newStatus === 'pending') {
+        // Unapprove: If it was approved, we need to un-approve it by updating hours
+        // This will reset the approved status
+        const edited = editedValues[assignmentId] || {};
+        const timeIn = edited.timeIn || assignment.scheduled_start;
+        const timeOut = edited.timeOut || assignment.scheduled_end;
+        const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+        const calculatedHours = calculateHoursForAssignment(assignment);
+        
+        await apiClient.patch(`/approvals/${assignmentId}/update_hours`, {
+          hours_worked: calculatedHours
+        });
+      }
+      
+      // Reload assignments to get updated status
+      await loadAssignments();
+      
+      // Clear this assignment from editedValues since it's now saved
+      setEditedValues(prev => {
+        const next = { ...prev };
+        if (next[assignmentId]) {
+          // Keep other edits (time, rate, etc.) but remove status since it's saved
+          const { status, approved, ...rest } = next[assignmentId];
+          if (Object.keys(rest).length > 0) {
+            next[assignmentId] = rest;
+          } else {
+            delete next[assignmentId];
+          }
+        }
+        return next;
+      });
+      
+      setToast({ 
+        isVisible: true, 
+        type: 'success', 
+        message: `Status updated to ${newStatus.replace('_', ' ')}`
+      });
+    } catch (error: any) {
+      console.error('Error changing status:', error);
+      setToast({ 
+        isVisible: true, 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to update status' 
+      });
+    } finally {
+      setChangingStatus(null);
+    }
+  };
+
+  // Save all changes
+  const handleSaveAllChanges = async () => {
+    const assignmentIds = Object.keys(editedValues).map(Number);
+    if (assignmentIds.length === 0) return;
+    
+    setIsSavingEdit(true);
+    try {
+      await Promise.all(
+        assignmentIds.map(async (assignmentId) => {
+          const assignment = assignments.find(a => a.id === assignmentId);
+          if (!assignment) return;
+          
+          const edited = editedValues[assignmentId];
+          const timeIn = edited.timeIn || assignment.scheduled_start;
+          const timeOut = edited.timeOut || assignment.scheduled_end;
+          const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+          
+          const calculatedHours = calculateHoursForAssignment(assignment);
+          
+          const updatePayload: any = {
+            hours_worked: calculatedHours
+          };
+          
+          if (edited.hourlyRate !== undefined) {
+            updatePayload.hourly_rate = edited.hourlyRate;
+          }
+          
+          if (edited.notes !== undefined) {
+            updatePayload.approval_notes = edited.notes;
+          }
+
+          // Handle status changes
+          if (edited.status !== undefined) {
+            if (edited.status === 'approved') {
+              // Approve the assignment
+              return apiClient.post(`/events/${event.id}/approve_selected`, {
+                assignment_ids: [assignmentId]
+              });
+            } else if (edited.status === 'no_show') {
+              // Mark as no-show
+              return apiClient.post(`/approvals/${assignmentId}/mark_no_show`, {
+                notes: edited.notes || ''
+              });
+            } else if (edited.status === 'denied') {
+              // Remove/deny the assignment
+              return apiClient.delete(`/approvals/${assignmentId}/remove`, {
+                data: { notes: edited.notes || '' }
+              });
+            } else if (edited.status === 'pending') {
+              // If it was approved, we need to un-approve it
+              // For now, just update hours - status will remain as is
+              return apiClient.patch(`/approvals/${assignmentId}/update_hours`, updatePayload);
+            }
+          }
+
+          return apiClient.patch(`/approvals/${assignmentId}/update_hours`, updatePayload);
+        })
+      );
+      
+      setToast({ isVisible: true, type: 'success', message: `Saved changes for ${assignmentIds.length} assignment(s)` });
+      await loadAssignments();
+      setEditedValues({});
+    } catch (error: any) {
+      console.error('Error saving changes:', error);
+      setToast({ 
+        isVisible: true, 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to save changes' 
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Approve single row
+  const handleApproveRow = async (assignmentId: number) => {
+    try {
+      await apiClient.post(`/events/${event.id}/approve_selected`, {
+        assignment_ids: [assignmentId]
+      });
+      await loadAssignments();
+      onSuccess();
+      setToast({ isVisible: true, type: 'success', message: 'Assignment approved' });
+    } catch (error: any) {
+      console.error('Error approving assignment:', error);
+      setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to approve assignment' });
+    }
+  };
+
   /**
    * Start editing a worker's hours inline
    */
@@ -1044,6 +1799,9 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     if (hoursValue > 24) {
       return 'Hours cannot exceed 24 per shift';
     }
+    
+    // Allow hours to exceed scheduled hours (for overtime, extended shifts, etc.)
+    // Backend only validates 0-24 hours range
     
     return null;
   };
@@ -1350,8 +2108,258 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     }
   };
 
+  // Status badge component (professional pill-style) - Updated to match design system
+  const StatusBadge = ({ assignment }: { assignment: AssignmentForApproval }) => {
+    const status = getStatusValue(assignment);
+    
+    const statusConfig = {
+      approved: {
+        icon: CheckCircle,
+        label: 'Approved',
+        dotColor: 'bg-green-500',
+        textColor: 'text-green-700',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200'
+      },
+      pending: {
+        icon: Clock,
+        label: 'Pending',
+        dotColor: 'bg-amber-500',
+        textColor: 'text-amber-700',
+        bgColor: 'bg-amber-50',
+        borderColor: 'border-amber-200'
+      },
+      no_show: {
+        icon: XCircle,
+        label: 'No Show',
+        dotColor: 'bg-red-500',
+        textColor: 'text-red-700',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200'
+      },
+      denied: {
+        icon: Ban,
+        label: 'Denied',
+        dotColor: 'bg-gray-500',
+        textColor: 'text-gray-700',
+        bgColor: 'bg-gray-50',
+        borderColor: 'border-gray-200'
+      }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const Icon = config.icon;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+      <div className={cn(
+        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border",
+        config.bgColor,
+        config.textColor,
+        config.borderColor
+      )}>
+        <div className={cn("h-2 w-2 rounded-full", config.dotColor)} />
+        <Icon className="h-4 w-4" />
+        <span>{config.label}</span>
+      </div>
+    );
+  };
+
+  // Action menu state
+  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
+
+  // Action menu component (3-dot menu) - Uses fixed positioning to escape modal overflow
+  const ActionMenu = ({ assignmentId }: { assignmentId: number }) => {
+    const isOpen = openActionMenu === assignmentId;
+    const assignment = assignments.find(a => a.id === assignmentId);
+    const currentStatus = getStatusValue(assignment || assignments[0]);
+    const buttonRef = React.useRef<HTMLButtonElement>(null);
+    const [menuPosition, setMenuPosition] = React.useState<{ top: number; right: number } | null>(null);
+
+    // Build menu items based on current status
+    // Order: Approve, Reject, Unapprove (or Cancel No Show if no-show)
+    const menuItems = React.useMemo(() => {
+      const items = [];
+      
+      // If status is "no_show", show "Cancel No Show" instead of other options
+      if (currentStatus === 'no_show') {
+        items.push({
+          value: 'cancel_no_show',
+          label: 'Cancel No Show',
+          icon: XCircle,
+          color: 'text-red-600',
+          hoverBg: 'hover:bg-red-50',
+          disabled: false
+        });
+        return items; // Only show cancel option for no-show
+      }
+      
+      // For all other statuses, show Approve and Reject
+      // Approve (if not already approved)
+      if (currentStatus !== 'approved') {
+        items.push({
+          value: 'approved',
+          label: 'Approve',
+          icon: CheckCircle,
+          color: 'text-green-600',
+          hoverBg: 'hover:bg-green-50',
+          disabled: false
+        });
+      }
+      
+      // Reject (if not already denied)
+      if (currentStatus !== 'denied') {
+        items.push({
+          value: 'denied',
+          label: 'Reject',
+          icon: Ban,
+          color: 'text-gray-600',
+          hoverBg: 'hover:bg-gray-50',
+          disabled: false
+        });
+      }
+      
+      // Unapprove (only if currently approved)
+      if (currentStatus === 'approved') {
+        items.push({
+          value: 'pending',
+          label: 'Unapprove',
+          icon: Clock,
+          color: 'text-amber-600',
+          hoverBg: 'hover:bg-amber-50',
+          disabled: false
+        });
+      }
+      
+      return items;
+    }, [currentStatus]);
+
+    // Calculate menu position when opening
+    React.useEffect(() => {
+      if (isOpen && buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setMenuPosition({
+          top: rect.bottom + 8, // 8px gap (mt-2)
+          right: window.innerWidth - rect.right // Align right edge
+        });
+      } else {
+        setMenuPosition(null);
+      }
+    }, [isOpen]);
+
+    return (
+      <>
+        {/* Trigger Button */}
+        <button
+          ref={buttonRef}
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenActionMenu(isOpen ? null : assignmentId);
+          }}
+          className={cn(
+            "p-1.5 rounded transition-colors",
+            isOpen 
+              ? "bg-gray-100 text-gray-600" 
+              : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+          )}
+          title="Change status"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+        
+        {/* Menu Dropdown - Fixed positioning to escape modal overflow */}
+        {isOpen && menuPosition && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 z-[100]" 
+              onClick={() => setOpenActionMenu(null)}
+            />
+            
+            {/* Menu Dropdown - Fixed positioning */}
+            <div 
+              className="fixed w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[101]"
+              style={{
+                top: `${menuPosition.top}px`,
+                right: `${menuPosition.right}px`
+              }}
+            >
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                
+                return (
+                  <button
+                    key={item.value}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!item.disabled && changingStatus !== assignmentId) {
+                        handleStatusChange(assignmentId, item.value);
+                        setOpenActionMenu(null);
+                      }
+                    }}
+                    disabled={item.disabled || changingStatus === assignmentId}
+                    className={cn(
+                      "w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 transition-colors",
+                      (item.disabled || changingStatus === assignmentId)
+                        ? "opacity-40 cursor-not-allowed" 
+                        : `${item.color} cursor-pointer`,
+                      item.disabled && currentStatus === item.value && "bg-gray-50"
+                    )}
+                  >
+                    {changingStatus === assignmentId ? (
+                      <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                    ) : (
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                    )}
+                    <span>{changingStatus === assignmentId ? 'Updating...' : item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
+  // Calculate totals (memoized for performance)
+  const totals = React.useMemo(() => {
+    let totalHours = 0;
+    let totalPay = 0;
+    let approvedPay = 0;
+    let approvedCount = 0;
+    let deniedCount = 0;
+    
+    assignments.forEach(assignment => {
+      const status = getStatusValue(assignment);
+      const hours = calculateHoursForAssignment(assignment);
+      const pay = calculatePayForAssignment(assignment);
+      
+      // Only add hours/pay if not denied or no-show
+      if (status !== 'no_show' && status !== 'denied') {
+        totalHours += hours;
+        totalPay += pay;
+      }
+      
+      if (status === 'approved') {
+        approvedPay += pay;
+        approvedCount++;
+      } else if (status === 'no_show' || status === 'denied') {
+        deniedCount++;
+      }
+    });
+    
+    return {
+      totalHours: totalHours.toFixed(2),
+      totalPay: totalPay.toFixed(2),
+      approvedPay: approvedPay.toFixed(2),
+      approvedCount,
+      deniedCount,
+      pendingCount: assignments.length - approvedCount - deniedCount
+    };
+  }, [assignments, editedValues, event?.schedule?.break_minutes]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       {/* Render Toast at overlay level */}
       <Toast
         isVisible={toast.isVisible}
@@ -1360,53 +2368,86 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
       
-      <div className="bg-white w-full h-full sm:h-auto sm:max-w-5xl sm:rounded-lg shadow-xl overflow-hidden flex flex-col sm:max-h-[90vh] my-0 sm:my-4">
-        {/* Header - Clean & Minimal */}
-        <header className="border-b px-6 py-4 bg-white flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-gray-900">Approve Hours</h2>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                <span className="font-medium text-gray-900">{event?.title}</span>
-                {event?.schedule?.start_time_utc && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5 text-gray-400" />
-                    {format(parseISO(event.schedule.start_time_utc), 'MMM d, yyyy h:mm a')} - {format(parseISO(event.schedule.end_time_utc), 'h:mm a')}
-                  </span>
-                )}
-                {event?.venue?.name && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                    {event.venue.name}
-                  </span>
-                )}
-              </div>
-            </div>
+      {/* Simple Modal Container */}
+      <div className="bg-white rounded-lg w-full max-w-[95vw] max-h-[90vh] flex flex-col shadow-xl">
+        {/* Header - Responsive */}
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Approve Hours</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-        </header>
-
-        {/* Info Banner - Only show if pending assignments exist */}
-        {pendingCount > 0 && (
-          <div className="bg-amber-50 border-l-4 border-amber-400 px-6 py-3 flex-shrink-0">
-            <p className="text-sm text-amber-800 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <strong>{pendingCount}</strong> {pendingCount === 1 ? 'assignment' : 'assignments'} pending approval
-            </p>
+          
+          {/* Event Info - Stack on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600 mb-3">
+            <span className="font-medium">{event?.title}</span>
+                {event?.schedule?.start_time_utc && (
+              <>
+                <span className="hidden sm:inline">•</span>
+                <span>{format(parseISO(event.schedule.start_time_utc), 'MMM d, yyyy')}</span>
+              </>
+                )}
+                {event?.venue?.name && (
+              <>
+                <span className="hidden sm:inline">•</span>
+                  <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3 sm:hidden" />
+                    {event.venue.name}
+                  </span>
+              </>
+                )}
+              </div>
+          
+          {/* Original Schedule Box - More compact on mobile */}
+          {event?.schedule && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-xs sm:text-sm">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium text-gray-700">Original Schedule:</span>
+            </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-700 ml-6 sm:ml-0">
+                  <span>
+                    <span className="font-medium">Time:</span> {formatTime(event.schedule.start_time_utc)} - {formatTime(event.schedule.end_time_utc)}
+                  </span>
+                  <span>
+                    <span className="font-medium">Break:</span> {event.schedule.break_minutes || 0} min
+                  </span>
+                  <span>
+                    <span className="font-medium">Scheduled:</span> {calculateScheduledHours(event.schedule)}h
+                  </span>
+          </div>
+              </div>
           </div>
         )}
 
-        {/* Main Content - Table */}
-        <div className="flex-1 overflow-auto px-3 sm:px-6 py-4">
+          {/* Status Pills - Wrap on mobile */}
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+            <span className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="font-medium">{totals.approvedCount} Approved</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="font-medium">{totals.deniedCount} Denied</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="font-medium">{totals.pendingCount} Pending</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
               <p className="mt-4 text-gray-600">Loading assignments...</p>
             </div>
           ) : assignments.length === 0 ? (
@@ -1414,153 +2455,274 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No assignments found for this event.</p>
             </div>
+          ) : isMobile ? (
+            // ✅ MOBILE: Card Layout
+            <div className="p-4 space-y-3">
+              {assignments.map((assignment) => (
+                <MobileAssignmentCard
+                  key={assignment.id}
+                  assignment={assignment}
+                  event={event}
+                  isSelected={selectedAssignmentIds.has(assignment.id)}
+                  canSelect={!assignment.approved && assignment.can_approve && assignment.status !== 'no_show' && assignment.status !== 'cancelled'}
+                  onToggleSelect={toggleSelection}
+                  onStatusChange={handleStatusChange}
+                  editedValues={editedValues}
+                  onEditValue={(id, field, value) => {
+                    setEditedValues(prev => ({
+                      ...prev,
+                      [id]: {
+                        ...prev[id],
+                        [field]: value
+                      }
+                    }));
+                  }}
+                  formatTimeInput={formatTimeInput}
+                  calculateHours={calculateHours}
+                  getStatusValue={getStatusValue}
+                  changingStatus={changingStatus}
+                />
+              ))}
+            </div>
           ) : (
+            // ✅ DESKTOP: Table Layout
             <table className="w-full">
-              <thead className="border-b border-gray-200 hidden sm:table-header-group">
-                <tr className="text-left">
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-12 px-3">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr className="text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="w-12 px-4 py-3">
                     {eligibleAssignments.length > 0 && (
                       <input
                         type="checkbox"
                         checked={selectedEligible.length === eligibleAssignments.length && eligibleAssignments.length > 0}
                         onChange={toggleSelectAll}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                         title={selectedEligible.length === eligibleAssignments.length ? "Deselect all" : "Select all"}
                       />
                     )}
                   </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[25%]">
-                    Worker
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[15%]">
-                    Role
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-[18%]">
-                    Time Worked
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
-                    Hours
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
-                    Rate
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[12%]">
-                    Total
-                  </th>
-                  <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right w-[10%]">
-                    Status
-                  </th>
+                  <th className="px-4 py-3">Worker</th>
+                  <th className="px-4 py-3">Position</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Time In</th>
+                  <th className="px-4 py-3">Time Out</th>
+                  <th className="px-4 py-3">Break</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Rate</th>
+                  <th className="px-4 py-3 text-right">Pay</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {assignments.map(assignment => {
+              <tbody className="bg-white divide-y divide-gray-200">
+                {assignments.map((assignment) => {
+                  const edited = editedValues[assignment.id] || {};
+                  const timeIn = edited.timeIn || assignment.scheduled_start;
+                  const timeOut = edited.timeOut || assignment.scheduled_end;
+                  const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+                  const hourlyRate = edited.hourlyRate ?? assignment.effective_hourly_rate;
+                  const currentStatus = getStatusValue(assignment);
                   const canSelect = !assignment.approved && assignment.can_approve && assignment.status !== 'no_show' && assignment.status !== 'cancelled';
+                  
+                  const totalHours = calculateHours(timeIn, timeOut, breakMinutes, currentStatus);
+                  const totalPay = (parseFloat(totalHours) * hourlyRate).toFixed(2);
+                  
                   return (
-                    <WorkerRow
+                    <tr 
                       key={assignment.id}
-                      assignment={assignment}
-                      isEditing={editingAssignmentId === assignment.id}
-                      editHours={editHours}
-                      isSavingEdit={isSavingEdit}
-                      wasApprovedBeforeEdit={wasApprovedBeforeEdit}
-                      validationError={validationErrors[assignment.id]}
-                      isSelected={selectedAssignmentIds.has(assignment.id)}
-                      canSelect={canSelect}
-                      onToggleSelect={toggleSelection}
-                      onStartEdit={handleStartEdit}
-                      onSaveEdit={handleSaveEdit}
-                      onCancelEdit={handleCancelEdit}
-                      onEditHoursChange={handleEditHoursChange}
-                      onEditKeyDown={handleEditKeyDown}
-                      calculateLiveTotal={calculateLiveTotal}
-                      onNoShow={handleMarkNoShow}
-                      onRemove={handleRemove}
-                      onReEdit={handleReEdit}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Footer - Summary & Actions */}
-        <footer className="border-t bg-gray-50 px-3 sm:px-6 py-4 flex-shrink-0">
-          {/* Breakdown Summary - Show all statuses */}
-          {(noShowAssignments.length > 0 || removedAssignments.length > 0) && (
-            <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-sm border-b border-gray-200 pb-4">
+                      className="hover:bg-gray-50 border-l-4 border-l-transparent hover:border-l-teal-500"
+                    >
+                      {/* Checkbox */}
+                      <td className="px-4 py-3">
+                        {canSelect && (
+                          <input
+                            type="checkbox"
+                            checked={selectedAssignmentIds.has(assignment.id)}
+                            onChange={() => toggleSelection(assignment.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                          />
+                        )}
+                      </td>
+                      
+                      {/* Worker */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-teal-600 flex items-center justify-center text-white text-sm font-medium">
+                            {assignment.worker_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
+                          </div>
               <div>
-                <div className="text-gray-500 text-xs">Total Assigned</div>
-                <div className="text-base font-semibold text-gray-900">
-                  {totalAssignedCount}
+                            <div className={cn(
+                              "font-medium text-gray-900",
+                              (assignment.status === 'cancelled' || assignment.status === 'removed') && "line-through text-gray-500",
+                              assignment.status === 'no_show' && "text-gray-700"
+                            )}>
+                              {assignment.worker_name}
+                </div>
+                            <div className="text-xs text-gray-500">
+                              ID: {assignment.worker_id || 'N/A'}
+              </div>
                 </div>
               </div>
-              <div>
-                <div className="text-gray-500 text-xs">Approved</div>
-                <div className="text-base font-semibold text-green-600">
-                  {approvedCount}
-                </div>
-              </div>
-              {noShowAssignments.length > 0 && (
-                <div>
-                  <div className="text-gray-500 text-xs">No-Shows</div>
-                  <div className="text-base font-semibold text-red-600">
-                    {noShowAssignments.length}
+                      </td>
+                      
+                      {/* Position */}
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {assignment.shift_role || 'N/A'}
+                      </td>
+                      
+                      {/* Date */}
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatDate(assignment.shift_date || assignment.scheduled_start)}
+                      </td>
+                      
+                      {/* Time In */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="time"
+                          value={formatTimeInput(timeIn)}
+                          onChange={(e) => handleTimeChange(assignment.id, 'timeIn', e.target.value, timeIn)}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </td>
+                      
+                      {/* Time Out */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="time"
+                          value={formatTimeInput(timeOut)}
+                          onChange={(e) => handleTimeChange(assignment.id, 'timeOut', e.target.value, timeOut)}
+                          className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </td>
+                      
+                      {/* Break */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            step="15"
+                            value={breakMinutes}
+                            onChange={(e) => {
+                              setEditedValues(prev => ({
+                                ...prev,
+                                [assignment.id]: {
+                                  ...prev[assignment.id],
+                                  breakMinutes: parseInt(e.target.value) || 0
+                                }
+                              }));
+                            }}
+                            className="w-16 px-2 py-2 text-sm border border-gray-300 rounded text-right focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
+                          <span className="text-xs text-gray-500">min</span>
                   </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          = {(breakMinutes / 60).toFixed(2)}h
                 </div>
-              )}
-              {removedAssignments.length > 0 && (
-                <div>
-                  <div className="text-gray-500 text-xs">Denied</div>
-                  <div className="text-base font-semibold text-gray-500">
-                    {removedAssignments.length}
+                      </td>
+                      
+                      {/* Total Hours - Calculated */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-gray-900">
+                          {totalHours}h
                   </div>
+                        <div className="text-xs text-gray-500">
+                          ({formatTimeInput(timeIn)} - {formatTimeInput(timeOut)} - {breakMinutes}min)
                 </div>
-              )}
+                      </td>
+                      
+                      {/* Hourly Rate */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-sm text-gray-500">$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={hourlyRate}
+                            onChange={(e) => {
+                              setEditedValues(prev => ({
+                                ...prev,
+                                [assignment.id]: {
+                                  ...prev[assignment.id],
+                                  hourlyRate: parseFloat(e.target.value) || 0
+                                }
+                              }));
+                            }}
+                            className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          />
             </div>
-          )}
-          
-          <div className="flex items-center justify-between">
-            {/* Left: Cost Summary - Single line format */}
-            <div className="text-sm">
-              <span className="text-gray-600">
-                {pendingCount === 0 ? 'Final approved cost:' : 'Total cost:'}
+                      </td>
+                      
+                      {/* Total Pay - Calculated */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-semibold text-gray-900">
+                          ${totalPay}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ({totalHours}h × ${safeToFixed(hourlyRate, 2, '0.00')})
+                        </div>
+                      </td>
+                      
+                      {/* Status - Simple Badge */}
+                      <td className="px-4 py-3">
+                        {currentStatus === 'approved' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Approved
               </span>
-              <span className="ml-2 text-lg font-bold text-gray-900">
-                ${safeToFixed(pendingCount === 0 ? approvedCost : totalCost, 2, '0.00')}
+                        )}
+                        {currentStatus === 'pending' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                            <Clock className="h-3.5 w-3.5" />
+                            Pending
               </span>
-              <span className="ml-1 text-gray-600">
-                ({pendingCount === 0 ? approvedCount : totalActiveCount} {pendingCount === 0 ? (approvedCount === 1 ? 'worker' : 'workers') : (totalActiveCount === 1 ? 'worker' : 'workers')}, {safeToFixed(pendingCount === 0 ? approvedHours : totalHours, 2, '0.00')}h)
+                        )}
+                        {currentStatus === 'no_show' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                            <XCircle className="h-3.5 w-3.5" />
+                            No Show
               </span>
+                        )}
+                        {currentStatus === 'denied' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                            <Ban className="h-3.5 w-3.5" />
+                            Denied
+                          </span>
+                        )}
+                      </td>
+                      
+                      {/* Action Menu - Simple */}
+                      <td className="px-4 py-3">
+                        <ActionMenu assignmentId={assignment.id} />
+                      </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
             </div>
 
-            {/* Right: Action Buttons Only */}
-            <div className="flex items-center gap-3">
+        {/* Footer - Responsive */}
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            {/* Left: Close Button (full width on mobile) */}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 text-sm font-medium"
             >
               Close
             </button>
             
-            {/* Approve button: Show "Approve Selected (n)" if items selected, otherwise "Approve All" */}
-            {pendingCount > 0 && (
+            {/* Right: Action Buttons + Summary (stack on mobile) */}
+            <div className="w-full sm:w-auto flex flex-col items-stretch sm:items-end gap-3">
+              {/* Action Buttons (stack on mobile) */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                {totals.pendingCount > 0 && (
               <button
-                onClick={() => {
-                  // If items are selected, approve selected; otherwise approve all
-                  if (selectedEligible.length > 0) {
-                    handleApproveSelected();
-                  } else {
-                    handleApproveAll();
-                  }
-                }}
-                disabled={isApproving || (selectedEligible.length === 0 && pendingCount === 0)}
-                className={cn(
-                  "px-5 py-2.5 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors",
-                  (selectedEligible.length > 0 || pendingCount > 0)
-                    ? "bg-green-600 hover:bg-green-700 disabled:bg-green-400"
-                    : "bg-gray-400 cursor-not-allowed"
-                )}
+                    onClick={handleApproveAll}
+                    disabled={isApproving}
+                    className="w-full sm:w-auto px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isApproving ? (
                   <>
@@ -1570,17 +2732,93 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                 ) : (
                   <>
                     <Check className="h-4 w-4" />
-                    {selectedEligible.length > 0 
-                      ? `Approve Selected (${selectedEligible.length})`
-                      : `Approve All (${pendingCount})`
-                    }
+                        Approve All Pending ({totals.pendingCount})
+                      </>
+                    )}
+                  </button>
+                )}
+                
+                {selectedEligible.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const selectedIds = Array.from(selectedEligible.map(a => a.id));
+                      setConfirmDialog({
+                        open: true,
+                        title: 'Mark Selected as No-Show',
+                        message: `Mark ${selectedIds.length} selected ${selectedIds.length === 1 ? 'worker' : 'workers'} as no-show?`,
+                        requireNote: true,
+                        note: '',
+                        variant: 'warning',
+                        onConfirm: async (note?: string) => {
+                          const noteToSend = note || confirmDialog.note || '';
+                          setConfirmDialog({ open: false, title: '' });
+                          try {
+                            await Promise.all(
+                              selectedIds.map(id => 
+                                apiClient.post(`/approvals/${id}/mark_no_show`, { notes: noteToSend })
+                              )
+                            );
+                            await loadAssignments();
+                            setSelectedAssignmentIds(new Set());
+                            setToast({ isVisible: true, type: 'success', message: `Marked ${selectedIds.length} as no-show` });
+                          } catch (error: any) {
+                            console.error('Error marking no-show:', error);
+                            setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to mark as no-show' });
+                          }
+                        }
+                      });
+                    }}
+                    disabled={selectedEligible.length === 0}
+                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Mark Selected as No-Show ({selectedEligible.length})
+                  </button>
+                )}
+                
+                {Object.keys(editedValues).length > 0 && (
+                  <button
+                    onClick={handleSaveAllChanges}
+                    disabled={isSavingEdit}
+                    className="w-full sm:w-auto px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Save Changes ({Object.keys(editedValues).length})
                   </>
                 )}
               </button>
             )}
             </div>
+              
+              {/* Summary Stats (grid on mobile, flex on desktop) */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 sm:gap-8 text-sm">
+                <div>
+                  <span className="text-gray-600">Total Hours: </span>
+                  <span className="font-semibold text-gray-900">{totals.totalHours}</span>
           </div>
-        </footer>
+                <div>
+                  <span className="text-gray-600">Total Pay: </span>
+                  <span className="font-semibold text-gray-900">${totals.totalPay}</span>
+                </div>
+                <div>
+                  <span className="text-green-600">Approved: </span>
+                  <span className="font-semibold text-green-700">${totals.approvedPay}</span>
+                </div>
+                <div>
+                  <span className="text-amber-600">Pending: </span>
+                  <span className="font-semibold text-amber-700">${(parseFloat(totals.totalPay) - parseFloat(totals.approvedPay)).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Confirmation Dialog */}
