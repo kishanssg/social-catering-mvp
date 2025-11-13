@@ -13,8 +13,67 @@ export default function ActivityLogFilters({
   onFiltersChange,
   onRefresh
 }: ActivityLogFiltersProps) {
+  // Quick filter presets
+  const quickFilters = [
+    { label: 'All', action: 'all', entityType: 'all' },
+    { label: 'Approvals', action: 'event_hours_approved_selected', entityType: 'all' },
+    { label: 'Edits', action: 'hours_re_edited', entityType: 'Assignment' },
+    { label: 'No-Shows', action: 'marked_no_show', entityType: 'Assignment' },
+    { label: 'Recalculations', action: 'totals_recalculated', entityType: 'Event' }
+  ];
+
+  const handleQuickFilter = (preset: typeof quickFilters[0]) => {
+    if (preset.label === 'All') {
+      // Reset all filters
+      onFiltersChange({
+        entityType: 'all',
+        action: 'all',
+        dateFrom: null,
+        dateTo: null,
+        actor: 'all'
+      });
+    } else {
+      onFiltersChange({
+        ...filters,
+        action: preset.action,
+        entityType: preset.entityType
+      });
+    }
+  };
+
+  // Get timezone
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+      {/* Quick Filter Chips */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="text-xs text-gray-500 font-medium">Quick filters:</span>
+        {quickFilters.map((preset) => {
+          const isActive = filters.action === preset.action && filters.entityType === preset.entityType;
+          return (
+            <button
+              key={preset.label}
+              onClick={() => handleQuickFilter(preset)}
+              className={`
+                px-3 py-1 rounded-full text-xs font-medium transition-colors
+                ${isActive 
+                  ? 'bg-teal-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }
+              `}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Timezone Label */}
+      <div className="mb-4 text-xs text-gray-500">
+        Times shown in {timezone}
+      </div>
+
       <div className="flex items-center gap-4 flex-wrap">
         {/* Filter Icon */}
         <div className="flex items-center gap-2 text-gray-700 font-medium">

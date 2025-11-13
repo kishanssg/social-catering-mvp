@@ -106,13 +106,27 @@ export function getActivityIcon(action: string): ActivityIconConfig {
       label: 'Removed from Job'
     },
 
-    // Issues (Red)
+    // Issues (Red) - No-Show and Reject
     'marked_no_show': {
       icon: XCircle,
       bgColor: 'bg-red-50',
       textColor: 'text-red-600',
       borderColor: 'border-red-500',
       label: 'No Show'
+    },
+    'rejected': {
+      icon: XCircle,
+      bgColor: 'bg-red-50',
+      textColor: 'text-red-600',
+      borderColor: 'border-red-500',
+      label: 'Rejected'
+    },
+    'denied': {
+      icon: XCircle,
+      bgColor: 'bg-red-50',
+      textColor: 'text-red-600',
+      borderColor: 'border-red-500',
+      label: 'Rejected'
     },
     'deleted': {
       icon: Trash2,

@@ -84,7 +84,7 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <Clock className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
             <div>
               <div className="text-xs text-gray-500">Hours</div>
-              <div className="font-medium text-gray-900">
+              <div className="font-medium text-gray-900 tabular-nums text-right">
                 {Number(activity.details.before_hours || 0).toFixed(1)}h → {Number(activity.details.after_hours || 0).toFixed(1)}h
                 <span className="text-xs text-gray-500 ml-1">
                   {(() => {
@@ -105,7 +105,7 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <DollarSign className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
             <div>
               <div className="text-xs text-gray-500">Pay</div>
-              <div className="font-medium text-gray-900">
+              <div className="font-medium text-gray-900 tabular-nums text-right">
                 ${Number(activity.details.before_pay || 0).toFixed(2)} → ${Number(activity.details.after_pay || 0).toFixed(2)}
                 <span className="text-xs text-gray-500 ml-1">
                   {(() => {
@@ -126,7 +126,7 @@ export default function ActivityCardExpanded({ activity }: ActivityCardExpandedP
             <DollarSign className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
               <div className="text-xs text-gray-500">Hourly Rate</div>
-              <div className="font-medium text-gray-900">
+              <div className="font-medium text-gray-900 tabular-nums text-right">
                 ${Number(activity.details.before_rate || 0).toFixed(2)}/h → ${Number(activity.details.after_rate || 0).toFixed(2)}/h
               </div>
             </div>

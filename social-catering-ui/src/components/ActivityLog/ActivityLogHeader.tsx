@@ -1,19 +1,59 @@
 import React from 'react';
-import { Search, X, FileText } from 'lucide-react';
+import { Search, X, FileText, Download } from 'lucide-react';
+import { ActivityLog } from './utils/activityTypes';
 
 interface ActivityLogHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   totalLogs: number;
   showingLogs: number;
+  activities?: ActivityLog[];
 }
 
 export default function ActivityLogHeader({
   searchQuery,
   onSearchChange,
   totalLogs,
-  showingLogs
+  showingLogs,
+  activities = []
 }: ActivityLogHeaderProps) {
+  const handleExportCSV = () => {
+    if (activities.length === 0) return;
+
+    // CSV headers
+    const headers = ['Date', 'Time', 'Actor', 'Action', 'Entity Type', 'Summary', 'Worker', 'Event', 'Role'];
+    
+    // Convert activities to CSV rows
+    const rows = activities.map(activity => {
+      const date = new Date(activity.created_at);
+      return [
+        date.toLocaleDateString(),
+        date.toLocaleTimeString(),
+        activity.actor_name || 'System',
+        activity.action,
+        activity.entity_type,
+        activity.summary,
+        activity.details?.worker_name || '',
+        activity.details?.event_name || '',
+        activity.details?.role || ''
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers.map(h => `"${h}"`).join(','), ...rows].join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `activity-log-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       {/* Title & Description */}
@@ -28,7 +68,7 @@ export default function ActivityLogHeader({
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Stats & Export */}
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg">
             <FileText className="h-4 w-4" />
@@ -39,6 +79,15 @@ export default function ActivityLogHeader({
               <Search className="h-4 w-4" />
               <span className="font-medium">Showing: {showingLogs} of {totalLogs}</span>
             </div>
+          )}
+          {activities.length > 0 && (
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              <span className="font-medium">Export CSV</span>
+            </button>
           )}
         </div>
       </div>

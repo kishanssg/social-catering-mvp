@@ -42,13 +42,41 @@ export function groupByEntity(activities: ActivityLogType[]): GroupedByEntity {
     // Check for Assignment FIRST (before checking event_name which would group under Event)
     if (activity.entity_type === 'Assignment') {
       // For assignments, extract event name from all possible sources
-      const eventName = activity.details?.event_name || 
-                       activity.after_json?.event_name || 
-                       activity.before_json?.event_name ||
-                       activity.after_json?.shift_name || 
-                       activity.before_json?.shift_name;
+      let eventName = activity.details?.event_name || 
+                      activity.after_json?.event_name || 
+                      activity.before_json?.event_name ||
+                      activity.after_json?.shift_name || 
+                      activity.before_json?.shift_name;
       
-      if (eventName) {
+      // If still no event name, try to extract from summary text
+      // Summary format: "Natalie assigned Charlie Williams to Wedding Reception as Server"
+      if (!eventName && activity.summary) {
+        const summaryMatch = activity.summary.match(/to\s+([^,\s]+(?:\s+[^,\s]+)*?)(?:\s+as|\s+\(|$|,)/i);
+        if (summaryMatch && summaryMatch[1]) {
+          eventName = summaryMatch[1].trim();
+        }
+      }
+      
+      // Extract worker name and role for better grouping
+      const workerName = activity.details?.worker_name || 
+                        activity.after_json?.worker_name || 
+                        activity.before_json?.worker_name;
+      const role = activity.details?.role || 
+                  activity.after_json?.role || 
+                  activity.before_json?.role ||
+                  activity.after_json?.role_needed || 
+                  activity.before_json?.role_needed;
+      
+      if (eventName && workerName && role) {
+        // Format: "Assignment • {worker} — {event} ({role})"
+        entityKey = `assignment-event-${eventName}-${workerName}`;
+        entityName = `Assignment • ${workerName} — ${eventName} (${role})`;
+        entityType = 'Assignment';
+      } else if (eventName && workerName) {
+        entityKey = `assignment-event-${eventName}-${workerName}`;
+        entityName = `Assignment • ${workerName} — ${eventName}`;
+        entityType = 'Assignment';
+      } else if (eventName) {
         // Group by event name: "Assignment of [Event Name]"
         entityKey = `assignment-event-${eventName}`;
         entityName = `Assignment of ${eventName}`;

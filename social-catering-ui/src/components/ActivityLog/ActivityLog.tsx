@@ -142,6 +142,7 @@ export default function ActivityLog() {
           onSearchChange={setSearchQuery}
           totalLogs={pagination.total}
           showingLogs={filteredActivities.length}
+          activities={filteredActivities}
         />
 
         {/* Filters */}
@@ -185,21 +186,52 @@ export default function ActivityLog() {
               {Math.min(pagination.page * pagination.perPage, pagination.total)} of{' '}
               {pagination.total} activities
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page * pagination.perPage >= pagination.total}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+            <div className="flex items-center gap-4">
+              {/* Jump to Date (if total > 1000) */}
+              {pagination.total > 1000 && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="jump-to-date" className="text-sm text-gray-600">
+                    Jump to date:
+                  </label>
+                  <input
+                    id="jump-to-date"
+                    type="date"
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        // Find first activity on or after this date
+                        const targetDate = new Date(e.target.value);
+                        const index = filteredActivities.findIndex(a => {
+                          const activityDate = new Date(a.created_at);
+                          return activityDate >= targetDate;
+                        });
+                        if (index >= 0) {
+                          const targetPage = Math.floor(index / pagination.perPage) + 1;
+                          setPagination(prev => ({ ...prev, page: targetPage }));
+                          // Scroll to top
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={pagination.page === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={pagination.page * pagination.perPage >= pagination.total}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         )}

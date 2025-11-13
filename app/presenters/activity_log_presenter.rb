@@ -278,9 +278,11 @@ class ActivityLogPresenter
       # Always show worker names if available (they're already formatted as "First LastInitial.")
       if worker_names.any?
         workers_list = format_worker_list(worker_names)
-        "#{actor_name} approved hours for #{worker_count} workers on #{event_name} (#{workers_list})"
+        worker_text = worker_count == 1 ? 'worker' : 'workers'
+        "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name} (#{workers_list})"
       else
-        "#{actor_name} approved hours for #{worker_count} workers on #{event_name}"
+        worker_text = worker_count == 1 ? 'worker' : 'workers'
+        "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name}"
       end
 
     when 'event_hours_approved'
@@ -291,9 +293,11 @@ class ActivityLogPresenter
       # Show worker names if available
       if worker_names.any?
         workers_list = format_worker_list(worker_names)
-        "#{actor_name} approved hours for #{worker_count} workers on #{event_name} (#{workers_list})"
+        worker_text = worker_count == 1 ? 'worker' : 'workers'
+        "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name} (#{workers_list})"
       else
-        "#{actor_name} approved hours for all #{worker_count} workers on #{event_name}"
+        worker_text = worker_count == 1 ? 'worker' : 'workers'
+        "#{actor_name} approved hours for all #{worker_count} #{worker_text} on #{event_name}"
       end
 
     when 'totals_recalculated'

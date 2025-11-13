@@ -74,17 +74,24 @@ export default function ActivityCard({ activity, searchQuery = '' }: ActivityCar
     );
   };
 
+  // Generate aria-label for accessibility
+  const ariaLabel = `${activity.actor_name} ${activity.action.replace(/_/g, ' ')} ${activity.entity_type} ${formatRelativeTime(activity.created_at)}`;
+
   return (
-    <div className={cn(
-      "bg-white rounded-lg shadow-sm border-l-4 hover:shadow-md transition-all duration-200",
-      borderColor
-    )}>
+    <div 
+      className={cn(
+        "bg-white rounded-lg shadow-sm border-l-4 hover:shadow-md transition-all duration-200",
+        borderColor
+      )}
+      aria-label={ariaLabel}
+      role="article"
+    >
       {/* Main Card Content */}
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Icon */}
           <div className={cn("flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center", bgColor)}>
-            <Icon className={cn("h-5 w-5", textColor)} />
+            <Icon className={cn("h-5 w-5", textColor)} aria-hidden="true" />
           </div>
 
           {/* Content */}
@@ -110,28 +117,41 @@ export default function ActivityCard({ activity, searchQuery = '' }: ActivityCar
             {/* Detail Chips */}
             {activity.details && Object.keys(activity.details).length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {activity.details.worker_name && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs">
+                {activity.details.worker_name && activity.details.worker_id && (
+                  <button
+                    onClick={() => navigate(`/workers/${activity.details.worker_id}`)}
+                    className="flex items-center gap-1.5 px-2 py-1 bg-teal-50 text-teal-700 rounded text-xs hover:bg-teal-100 transition-colors"
+                    title={activity.details.worker_name}
+                  >
                     <span className="font-medium">Worker:</span>
-                    <span>{activity.details.worker_name}</span>
-                  </div>
+                    <span className="truncate max-w-[120px]">{activity.details.worker_name}</span>
+                  </button>
                 )}
-                {activity.details.event_name && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                {activity.details.event_name && activity.details.event_id && (
+                  <button
+                    onClick={() => navigate(`/events/${activity.details.event_id}`)}
+                    className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 transition-colors"
+                    title={activity.details.event_name}
+                  >
                     <span className="font-medium">Event:</span>
-                    <span>{activity.details.event_name}</span>
-                  </div>
+                    <span className="truncate max-w-[120px]">{activity.details.event_name}</span>
+                  </button>
                 )}
                 {activity.details.role && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs">
+                  <div 
+                    className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded text-xs"
+                    title={activity.details.role}
+                  >
                     <span className="font-medium">Role:</span>
-                    <span>{activity.details.role}</span>
+                    <span className="truncate max-w-[100px]">{activity.details.role}</span>
                   </div>
                 )}
                 {activity.details.before_pay !== undefined && activity.details.after_pay !== undefined && (
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
                     <span className="font-medium">Pay:</span>
-                    <span>${activity.details.before_pay.toFixed(2)} → ${activity.details.after_pay.toFixed(2)}</span>
+                    <span className="tabular-nums text-right">
+                      ${Number(activity.details.before_pay || 0).toFixed(2)} → ${Number(activity.details.after_pay || 0).toFixed(2)}
+                    </span>
                   </div>
                 )}
               </div>
