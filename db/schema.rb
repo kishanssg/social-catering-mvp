@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_16_213207) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -56,7 +56,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
     t.jsonb "details_json"
     t.index ["actor_user_id"], name: "index_activity_logs_on_actor_user_id"
     t.index ["created_at_utc"], name: "index_activity_logs_on_created_at_utc"
+    t.index ["entity_type", "created_at_utc"], name: "idx_activity_logs_entity_type_created_at_utc"
     t.index ["entity_type", "entity_id"], name: "index_activity_logs_on_entity_type_and_entity_id"
+    t.index ["entity_type"], name: "index_activity_logs_on_entity_type"
   end
 
   create_table "assignments", force: :cascade do |t|
@@ -84,21 +86,24 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
     t.timestamptz "edited_at_utc"
     t.integer "edited_by_id"
     t.text "approval_notes"
+    t.integer "lock_version", default: 0, null: false
     t.index ["approved"], name: "index_assignments_on_approved"
     t.index ["approved_by_id"], name: "index_assignments_on_approved_by_id"
     t.index ["created_at"], name: "index_assignments_on_created_at"
     t.index ["edited_by_id"], name: "index_assignments_on_edited_by_id"
     t.index ["hourly_rate"], name: "index_assignments_on_hourly_rate"
     t.index ["shift_id", "status"], name: "index_assignments_on_shift_id_and_status"
-    t.index ["shift_id", "worker_id"], name: "index_assignments_on_shift_id_and_worker_id", unique: true
+    t.index ["shift_id", "worker_id"], name: "index_assignments_on_shift_id_and_worker_id_active", unique: true, where: "((status)::text <> ALL ((ARRAY['cancelled'::character varying, 'no_show'::character varying])::text[]))"
     t.index ["shift_id"], name: "index_assignments_on_shift"
     t.index ["shift_id"], name: "index_assignments_on_shift_id"
+    t.index ["status"], name: "index_assignments_on_status"
     t.index ["worker_id", "created_at"], name: "index_assignments_on_worker_id_and_created_at"
     t.index ["worker_id", "shift_id"], name: "index_active_assignments_on_worker_and_shift", unique: true, where: "((status)::text <> ALL ((ARRAY['cancelled'::character varying, 'no_show'::character varying])::text[]))"
     t.index ["worker_id", "shift_id"], name: "index_assignments_unique_worker_shift", unique: true
     t.index ["worker_id", "status", "created_at"], name: "index_assignments_on_worker_status_time"
     t.index ["worker_id", "status"], name: "index_assignments_on_worker_id_and_status"
     t.index ["worker_id"], name: "index_assignments_on_worker_id"
+    t.check_constraint "hours_worked IS NULL OR hours_worked >= 0::numeric AND hours_worked <= 24::numeric", name: "assignments_valid_hours_range"
     t.check_constraint "hours_worked IS NULL OR hours_worked >= 0::numeric", name: "assignments_positive_hours"
     t.check_constraint "status::text = ANY (ARRAY['assigned'::character varying::text, 'confirmed'::character varying::text, 'completed'::character varying::text, 'cancelled'::character varying::text, 'no_show'::character varying::text])", name: "assignments_valid_status"
   end
@@ -182,8 +187,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
     t.string "client_name", null: false
     t.string "role_needed", null: false
     t.string "location"
-    t.datetime "start_time_utc", null: false
-    t.datetime "end_time_utc", null: false
+    t.timestamptz "start_time_utc", null: false
+    t.timestamptz "end_time_utc", null: false
     t.decimal "pay_rate"
     t.integer "capacity", default: 1, null: false
     t.string "status", default: "draft"
@@ -209,6 +214,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_07_072725) do
     t.index ["start_time_utc", "end_time_utc"], name: "index_shifts_on_start_time_utc_and_end_time_utc"
     t.index ["start_time_utc", "end_time_utc"], name: "index_shifts_on_time_range"
     t.index ["start_time_utc", "status"], name: "index_shifts_on_start_time_utc_and_status"
+    t.index ["start_time_utc"], name: "index_shifts_on_start_time_utc"
     t.index ["status"], name: "index_shifts_on_status"
     t.check_constraint "capacity > 0", name: "shifts_positive_capacity"
     t.check_constraint "end_time_utc > start_time_utc", name: "shifts_valid_time_range"
