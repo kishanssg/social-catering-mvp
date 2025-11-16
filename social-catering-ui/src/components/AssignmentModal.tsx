@@ -176,7 +176,9 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
           worker_id: selectedWorker.id,
           status: 'assigned',
           assigned_at_utc: new Date().toISOString(),
-          hourly_rate: workerPayRates[selectedWorker.id] || suggestedPayRate || Number(shift.pay_rate) || 0,
+          hourly_rate: (selectedWorker.id in workerPayRates) 
+            ? workerPayRates[selectedWorker.id] 
+            : (suggestedPayRate || Number(shift.pay_rate) || 0),
         }
       });
 
@@ -448,8 +450,10 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                     {filteredWorkers.map((worker) => {
                       const isSelected = selectedWorker?.id === worker.id;
                     const defaultRate = suggestedPayRate || Number(shift.pay_rate) || 0;
-                    const workerPayRate = workerPayRates[worker.id] || defaultRate;
-                    const isCustomRate = workerPayRates[worker.id] && workerPayRates[worker.id] !== defaultRate;
+                    // Check if worker has explicitly set a custom rate (key exists in workerPayRates)
+                    const hasCustomRate = worker.id in workerPayRates;
+                    const workerPayRate = hasCustomRate ? workerPayRates[worker.id] : defaultRate;
+                    const isCustomRate = hasCustomRate && workerPayRates[worker.id] !== defaultRate;
                     
                       return (
                       <li key={worker.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
@@ -492,15 +496,23 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                             <DollarSign className="h-4 w-4 text-gray-400" />
                             <input
                               type="number"
-                              step="1"
+                              step="0.50"
                               min="0"
-                              placeholder={(suggestedPayRate || Number(shift.pay_rate) || 0).toString()}
-                              value={workerPayRate || ''}
+                              placeholder={defaultRate > 0 ? defaultRate.toString() : "Rate"}
+                              value={hasCustomRate ? (workerPayRates[worker.id] || '') : (defaultRate > 0 ? defaultRate.toString() : '')}
                               onChange={(e) => {
                                 const value = e.target.value;
                                 // Only allow numbers, decimal point, and empty string
                                 if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                  setWorkerPayRate(worker.id, parseFloat(value) || 0);
+                                  const numValue = parseFloat(value);
+                                  if (value === '' || isNaN(numValue)) {
+                                    // Remove from workerPayRates if cleared (will use default)
+                                    const newRates = { ...workerPayRates };
+                                    delete newRates[worker.id];
+                                    setWorkerPayRates(newRates);
+                                  } else {
+                                    setWorkerPayRate(worker.id, numValue);
+                                  }
                                 }
                               }}
                               className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
