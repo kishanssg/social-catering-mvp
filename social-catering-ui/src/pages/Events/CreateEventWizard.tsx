@@ -1000,7 +1000,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                       <span className="text-sm text-gray-600">$</span>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.50"
                         min="0"
                         placeholder="e.g., 18.00"
                         value={skill.pay_rate || ''}

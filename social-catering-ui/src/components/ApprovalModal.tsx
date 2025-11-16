@@ -1127,7 +1127,7 @@ function MobileAssignmentCard({
                   <span className="absolute left-3 top-2.5 text-gray-500">$</span>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.50"
                     min="0"
                     value={hourlyRate}
                     onChange={(e) => onEditValue(assignment.id, 'hourlyRate', parseFloat(e.target.value) || 0)}
@@ -2810,7 +2810,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                           <span className="text-sm text-gray-500">$</span>
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.50"
                             min="0"
                             value={hourlyRate}
                             onChange={(e) => {

@@ -79,7 +79,7 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
               type="number"
               required
               min="0"
-              step="0.01"
+              step="0.50"
               value={formData.pay_rate}
               onChange={(e) => updateFormData({ pay_rate: parseFloat(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
