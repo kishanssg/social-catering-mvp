@@ -86,8 +86,8 @@ class Events::RecalculateTotals
   def calculate_total_pay_sql
     # Calculate effective_pay in SQL: hours * rate
     # Rate priority: assignment.hourly_rate > shift.pay_rate > requirement.pay_rate > default
-    # Use the same default as PayCalculations concern
-    default_rate = PayCalculations::DEFAULT_PAY_RATE
+    # Use the same default as PayCalculations concern (which uses AppConstants)
+    default_rate = AppConstants::DEFAULT_PAY_RATE
     result = Assignment.joins("LEFT JOIN shifts ON assignments.shift_id = shifts.id")
       .joins("LEFT JOIN event_skill_requirements ON shifts.event_skill_requirement_id = event_skill_requirements.id")
       .where(shifts: { event_id: @event.id })
