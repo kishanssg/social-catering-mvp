@@ -10,6 +10,7 @@ module Api
 
       rescue_from ActiveRecord::RecordNotFound, with: :record_not_found
       rescue_from ActiveRecord::RecordInvalid, with: :record_invalid
+      rescue_from ActiveRecord::StaleObjectError, with: :stale_object_error
 
       private
 
@@ -38,6 +39,15 @@ module Api
 
       def record_invalid(exception)
         render_validation_errors(exception.record.errors.messages)
+      end
+
+      def stale_object_error(exception)
+        record = exception&.record
+        render json: {
+          error: "stale_object",
+          message: "This record was updated by someone else. Please refresh to see the latest.",
+          current: record&.attributes&.slice("id", "lock_version", "hours_worked", "hourly_rate", "status", "approved")
+        }, status: :conflict
       end
     end
   end

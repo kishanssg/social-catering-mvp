@@ -1,4 +1,7 @@
 class Assignment < ApplicationRecord
+  # Optimistic locking to prevent concurrent edits
+  lock_optimistically
+  
   # Allows certain state transitions to bypass capacity validation
   attr_accessor :skip_capacity_check
   # Skip availability and skill validations when editing hours for restored assignments
