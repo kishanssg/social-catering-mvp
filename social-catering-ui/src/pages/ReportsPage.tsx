@@ -87,34 +87,8 @@ export function ReportsPage() {
     })();
   }, []);
   
-  // Fetch timesheet preview when date range or filters change
-  React.useEffect(() => {
-    const fetchPreview = async () => {
-      setLoadingPreview(true);
-      try {
-        const dateRange = getDateRange();
-        let endpoint = `/reports/timesheet/preview?start_date=${dateRange.start}&end_date=${dateRange.end}`;
-        if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
-        if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
-        if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
-        
-        const response = await apiClient.get(endpoint);
-        // Handle both wrapped and unwrapped responses
-        const previewData = response.data?.data || response.data;
-        setTimesheetPreview(previewData);
-      } catch (error) {
-        console.error('Failed to fetch timesheet preview:', error);
-        setTimesheetPreview(null);
-      } finally {
-        setLoadingPreview(false);
-      }
-    };
-    
-    fetchPreview();
-  }, [datePreset, customDateRange, selectedEventId, selectedWorkerId, selectedSkill]);
-  
   // Calculate date range based on preset
-  const getDateRange = (): DateRange => {
+  const getDateRange = React.useCallback((): DateRange => {
     const today = new Date();
     
     switch (datePreset) {
@@ -155,7 +129,46 @@ export function ReportsPage() {
       default:
         return customDateRange;
     }
-  };
+  }, [datePreset, customDateRange]);
+  
+  // Fetch timesheet preview when date range or filters change
+  const fetchPreview = React.useCallback(async () => {
+    setLoadingPreview(true);
+    try {
+      const dateRange = getDateRange();
+      let endpoint = `/reports/timesheet/preview?start_date=${dateRange.start}&end_date=${dateRange.end}`;
+      if (selectedEventId) endpoint += `&event_id=${selectedEventId}`;
+      if (selectedWorkerId) endpoint += `&worker_id=${selectedWorkerId}`;
+      if (selectedSkill) endpoint += `&skill_name=${encodeURIComponent(selectedSkill)}`;
+      
+      const response = await apiClient.get(endpoint);
+      // Handle both wrapped and unwrapped responses
+      const previewData = response.data?.data || response.data;
+      setTimesheetPreview(previewData);
+    } catch (error) {
+      console.error('Failed to fetch timesheet preview:', error);
+      setTimesheetPreview(null);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [getDateRange, selectedEventId, selectedWorkerId, selectedSkill]);
+
+  React.useEffect(() => {
+    fetchPreview();
+  }, [fetchPreview]);
+
+  // Listen for approval updates to refresh preview
+  React.useEffect(() => {
+    const handleApprovalUpdate = () => {
+      // Refresh preview when approvals change
+      fetchPreview();
+    };
+
+    window.addEventListener('approval-updated', handleApprovalUpdate);
+    return () => {
+      window.removeEventListener('approval-updated', handleApprovalUpdate);
+    };
+  }, [fetchPreview]);
   
   async function handleExport(reportType: ReportType) {
     if (inFlightRef.current) return;
