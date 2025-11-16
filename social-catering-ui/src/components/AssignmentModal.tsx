@@ -327,7 +327,12 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                     
                     <div className="pt-2 border-t border-gray-200">
                       <div className="text-sm text-gray-600">
-                        <span className="font-medium">Pay Rate:</span> ${(suggestedPayRate || Number(shift.pay_rate) || 0).toFixed(2)}/hour
+                        <span className="font-medium">Pay Rate:</span> ${(
+                          suggestedPayRate || 
+                          (shift?.skill_requirement?.pay_rate != null ? Number(shift.skill_requirement.pay_rate) : null) || 
+                          Number(shift.pay_rate) || 
+                          0
+                        ).toFixed(2)}/hour
                       </div>
                       {shift.uniform_name && (
                         <div className="text-sm text-gray-600 mt-1">
