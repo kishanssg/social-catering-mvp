@@ -5,9 +5,9 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Approvals', type: :request do
   let(:user) { create(:user) }
   let(:event) { create(:event, status: 'published') }
-  let(:shift) { create(:shift, event: event, start_time_utc: 1.day.ago, end_time_utc: 1.hour.ago) }
-  let(:worker) { create(:worker) }
-  let(:assignment) { create(:assignment, shift: shift, worker: worker, status: 'assigned', approved: false) }
+  let(:shift) { create(:shift, event: event, start_time_utc: 1.day.ago, end_time_utc: 1.hour.ago, capacity: 10, role_needed: 'Server') }
+  let(:worker) { create(:worker, skills_json: ['Server']) }
+  let(:assignment) { create(:assignment, shift: shift, worker: worker, status: 'assigned', approved: false, assigned_by: user) }
 
   before do
     sign_in user
@@ -38,7 +38,7 @@ RSpec.describe 'Api::V1::Approvals', type: :request do
       end
 
       it 'only logs changed assignments' do
-        assignment2 = create(:assignment, shift: shift, worker: create(:worker), status: 'assigned', approved: false)
+        assignment2 = create(:assignment, shift: shift, worker: create(:worker, skills_json: ['Server']), status: 'assigned', approved: false, assigned_by: user)
         
         # Approve first assignment
         post "/api/v1/events/#{event.id}/approve_selected", params: { assignment_ids: [assignment.id] }

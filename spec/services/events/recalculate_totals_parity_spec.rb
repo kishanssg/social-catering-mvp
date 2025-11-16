@@ -4,14 +4,15 @@ require 'rails_helper'
 
 RSpec.describe Events::RecalculateTotals, type: :service do
   let(:event) { create(:event, status: 'published') }
-  let(:shift) { create(:shift, event: event, pay_rate: 20.0) }
-  let(:worker) { create(:worker) }
+  let(:shift) { create(:shift, event: event, pay_rate: 20.0, capacity: 10, role_needed: 'Server') }
+  let(:worker) { create(:worker, skills_json: ['Server']) }
 
   before do
     # Create assignments with various scenarios
-    create(:assignment, shift: shift, worker: worker, hours_worked: 8.0, hourly_rate: 20.0, status: 'assigned')
-    create(:assignment, shift: shift, worker: create(:worker), hours_worked: nil, hourly_rate: nil, status: 'assigned') # Uses shift duration
-    create(:assignment, shift: shift, worker: create(:worker), hours_worked: 4.0, hourly_rate: 25.0, status: 'no_show') # Excluded
+    user = create(:user)
+    create(:assignment, shift: shift, worker: worker, hours_worked: 8.0, hourly_rate: 20.0, status: 'assigned', assigned_by: user)
+    create(:assignment, shift: shift, worker: create(:worker, skills_json: ['Server']), hours_worked: nil, hourly_rate: nil, status: 'assigned', assigned_by: user) # Uses shift duration
+    create(:assignment, shift: shift, worker: create(:worker, skills_json: ['Server']), hours_worked: 4.0, hourly_rate: 25.0, status: 'no_show', assigned_by: user) # Excluded
   end
 
   describe 'Ruby vs SQL aggregation parity' do

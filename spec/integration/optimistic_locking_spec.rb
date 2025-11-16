@@ -4,7 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Optimistic Locking', type: :request do
   let(:user) { create(:user) }
-  let(:assignment) { create(:assignment, hours_worked: 5.0) }
+  let(:shift) { create(:shift, capacity: 10, role_needed: 'Server', start_time_utc: 1.day.ago, end_time_utc: 1.hour.ago) }
+  let(:worker) { create(:worker, skills_json: ['Server']) }
+  let(:assignment) { create(:assignment, shift: shift, worker: worker, hours_worked: 5.0, assigned_by: user) }
 
   before do
     sign_in user
@@ -32,6 +34,8 @@ RSpec.describe 'Optimistic Locking', type: :request do
     end
 
     it 'allows update when lock_version matches' do
+      # Reload to get current lock_version
+      assignment.reload
       patch "/api/v1/approvals/#{assignment.id}/update_hours", 
         params: { hours_worked: 6.0, lock_version: assignment.lock_version }
       
