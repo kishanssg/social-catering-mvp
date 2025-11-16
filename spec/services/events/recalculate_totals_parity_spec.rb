@@ -21,7 +21,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       ENV['USE_SQL_TOTALS'] = nil
       Rails.configuration.x.use_sql_totals = false
       
-      result_ruby = Events::RecalculateTotals.new(event: event).call
+      Events::RecalculateTotals.new(event: event).call
       hours_ruby = event.reload.total_hours_worked
       pay_ruby = event.reload.total_pay_amount
       
@@ -32,7 +32,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       ENV['USE_SQL_TOTALS'] = 'true'
       Rails.configuration.x.use_sql_totals = true
       
-      result_sql = Events::RecalculateTotals.new(event: event).call
+      Events::RecalculateTotals.new(event: event).call
       hours_sql = event.reload.total_hours_worked
       pay_sql = event.reload.total_pay_amount
       
