@@ -28,16 +28,27 @@ module Api
           assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
-        approved = assignments.select(&:approved?)
-        pending = assignments.reject { |a| a.approved? || a.status == 'no_show' }
-        no_shows = assignments.select { |a| a.status == 'no_show' }
+        # Use database query for approved instead of Ruby select (more efficient)
+        approved_scope = assignments.where(approved: true)
+        pending_scope = assignments.where(approved: false).where.not(status: 'no_show')
+        no_shows_scope = assignments.where(status: 'no_show')
+        
+        approved_hours = approved_scope.sum(&:effective_hours).round(2)
+        approved_pay = approved_scope.sum(&:effective_pay).round(2)
+        pending_hours = pending_scope.sum(&:effective_hours).round(2)
+        pending_pay = pending_scope.sum(&:effective_pay).round(2)
+        no_shows_count = no_shows_scope.count
+        
+        # Debug logging
+        Rails.logger.info("Timesheet preview: start_date=#{start_date}, end_date=#{end_date}")
+        Rails.logger.info("Timesheet preview: total assignments=#{assignments.count}, approved=#{approved_scope.count}, pending=#{pending_scope.count}, no_shows=#{no_shows_count}")
         
         render json: {
-          approved_hours: approved.sum(&:effective_hours).round(2),
-          approved_pay: approved.sum(&:effective_pay).round(2),
-          pending_hours: pending.sum(&:effective_hours).round(2),
-          pending_pay: pending.sum(&:effective_pay).round(2),
-          no_shows: no_shows.count
+          approved_hours: approved_hours,
+          approved_pay: approved_pay,
+          pending_hours: pending_hours,
+          pending_pay: pending_pay,
+          no_shows: no_shows_count
         }
       rescue => e
         Rails.logger.error("Timesheet preview failed: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}")

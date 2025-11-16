@@ -59,8 +59,12 @@ class Assignment < ApplicationRecord
   # New scopes for reporting
   scope :with_hours, -> { where.not(hours_worked: nil) }
   scope :for_date_range, ->(start_date, end_date) {
+    # Convert Date objects to datetime ranges (start of day to end of day)
+    start_datetime = start_date.is_a?(Date) ? start_date.beginning_of_day.utc : start_date
+    end_datetime = end_date.is_a?(Date) ? end_date.end_of_day.utc : end_date
+    
     joins(:shift)
-    .where(shifts: { start_time_utc: start_date..end_date })
+      .where('shifts.start_time_utc >= ? AND shifts.start_time_utc <= ?', start_datetime, end_datetime)
   }
   scope :for_event, ->(event_id) {
     joins(shift: :event).where(events: { id: event_id })
