@@ -1673,6 +1673,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       // Reload assignments to get updated status
       await loadAssignments();
       
+      // Invalidate caches (for React Query if used, or trigger parent refresh)
+      // Dispatch custom event for cache invalidation
+      window.dispatchEvent(new CustomEvent('approval-updated', { 
+        detail: { eventId: event.id, assignmentId } 
+      }));
+      
+      // Trigger parent refresh via callback
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       // Clear this assignment from editedValues since it's now saved
       setEditedValues(prev => {
         const next = { ...prev };

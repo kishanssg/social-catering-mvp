@@ -84,6 +84,17 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
+  # Bullet configuration for N+1 detection (staging/production)
+  # Enable in staging via ENV, disable in production by default
+  if ENV['ENABLE_BULLET'] == 'true'
+    config.after_initialize do
+      Bullet.enable = true
+      Bullet.bullet_logger = true
+      Bullet.rails_logger = true
+      Bullet.add_footer = false  # Don't add footer in production
+    end
+  end
+
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
   #   "example.com",     # Allow requests from example.com
