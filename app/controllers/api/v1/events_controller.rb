@@ -296,7 +296,21 @@ class Api::V1::EventsController < Api::V1::BaseController
     begin
       ActiveRecord::Base.transaction do
         # Mark all assignments as cancelled to free up workers
-        @event.assignments.update_all(status: 'cancelled')
+        cancelled_count = @event.assignments.update_all(status: 'cancelled', updated_at: Time.current)
+        
+        # Audit log for bulk cancellation
+        ActivityLog.create!(
+          actor_user_id: Current.user&.id,
+          entity_type: 'Event',
+          entity_id: @event.id,
+          action: 'bulk_cancel_assignments',
+          after_json: { 
+            cancelled_count: cancelled_count, 
+            event_title: @event.title, 
+            event_id: @event.id 
+          },
+          created_at_utc: Time.current
+        )
         
         # Set event to deleted status
         @event.update!(status: 'deleted')
