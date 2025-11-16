@@ -1074,10 +1074,8 @@ function MobileAssignmentCard({
                 value={formatTimeInput(timeIn)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value.split(':').map(Number);
-                  // Use shift_date as the base date to ensure correct date
-                  const baseDate = assignment.shift_date 
-                    ? new Date(assignment.shift_date) 
-                    : new Date(timeIn);
+                  // Use timeIn as base to preserve date and timezone, just update hours/minutes
+                  const baseDate = new Date(timeIn);
                   baseDate.setHours(hours, minutes, 0, 0);
                   onEditValue(assignment.id, 'timeIn', baseDate.toISOString());
                 }}
@@ -1095,10 +1093,8 @@ function MobileAssignmentCard({
                 value={formatTimeInput(timeOut)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value.split(':').map(Number);
-                  // Use shift_date as the base date to ensure correct date
-                  const baseDate = assignment.shift_date 
-                    ? new Date(assignment.shift_date) 
-                    : new Date(timeOut);
+                  // Use timeOut as base to preserve date and timezone, just update hours/minutes
+                  const baseDate = new Date(timeOut);
                   baseDate.setHours(hours, minutes, 0, 0);
                   onEditValue(assignment.id, 'timeOut', baseDate.toISOString());
                 }}
@@ -1551,17 +1547,24 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) return;
     
-    // Use the shift date (or scheduled_start date) as the base date
-    // This ensures we're using the correct date for the shift, not just the time
-    const baseDate = assignment.shift_date 
-      ? new Date(assignment.shift_date) 
-      : new Date(originalTime);
+    // Use the original time (scheduled_start/actual_start) as base to preserve timezone
+    // Then update just the hours/minutes while keeping the same date and timezone
+    const baseDate = new Date(originalTime);
     
-    // Set the time on the shift date
+    // Set the new time (hours and minutes) on the same date
     baseDate.setHours(hours, minutes, 0, 0);
     
-    // Convert to UTC ISO string
+    // Convert to UTC ISO string (this preserves the correct date/time)
     const isoString = baseDate.toISOString();
+    
+    console.log(`handleTimeChange: ${field} for assignment ${assignmentId}`, {
+      inputValue: value,
+      originalTime,
+      baseDate: baseDate.toISOString(),
+      isoString,
+      hours,
+      minutes
+    });
     
     setEditedValues(prev => ({
       ...prev,
@@ -1776,10 +1779,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           // Send actual times if they were edited (they're already ISO strings from handleTimeChange)
           if (edited.timeIn !== undefined) {
             updatePayload.actual_start_time_utc = edited.timeIn;
+            console.log(`Saving timeIn for assignment ${assignmentId}:`, edited.timeIn);
           }
           
           if (edited.timeOut !== undefined) {
             updatePayload.actual_end_time_utc = edited.timeOut;
+            console.log(`Saving timeOut for assignment ${assignmentId}:`, edited.timeOut);
           }
           
           // Send break duration if it was edited
