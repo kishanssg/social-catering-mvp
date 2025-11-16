@@ -1074,9 +1074,12 @@ function MobileAssignmentCard({
                 value={formatTimeInput(timeIn)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value.split(':').map(Number);
-                  const date = new Date(timeIn);
-                  date.setHours(hours, minutes, 0, 0);
-                  onEditValue(assignment.id, 'timeIn', date.toISOString());
+                  // Use shift_date as the base date to ensure correct date
+                  const baseDate = assignment.shift_date 
+                    ? new Date(assignment.shift_date) 
+                    : new Date(timeIn);
+                  baseDate.setHours(hours, minutes, 0, 0);
+                  onEditValue(assignment.id, 'timeIn', baseDate.toISOString());
                 }}
                 className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -1092,9 +1095,12 @@ function MobileAssignmentCard({
                 value={formatTimeInput(timeOut)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value.split(':').map(Number);
-                  const date = new Date(timeOut);
-                  date.setHours(hours, minutes, 0, 0);
-                  onEditValue(assignment.id, 'timeOut', date.toISOString());
+                  // Use shift_date as the base date to ensure correct date
+                  const baseDate = assignment.shift_date 
+                    ? new Date(assignment.shift_date) 
+                    : new Date(timeOut);
+                  baseDate.setHours(hours, minutes, 0, 0);
+                  onEditValue(assignment.id, 'timeOut', baseDate.toISOString());
                 }}
                 className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -1541,15 +1547,27 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     // Parse the time input (HH:MM)
     const [hours, minutes] = value.split(':').map(Number);
     
-    // Use the original date but update time
-    const date = new Date(originalTime);
-    date.setHours(hours, minutes, 0, 0);
+    // Find the assignment to get the shift date
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (!assignment) return;
+    
+    // Use the shift date (or scheduled_start date) as the base date
+    // This ensures we're using the correct date for the shift, not just the time
+    const baseDate = assignment.shift_date 
+      ? new Date(assignment.shift_date) 
+      : new Date(originalTime);
+    
+    // Set the time on the shift date
+    baseDate.setHours(hours, minutes, 0, 0);
+    
+    // Convert to UTC ISO string
+    const isoString = baseDate.toISOString();
     
     setEditedValues(prev => ({
       ...prev,
       [assignmentId]: {
         ...prev[assignmentId],
-        [field]: date.toISOString()
+        [field]: isoString
       }
     }));
   };
