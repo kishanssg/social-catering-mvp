@@ -139,12 +139,23 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       
       update_attrs = {
         hours_worked: approval_params[:hours_worked],
-        actual_start_time_utc: approval_params[:actual_start_time_utc],
-        actual_end_time_utc: approval_params[:actual_end_time_utc],
         hourly_rate: approval_params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
         edited_at_utc: Time.current
       }
+      
+      # Update actual times if provided (convert from ISO string to Time if needed)
+      if approval_params[:actual_start_time_utc].present?
+        start_time = approval_params[:actual_start_time_utc]
+        update_attrs[:actual_start_time_utc] = start_time.is_a?(String) ? Time.parse(start_time) : start_time
+        Rails.logger.info("Updating actual_start_time_utc for assignment #{@assignment.id}: #{update_attrs[:actual_start_time_utc]}")
+      end
+      
+      if approval_params[:actual_end_time_utc].present?
+        end_time = approval_params[:actual_end_time_utc]
+        update_attrs[:actual_end_time_utc] = end_time.is_a?(String) ? Time.parse(end_time) : end_time
+        Rails.logger.info("Updating actual_end_time_utc for assignment #{@assignment.id}: #{update_attrs[:actual_end_time_utc]}")
+      end
       
       # Update break duration if provided
       if approval_params[:break_duration_minutes].present?
@@ -156,6 +167,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         update_attrs[:approval_notes] = approval_params[:notes]
       end
       
+      Rails.logger.info("Updating assignment #{@assignment.id} with: #{update_attrs.inspect}")
       @assignment.update!(update_attrs)
 
       # Capture after state for activity log
