@@ -5,7 +5,7 @@ FactoryBot.define do
     status { 'confirmed' }
     assigned_at_utc { Time.current }
     hours_worked { 4.0 }
-    break_hours { 0.5 }
+    break_duration_minutes { 30 }
     
     association :shift
     association :worker

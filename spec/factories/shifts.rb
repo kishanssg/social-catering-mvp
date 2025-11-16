@@ -12,8 +12,8 @@ FactoryBot.define do
     
     association :created_by, factory: :user
     
-    # Optional associations
-    association :event, optional: true
-    association :event_skill_requirement, optional: true
+    # Optional associations - omit if not needed
+    # association :event
+    # association :event_skill_requirement
   end
 end

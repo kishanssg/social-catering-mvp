@@ -5,7 +5,7 @@ FactoryBot.define do
     first_name { 'John' }
     last_name { 'Doe' }
     email { "john.doe.#{SecureRandom.hex(4)}@example.com" }
-    phone { '555-0123' }
+    phone { '5551234567' }
     skills_json { ['Server', 'Bartender'] }
     active { true }
   end
