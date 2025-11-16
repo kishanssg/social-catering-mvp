@@ -236,13 +236,13 @@ export function LoginPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                     <h3 className="text-sm font-semibold text-red-800">Couldn't sign you in</h3>
+                    <span className="text-sm text-red-700 font-medium">
+                      We couldn't verify that email and password. Please try again.
+                    </span>
                   </div>
-                  <p className="text-sm text-red-700 ml-7 font-medium">
-                    We couldn't verify that email and password. Please try again.
-                  </p>
                 </div>
                 <button
                   type="button"
