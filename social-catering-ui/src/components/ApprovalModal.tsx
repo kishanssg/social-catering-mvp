@@ -1706,6 +1706,21 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       });
     } catch (error: any) {
       console.error('Error changing status:', error);
+      
+      // Handle 409 Conflict (stale object error)
+      if (error.response?.status === 409) {
+        setToast({ 
+          isVisible: true, 
+          type: 'error', 
+          message: 'This row was updated by someone else. Refreshing...' 
+        });
+        await loadAssignments();
+        if (onSuccess) {
+          onSuccess();
+        }
+        return;
+      }
+      
       setToast({ 
         isVisible: true, 
         type: 'error', 
@@ -1777,6 +1792,17 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       
       setToast({ isVisible: true, type: 'success', message: `Saved changes for ${assignmentIds.length} assignment(s)` });
       await loadAssignments();
+      
+      // Invalidate caches (for React Query if used, or trigger parent refresh)
+      window.dispatchEvent(new CustomEvent('approval-updated', { 
+        detail: { eventId: event.id } 
+      }));
+      
+      // Trigger parent refresh via callback
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       setEditedValues({});
     } catch (error: any) {
       console.error('Error saving changes:', error);
@@ -1797,6 +1823,12 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         assignment_ids: [assignmentId]
       });
       await loadAssignments();
+      
+      // Invalidate caches (for React Query if used, or trigger parent refresh)
+      window.dispatchEvent(new CustomEvent('approval-updated', { 
+        detail: { eventId: event.id, assignmentId } 
+      }));
+      
       onSuccess();
       setToast({ isVisible: true, type: 'success', message: 'Assignment approved' });
     } catch (error: any) {
@@ -1910,6 +1942,16 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       // Refresh assignments data
       await loadAssignments();
       
+      // Invalidate caches (for React Query if used, or trigger parent refresh)
+      window.dispatchEvent(new CustomEvent('approval-updated', { 
+        detail: { eventId: event.id, assignmentId: editingAssignmentId } 
+      }));
+      
+      // Trigger parent refresh via callback
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       // Exit edit mode
       handleCancelEdit();
       
@@ -1921,6 +1963,22 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
       });
     } catch (error: any) {
       console.error('Error updating hours:', error);
+      
+      // Handle 409 Conflict (stale object error)
+      if (error.response?.status === 409) {
+        setToast({ 
+          isVisible: true, 
+          type: 'error', 
+          message: 'This row was updated by someone else. Refreshing...' 
+        });
+        await loadAssignments();
+        if (onSuccess) {
+          onSuccess();
+        }
+        handleCancelEdit();
+        return;
+      }
+      
       setToast({ isVisible: true, type: 'error', message: error.response?.data?.message || 'Failed to update hours. Please try again.' });
     } finally {
       setIsSavingEdit(false);
