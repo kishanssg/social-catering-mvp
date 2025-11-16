@@ -143,7 +143,8 @@ module Api
           skill_requirement: shift.skill_requirement ? {
             skill_name: shift.skill_requirement.skill_name,
             uniform_name: shift.skill_requirement.uniform_name,
-            certification_name: shift.skill_requirement.certification_name
+            certification_name: shift.skill_requirement.certification_name,
+            pay_rate: shift.skill_requirement.pay_rate
           } : nil,
           event: shift.event ? {
             id: shift.event.id,

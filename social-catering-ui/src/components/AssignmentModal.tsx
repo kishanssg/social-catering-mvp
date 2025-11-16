@@ -89,6 +89,12 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
       
       if (response.data.status === 'success') {
         setShift(response.data.data);
+        
+        // If suggestedPayRate wasn't provided, try to get it from skill_requirement (SSOT)
+        if (!suggestedPayRate && response.data.data.skill_requirement?.pay_rate) {
+          // The pay_rate from skill_requirement is the SSOT, but we can't update the prop
+          // So we'll use it in the defaultRate calculation below
+        }
       } else {
         setError('Failed to load shift details');
       }
@@ -449,7 +455,9 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                   <ul>
                     {filteredWorkers.map((worker) => {
                       const isSelected = selectedWorker?.id === worker.id;
-                    const defaultRate = suggestedPayRate || Number(shift.pay_rate) || 0;
+                    // Priority: suggestedPayRate (from roleGroup) > skill_requirement.pay_rate (SSOT) > shift.pay_rate > 0
+                    const skillRequirementPayRate = shift?.skill_requirement?.pay_rate;
+                    const defaultRate = suggestedPayRate || (skillRequirementPayRate != null ? Number(skillRequirementPayRate) : null) || Number(shift.pay_rate) || 0;
                     // Check if worker has explicitly set a custom rate (key exists in workerPayRates)
                     const hasCustomRate = worker.id in workerPayRates;
                     const workerPayRate = hasCustomRate ? workerPayRates[worker.id] : defaultRate;
