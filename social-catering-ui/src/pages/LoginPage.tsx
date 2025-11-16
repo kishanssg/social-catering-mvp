@@ -238,11 +238,10 @@ export function LoginPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-                    <h3 className="text-sm font-semibold text-red-800">Login Failed</h3>
+                    <h3 className="text-sm font-semibold text-red-800">Couldn't sign you in</h3>
                   </div>
-                  <p className="text-sm text-red-700 ml-7 font-medium">{displayError}</p>
-                  <p className="text-xs text-red-600 ml-7 mt-1">
-                    Please check your credentials and try again.
+                  <p className="text-sm text-red-700 ml-7 font-medium">
+                    We couldn't verify that email and password. Please try again.
                   </p>
                 </div>
                 <button
@@ -258,20 +257,12 @@ export function LoginPage() {
               
               {/* Helpful Hints */}
               <div className="mt-3 bg-blue-50 border border-blue-200 rounded-md p-3">
-                <p className="text-xs font-semibold text-blue-900 mb-2">Common issues:</p>
                 <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                  <li>Make sure you're using your full email address (including @socialcatering.com)</li>
-                  <li>Passwords are case-sensitive</li>
-                  <li>Try copying and pasting your password to avoid typos</li>
-                  {displayError.toLowerCase().includes('email') && (
-                    <li className="font-semibold text-red-700">The email address you entered doesn't exist in our system</li>
-                  )}
-                  {displayError.toLowerCase().includes('locked') && (
-                    <li className="font-semibold text-red-700">Contact your administrator to unlock your account</li>
-                  )}
+                  <li>Use your full work email (e.g., name@socialcatering.com).</li>
+                  <li>Passwords are case-sensitive.</li>
                 </ul>
                 <p className="text-xs text-blue-700 mt-3">
-                  Need help? Contact <a href="mailto:support@socialcatering.com" className="underline font-medium">support@socialcatering.com</a>
+                  Still stuck? <a href="mailto:support@gravywork.com" className="underline font-medium">support@gravywork.com</a>
                 </p>
               </div>
             </div>
