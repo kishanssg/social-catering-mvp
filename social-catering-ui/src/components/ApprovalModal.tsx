@@ -1750,16 +1750,26 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           
           const calculatedHours = calculateHoursForAssignment(assignment);
           
+          // Build the update payload
           const updatePayload: any = {
             hours_worked: calculatedHours
           };
+          
+          // Send actual times if they were edited (they're already ISO strings from handleTimeChange)
+          if (edited.timeIn !== undefined) {
+            updatePayload.actual_start_time_utc = edited.timeIn;
+          }
+          
+          if (edited.timeOut !== undefined) {
+            updatePayload.actual_end_time_utc = edited.timeOut;
+          }
           
           if (edited.hourlyRate !== undefined) {
             updatePayload.hourly_rate = edited.hourlyRate;
           }
           
           if (edited.notes !== undefined) {
-            updatePayload.approval_notes = edited.notes;
+            updatePayload.notes = edited.notes;
           }
 
           // Handle status changes

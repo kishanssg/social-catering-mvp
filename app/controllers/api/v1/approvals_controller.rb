@@ -137,14 +137,21 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         @assignment.assigned_by_id = Current.user&.id
       end
       
-      @assignment.update!(
+      update_attrs = {
         hours_worked: approval_params[:hours_worked],
         actual_start_time_utc: approval_params[:actual_start_time_utc],
         actual_end_time_utc: approval_params[:actual_end_time_utc],
         hourly_rate: approval_params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
         edited_at_utc: Time.current
-      )
+      }
+      
+      # Update notes if provided
+      if approval_params[:notes].present?
+        update_attrs[:approval_notes] = approval_params[:notes]
+      end
+      
+      @assignment.update!(update_attrs)
 
       # Capture after state for activity log
       @assignment.reload
