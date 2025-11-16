@@ -35,5 +35,8 @@ module SocialCateringMvp
     # config.eager_load_paths << Rails.root.join("extras")
     
     # Performance logging middleware is configured in config/initializers/performance_logger.rb
+    
+    # Feature flag for SQL aggregation in totals calculation
+    config.x.use_sql_totals = ActiveModel::Type::Boolean.new.cast(ENV["USE_SQL_TOTALS"])
   end
 end

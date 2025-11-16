@@ -52,14 +52,50 @@ class Events::RecalculateTotals
 
   # Calculate total hours worked using effective_hours (SSOT)
   def calculate_total_hours(valid_assignments = nil)
-    assignments = valid_assignments || fetch_valid_assignments
-    assignments.sum(&:effective_hours).round(2)
+    if use_sql_aggregation?
+      calculate_total_hours_sql
+    else
+      assignments = valid_assignments || fetch_valid_assignments
+      assignments.sum(&:effective_hours).round(2)
+    end
   end
 
   # Calculate total pay (estimated cost) using effective_pay (SSOT)
   def calculate_total_pay(valid_assignments = nil)
-    assignments = valid_assignments || fetch_valid_assignments
-    assignments.sum(&:effective_pay).round(2)
+    if use_sql_aggregation?
+      calculate_total_pay_sql
+    else
+      assignments = valid_assignments || fetch_valid_assignments
+      assignments.sum(&:effective_pay).round(2)
+    end
+  end
+
+  def use_sql_aggregation?
+    Rails.configuration.x.use_sql_totals == true
+  end
+
+  def calculate_total_hours_sql
+    result = Assignment.joins(:shift)
+      .where(shifts: { event_id: @event.id })
+      .where.not(status: %w[cancelled no_show])
+      .sum(Arel.sql("(COALESCE(assignments.hours_worked, 
+                      EXTRACT(EPOCH FROM (shifts.end_time_utc - shifts.start_time_utc))/3600.0))"))
+    result.to_f.round(2)
+  end
+
+  def calculate_total_pay_sql
+    # Calculate effective_pay in SQL: hours * rate
+    # Rate priority: assignment.hourly_rate > shift.pay_rate > requirement.pay_rate > default
+    # Note: Using 15.0 as default (AppConstants::DEFAULT_PAY_RATE), but this should match PayCalculations
+    default_rate = 15.0  # TODO: Extract from AppConstants or PayCalculations constant
+    result = Assignment.joins("LEFT JOIN shifts ON assignments.shift_id = shifts.id")
+      .joins("LEFT JOIN event_skill_requirements ON shifts.event_skill_requirement_id = event_skill_requirements.id")
+      .where(shifts: { event_id: @event.id })
+      .where.not(assignments: { status: %w[cancelled no_show] })
+      .sum(Arel.sql("(COALESCE(assignments.hours_worked, 
+                      EXTRACT(EPOCH FROM (shifts.end_time_utc - shifts.start_time_utc))/3600.0)) * 
+                     COALESCE(assignments.hourly_rate, shifts.pay_rate, event_skill_requirements.pay_rate, #{default_rate})"))
+    result.to_f.round(2)
   end
 
   def calculate_assigned_shifts
