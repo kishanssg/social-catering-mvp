@@ -129,6 +129,10 @@ module Api
       def update
         begin
           attach_photo(@worker)
+          
+          # Reload worker to ensure we have fresh associations before update
+          @worker.reload
+          
           if @worker.update(worker_params)
             render json: {
               status: 'success',
@@ -148,7 +152,13 @@ module Api
         rescue ActiveRecord::RecordInvalid => e
           render json: { status: 'validation_error', errors: [e.message] }, status: :unprocessable_entity
         rescue PG::UniqueViolation => e
-          render json: { status: 'error', errors: ["Duplicate certification detected for this worker"], message: e.message }, status: :unprocessable_entity
+          # Try to provide a more helpful error message
+          error_msg = if e.message.include?('worker_certifications')
+            "This worker already has one of the certifications you're trying to add. Please remove duplicates and try again."
+          else
+            "Duplicate entry detected: #{e.message}"
+          end
+          render json: { status: 'error', errors: [error_msg], message: e.message }, status: :unprocessable_entity
         rescue => e
           Rails.logger.error "Workers#update failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
           render json: { status: 'error', message: 'Unable to update worker', errors: [e.message] }, status: :unprocessable_entity
@@ -275,8 +285,15 @@ module Api
           # On update: convert create into update when the worker already has this cert
           if defined?(@worker) && @worker&.persisted?
             begin
+              # Reload to ensure fresh associations
+              @worker.reload if @worker.respond_to?(:reload)
               existing = @worker.worker_certifications.find_by(certification_id: cert[:certification_id])
-              cert[:id] = existing.id if existing && cert[:id].blank?
+              if existing
+                # Always set the id if we found an existing certification
+                cert[:id] = existing.id
+                # Remove _destroy if it was set (we're updating, not destroying)
+                cert.delete(:_destroy) if cert[:_destroy] == 'true' || cert[:_destroy] == true
+              end
             rescue => _e
               # ignore lookup issues; validation will handle
             end

@@ -52,6 +52,7 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventSkillRequirementPayRate, setEventSkillRequirementPayRate] = useState<number | null>(null);
 
   const setWorkerPayRate = (workerId: number, payRate: number) => {
     setWorkerPayRates(prev => ({ ...prev, [workerId]: payRate }));
@@ -88,12 +89,36 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
       const response = await apiClient.get(`/shifts/${shiftId}`);
       
       if (response.data.status === 'success') {
-        setShift(response.data.data);
+        const shiftData = response.data.data;
+        setShift(shiftData);
         
-        // If suggestedPayRate wasn't provided, try to get it from skill_requirement (SSOT)
-        if (!suggestedPayRate && response.data.data.skill_requirement?.pay_rate) {
-          // The pay_rate from skill_requirement is the SSOT, but we can't update the prop
-          // So we'll use it in the defaultRate calculation below
+        // Debug: Log what we received
+        console.log('AssignmentModal: Shift data:', {
+          shiftId,
+          pay_rate: shiftData.pay_rate,
+          skill_requirement: shiftData.skill_requirement,
+          event_id: shiftData.event_id,
+          suggestedPayRate
+        });
+        
+        // If shift has event_id but no skill_requirement pay_rate, try fetching from event
+        if (shiftData.event_id && (!shiftData.skill_requirement?.pay_rate || shiftData.skill_requirement.pay_rate === null)) {
+          try {
+            const eventResponse = await apiClient.get(`/events/${shiftData.event_id}`);
+            if (eventResponse.data.status === 'success') {
+              const event = eventResponse.data.data;
+              // Find skill requirement matching this shift's role
+              const skillReq = event.skill_requirements?.find((sr: any) => 
+                sr.skill_name === shiftData.role_needed || sr.skill_name === shiftData.skill_requirement?.skill_name
+              );
+              if (skillReq?.pay_rate) {
+                setEventSkillRequirementPayRate(Number(skillReq.pay_rate));
+                console.log('AssignmentModal: Found pay_rate from event skill_requirement:', skillReq.pay_rate);
+              }
+            }
+          } catch (eventError) {
+            console.warn('AssignmentModal: Failed to fetch event for pay_rate fallback:', eventError);
+          }
         }
       } else {
         setError('Failed to load shift details');
@@ -460,9 +485,24 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                   <ul>
                     {filteredWorkers.map((worker) => {
                       const isSelected = selectedWorker?.id === worker.id;
-                    // Priority: suggestedPayRate (from roleGroup) > skill_requirement.pay_rate (SSOT) > shift.pay_rate > 0
+                    // Priority: suggestedPayRate (from roleGroup) > skill_requirement.pay_rate (SSOT) > eventSkillRequirementPayRate (fallback) > shift.pay_rate > 0
                     const skillRequirementPayRate = shift?.skill_requirement?.pay_rate;
-                    const defaultRate = suggestedPayRate || (skillRequirementPayRate != null ? Number(skillRequirementPayRate) : null) || Number(shift.pay_rate) || 0;
+                    // Convert null/undefined to null explicitly, then fall through to shift.pay_rate
+                    const defaultRate = suggestedPayRate || 
+                      (skillRequirementPayRate != null && skillRequirementPayRate !== undefined ? Number(skillRequirementPayRate) : null) || 
+                      (eventSkillRequirementPayRate != null ? eventSkillRequirementPayRate : null) ||
+                      (shift?.pay_rate != null && shift.pay_rate !== undefined ? Number(shift.pay_rate) : null) || 
+                      0;
+                    
+                    // Debug log for troubleshooting
+                    if (defaultRate === 0) {
+                      console.warn('AssignmentModal: Default rate is 0', {
+                        suggestedPayRate,
+                        skillRequirementPayRate,
+                        shiftPayRate: shift?.pay_rate,
+                        shiftId: shift?.id
+                      });
+                    }
                     // Check if worker has explicitly set a custom rate (key exists in workerPayRates)
                     const hasCustomRate = worker.id in workerPayRates;
                     const workerPayRate = hasCustomRate ? workerPayRates[worker.id] : defaultRate;
