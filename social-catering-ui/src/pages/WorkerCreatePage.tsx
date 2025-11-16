@@ -150,13 +150,30 @@ export function WorkerCreatePage() {
       if (response.data.status === 'success') {
         // The API returns { data: { worker: {...} }, status: "success" }
         const worker = response.data.data.worker;
-        // Normalize certifications: handle both worker.worker_certifications (array/object) and worker.certifications
-        const rawCerts = Array.isArray(worker?.worker_certifications)
-          ? worker.worker_certifications
-          : Array.isArray(worker?.certifications)
-            ? worker.certifications
-            : [];
-        const normalizedCerts = Array.isArray(rawCerts) ? rawCerts : [];
+        // Normalize certifications: handle both worker.worker_certifications (nested) and worker.certifications (flat)
+        // The API's serialize_worker returns 'certifications' as a flat array where id = certification.id
+        // But some endpoints might return 'worker_certifications' as nested with certification object
+        let normalizedCerts: any[] = [];
+        
+        if (Array.isArray(worker?.worker_certifications)) {
+          // Nested structure: worker_certifications array with certification object
+          normalizedCerts = worker.worker_certifications.map((wc: any) => ({
+            worker_certification_id: wc.id, // The join table ID
+            certification_id: wc.certification?.id ?? wc.certification_id,
+            certification_name: wc.certification?.name ?? wc.name,
+            expires_at_utc: wc.expires_at_utc
+          }));
+        } else if (Array.isArray(worker?.certifications)) {
+          // Flat structure: certifications array where id = certification.id
+          // Note: This structure doesn't include worker_certification.id, but backend will find it
+          normalizedCerts = worker.certifications.map((cert: any) => ({
+            worker_certification_id: null, // Not available in flat structure
+            certification_id: cert.id, // In flat structure, id IS the certification.id
+            certification_name: cert.name,
+            expires_at_utc: cert.expires_at_utc
+          }));
+        }
+        
         setFormData({
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
@@ -166,14 +183,20 @@ export function WorkerCreatePage() {
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
           skills: worker.skills_json || [],
-          // Map existing worker_certifications (if present in API) into nested attributes
-          worker_certifications_attributes: normalizedCerts.map((wc: any) => ({
-            id: wc.id,
-            certification_id: wc.certification?.id ?? wc.certification_id ?? wc.id,
-            name: wc.certification?.name ?? wc.name,
-            expires_at_utc: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : '',
-            _destroy: false
-          }))
+          // Map certifications into nested attributes format
+          // Backend will automatically find worker_certification.id by certification_id if id is missing
+          worker_certifications_attributes: normalizedCerts
+            .filter((wc: any) => {
+              // Only include if we have a valid certification_id
+              return wc.certification_id != null && wc.certification_id !== undefined && wc.certification_id !== '';
+            })
+            .map((wc: any) => ({
+              id: wc.worker_certification_id || undefined, // Include if available, backend will find it if missing
+              certification_id: wc.certification_id,
+              name: wc.certification_name,
+              expires_at_utc: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : '',
+              _destroy: false
+            }))
         });
         if (worker.profile_photo_url) setPhotoPreview(worker.profile_photo_url);
       }
@@ -228,20 +251,32 @@ export function WorkerCreatePage() {
       if (formData.address_line2) form.append('worker[address_line2]', formData.address_line2);
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
       // Always include nested attributes entries; backend will handle _destroy and id mapping
-      formData.worker_certifications_attributes.forEach((c, i) => {
+      // Filter out certifications marked for destruction and ensure certification_id is present
+      const validCerts = formData.worker_certifications_attributes.filter(
+        (c) => !c._destroy && c.certification_id != null && c.certification_id !== undefined
+      );
+      
+      validCerts.forEach((c, i) => {
+        // Always include id if it exists (for updates)
         if (c.id != null) {
           form.append(`worker[worker_certifications_attributes][${i}][id]`, String(c.id));
         }
-        if (c.certification_id) {
-          form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
-        }
+        // Always include certification_id (required)
+        form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
+        // Include expires_at_utc if present
         if (c.expires_at_utc) {
           form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
         }
-        if (c._destroy) {
-          form.append(`worker[worker_certifications_attributes][${i}][_destroy]`, 'true');
-        }
       });
+      
+      // Handle certifications marked for destruction separately
+      formData.worker_certifications_attributes
+        .filter((c) => c._destroy && c.id != null)
+        .forEach((c, i) => {
+          const destroyIndex = validCerts.length + i;
+          form.append(`worker[worker_certifications_attributes][${destroyIndex}][id]`, String(c.id));
+          form.append(`worker[worker_certifications_attributes][${destroyIndex}][_destroy]`, 'true');
+        });
       if (photoFile) form.append('profile_photo', photoFile);
       
       // Debug: Log what we're sending
