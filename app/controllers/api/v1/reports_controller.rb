@@ -6,8 +6,9 @@ module Api
       # GET /api/v1/reports/timesheet/preview
       # Returns summary of approved/pending hours for preview
       def timesheet_preview
-        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
-        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        p = report_params
+        start_date = p[:start_date] ? Date.parse(p[:start_date]) : 1.week.ago
+        end_date = p[:end_date] ? Date.parse(p[:end_date]) : Date.today
         
         assignments = Assignment.valid
           .includes(:worker, shift: [event: :event_schedule])
@@ -16,14 +17,14 @@ module Api
           .joins(:worker).where(workers: { active: true })
         
         # Filter by event if provided
-        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
+        assignments = assignments.for_event(p[:event_id]) if p[:event_id].present?
         
         # Filter by worker if provided
-        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        assignments = assignments.for_worker(p[:worker_id]) if p[:worker_id].present?
         
         # Filter by skill if provided
-        if params[:skill_name].present?
-          skill = CGI.unescape(params[:skill_name].to_s)
+        if p[:skill_name].present?
+          skill = CGI.unescape(p[:skill_name].to_s)
           assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
@@ -46,8 +47,9 @@ module Api
       # GET /api/v1/reports/timesheet
       # Query params: start_date, end_date, event_id, worker_id
       def timesheet
-        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
-        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        p = report_params
+        start_date = p[:start_date] ? Date.parse(p[:start_date]) : 1.week.ago
+        end_date = p[:end_date] ? Date.parse(p[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
         assignments = Assignment.valid  # Filter orphaned assignments
@@ -58,14 +60,14 @@ module Api
                            # Removed past-only filter to include future scheduled shifts
         
         # Filter by event if provided
-        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
+        assignments = assignments.for_event(p[:event_id]) if p[:event_id].present?
         
         # Filter by worker if provided
-        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        assignments = assignments.for_worker(p[:worker_id]) if p[:worker_id].present?
         
         # Filter by skill if provided
-        if params[:skill_name].present?
-          skill = CGI.unescape(params[:skill_name].to_s)
+        if p[:skill_name].present?
+          skill = CGI.unescape(p[:skill_name].to_s)
           assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
@@ -83,8 +85,9 @@ module Api
       # GET /api/v1/reports/payroll
       # Weekly payroll report
       def payroll
-        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
-        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        p = report_params
+        start_date = p[:start_date] ? Date.parse(p[:start_date]) : 1.week.ago
+        end_date = p[:end_date] ? Date.parse(p[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) for payroll
         assignments = Assignment.valid  # Filter orphaned assignments
@@ -94,14 +97,14 @@ module Api
                            .joins(:worker).where(workers: { active: true })  # Filter inactive workers
         
         # Filter by event if provided
-        assignments = assignments.for_event(params[:event_id]) if params[:event_id].present?
+        assignments = assignments.for_event(p[:event_id]) if p[:event_id].present?
         
         # Filter by worker if provided
-        assignments = assignments.for_worker(params[:worker_id]) if params[:worker_id].present?
+        assignments = assignments.for_worker(p[:worker_id]) if p[:worker_id].present?
         
         # Filter by skill if provided
-        if params[:skill_name].present?
-          skill = CGI.unescape(params[:skill_name].to_s)
+        if p[:skill_name].present?
+          skill = CGI.unescape(p[:skill_name].to_s)
           assignments = assignments.joins(:shift).where('shifts.role_needed = ?', skill)
         end
         
@@ -119,8 +122,9 @@ module Api
       # GET /api/v1/reports/worker_hours
       # Aggregate hours worked per worker for the selected period
       def worker_hours
-        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
-        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        p = report_params
+        start_date = p[:start_date] ? Date.parse(p[:start_date]) : 1.week.ago
+        end_date = p[:end_date] ? Date.parse(p[:end_date]) : Date.today
         
         # Export all active assignments (assigned, confirmed, completed) including future scheduled shifts
         assignments = Assignment.valid  # Filter orphaned assignments
@@ -153,8 +157,9 @@ module Api
       # GET /api/v1/reports/event_summary
       # Event staffing summary report
       def event_summary
-        start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.month.ago
-        end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
+        p = report_params
+        start_date = p[:start_date] ? Date.parse(p[:start_date]) : 1.month.ago
+        end_date = p[:end_date] ? Date.parse(p[:end_date]) : Date.today
         
         events = Event.includes(:venue, :event_schedule, shifts: :assignments)
                       .joins(:event_schedule)
@@ -171,6 +176,10 @@ module Api
       end
       
       private
+
+      def report_params
+        params.permit(:start_date, :end_date, :event_id, :worker_id, :skill_name, :format)
+      end
       
       def generate_timesheet_csv(staffing_records)
         require 'csv'

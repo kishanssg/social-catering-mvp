@@ -138,10 +138,10 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       end
       
       @assignment.update!(
-        hours_worked: params[:hours_worked],
-        actual_start_time_utc: params[:actual_start_time_utc],
-        actual_end_time_utc: params[:actual_end_time_utc],
-        hourly_rate: params[:hourly_rate].presence || @assignment.hourly_rate,
+        hours_worked: approval_params[:hours_worked],
+        actual_start_time_utc: approval_params[:actual_start_time_utc],
+        actual_end_time_utc: approval_params[:actual_end_time_utc],
+        hourly_rate: approval_params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
         edited_at_utc: Time.current
       )
@@ -191,7 +191,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
       role = @assignment.shift&.role_needed || nil
       
-      @assignment.mark_no_show!(Current.user, notes: params[:notes])
+      @assignment.mark_no_show!(Current.user, notes: approval_params[:notes])
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
@@ -227,7 +227,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   # DELETE /api/v1/approvals/:id/remove
   def remove
     ActiveRecord::Base.transaction do
-      @assignment.remove_from_job!(Current.user, notes: params[:notes])
+      @assignment.remove_from_job!(Current.user, notes: approval_params[:notes])
 
       # Get worker and event names for activity log
       worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
@@ -257,40 +257,52 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   # POST /api/v1/events/:event_id/approve_selected
   def approve_selected
-    assignment_ids = params[:assignment_ids] || []
-    return render json: { status: 'error', message: 'No assignments selected' }, status: :bad_request if assignment_ids.empty?
+    ids = approve_selected_params[:assignment_ids].presence || []
+    return render json: { status: 'error', message: 'No assignments selected' }, status: :bad_request if ids.empty?
 
-    approved_count = 0
+    changed_count = 0
+    changed_ids = []
     failed_count = 0
     errors = []
 
-    ActiveRecord::Base.transaction do
-      assignments = Assignment.where(id: assignment_ids)
+    Assignment.transaction do
+      # Lock rows to avoid racing double-approval
+      scope = Assignment.where(id: ids)
         .joins(:shift)
         .where(shifts: { event_id: @event.id })
+        .where(approved: false)
+        .where(status: ['assigned', 'confirmed', 'completed'])
         .includes(:worker, :shift)
+        .lock("FOR UPDATE")
 
-      assignments.each do |assignment|
-        # CRITICAL: Allow approval of restored no-show/cancelled workers
-        # They should be in 'assigned' status after hours are edited
-        if assignment.status.in?(['assigned', 'confirmed', 'completed']) && !assignment.approved?
-          if assignment.can_approve?
-            assignment.approve!(Current.user)
-            approved_count += 1
-          else
-            failed_count += 1
-            errors << "Assignment #{assignment.id}: Cannot approve (shift not ended)"
-          end
-        else
+      scope.find_each do |assignment|
+        # Skip if already approved (idempotency)
+        next if assignment.approved?
+
+        # Check if shift has ended
+        unless assignment.can_approve?
           failed_count += 1
-          errors << "Assignment #{assignment.id}: Invalid status (#{assignment.status}) or already approved"
+          errors << "Assignment #{assignment.id}: Cannot approve (shift not ended)"
+          next
         end
+
+        # Approve using update_columns to bypass validations (already validated above)
+        assignment.update_columns(
+          approved: true,
+          approved_by_id: Current.user.id,
+          approved_at_utc: Time.current,
+          lock_version: assignment.lock_version + 1,
+          updated_at: Time.current
+        )
+
+        changed_count += 1
+        changed_ids << assignment.id
       end
 
-      if approved_count > 0
-        # Collect worker names for summary (first name + last initial)
-        # Only include workers whose assignments were actually approved
-        approved_assignments = assignments.select { |a| a.approved? }
+      # Only log if something changed (idempotency)
+      if changed_count > 0
+        # Collect worker names for summary
+        approved_assignments = Assignment.where(id: changed_ids).includes(:worker)
         worker_names = approved_assignments.map do |a|
           if a.worker
             "#{a.worker.first_name} #{a.worker.last_name[0]}."
@@ -303,14 +315,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           actor_user_id: Current.user&.id,
           entity_type: 'Event',
           entity_id: @event.id,
-          action: 'event_hours_approved_selected',
+          action: 'bulk_approve_assignments',
           after_json: { 
             event_name: @event.title,
             event_id: @event.id,
-            approved_count: approved_count,
-            worker_count: approved_count,
-            failed_count: failed_count,
-            assignment_ids: assignment_ids,
+            approved_count: changed_count,
+            assignment_ids: changed_ids,
             worker_names: worker_names
           },
           created_at_utc: Time.current
@@ -320,9 +330,9 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
     render json: {
       status: 'success',
-      message: "Approved #{approved_count} assignment#{approved_count != 1 ? 's' : ''}#{failed_count > 0 ? ". #{failed_count} failed." : ''}",
+      message: changed_count > 0 ? "Approved #{changed_count} assignment#{changed_count != 1 ? 's' : ''}#{failed_count > 0 ? ". #{failed_count} failed." : ''}" : "No changes (assignments already approved or invalid)",
       data: { 
-        approved_count: approved_count,
+        approved_count: changed_count,
         failed_count: failed_count,
         errors: errors
       }
@@ -392,6 +402,14 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
   def set_assignment
     @assignment = Assignment.find(params[:id])
+  end
+
+  def approval_params
+    params.permit(:hours_worked, :actual_start_time_utc, :actual_end_time_utc, :hourly_rate, :notes, :lock_version)
+  end
+
+  def approve_selected_params
+    params.permit(assignment_ids: [])
   end
 
   def serialize_event_for_approval(event)
