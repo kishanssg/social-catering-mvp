@@ -268,6 +268,7 @@ export function ReportsPage() {
             exporting={exporting}
             preview={timesheetPreview}
             loadingPreview={loadingPreview}
+            dateRange={getDateRange()}
           />
           
           {/* Payroll Report */}
@@ -657,9 +658,10 @@ interface ReportCardProps {
     no_shows: number;
   } | null;
   loadingPreview?: boolean;
+  dateRange?: DateRange;
 }
 
-function ReportCard({ icon, title, description, color, lastExport, onExport, exporting, preview, loadingPreview }: ReportCardProps) {
+function ReportCard({ icon, title, description, color, lastExport, onExport, exporting, preview, loadingPreview, dateRange }: ReportCardProps) {
   const colorClasses = {
     teal: 'bg-teal-100 text-teal-600',
     indigo: 'bg-indigo-100 text-indigo-600',
@@ -709,6 +711,11 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
             <div className="text-sm text-gray-500">Loading preview...</div>
           ) : preview ? (
             <>
+              {dateRange && (
+                <div className="text-xs text-gray-500 mb-2 pb-2 border-b border-gray-300">
+                  <span className="font-medium">Date Range:</span> {format(new Date(dateRange.start), 'MMM d, yyyy')} - {format(new Date(dateRange.end), 'MMM d, yyyy')}
+                </div>
+              )}
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Approved for Payout:</span>
                 <span className="font-semibold text-green-600">
