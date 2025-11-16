@@ -220,19 +220,21 @@ export function WorkerCreatePage() {
       const url = isEditMode ? `/workers/${id}` : '/workers';
 
       const form = new FormData();
-      form.append('worker[first_name]', formData.first_name);
-      form.append('worker[last_name]', formData.last_name);
-      form.append('worker[email]', formData.email);
-      form.append('worker[phone]', formData.phone);
-      form.append('worker[address_line1]', formData.address_line1);
-      form.append('worker[address_line2]', formData.address_line2);
+      form.append('worker[first_name]', formData.first_name || '');
+      form.append('worker[last_name]', formData.last_name || '');
+      form.append('worker[email]', formData.email || '');
+      form.append('worker[phone]', formData.phone || '');
+      if (formData.address_line1) form.append('worker[address_line1]', formData.address_line1);
+      if (formData.address_line2) form.append('worker[address_line2]', formData.address_line2);
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
       // Always include nested attributes entries; backend will handle _destroy and id mapping
       formData.worker_certifications_attributes.forEach((c, i) => {
         if (c.id != null) {
           form.append(`worker[worker_certifications_attributes][${i}][id]`, String(c.id));
         }
-        form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
+        if (c.certification_id) {
+          form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
+        }
         if (c.expires_at_utc) {
           form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
         }
@@ -241,6 +243,16 @@ export function WorkerCreatePage() {
         }
       });
       if (photoFile) form.append('profile_photo', photoFile);
+      
+      // Debug: Log what we're sending
+      console.log('Submitting worker form:', {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone: formData.phone,
+        skills_count: formData.skills.length,
+        certifications_count: formData.worker_certifications_attributes.length
+      });
 
       const response = await apiClient.request({ method, url, data: form });
       
@@ -255,12 +267,24 @@ export function WorkerCreatePage() {
       }
     } catch (error: any) {
       console.error('Failed to save worker:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
       let errorMessage = 'Failed to save worker';
       
-      if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors.join(', ');
+      // Check for validation errors (status: 'validation_error')
+      if (error.response?.data?.status === 'validation_error' && error.response?.data?.errors) {
+        errorMessage = Array.isArray(error.response.data.errors) 
+          ? error.response.data.errors.join(', ')
+          : String(error.response.data.errors);
+      } else if (error.response?.data?.errors) {
+        errorMessage = Array.isArray(error.response.data.errors)
+          ? error.response.data.errors.join(', ')
+          : String(error.response.data.errors);
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
       } else if (error.message) {
         errorMessage = error.message;
       }
