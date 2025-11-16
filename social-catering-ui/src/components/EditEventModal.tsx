@@ -72,6 +72,28 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     break_minutes: number;
   } | null>(null);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+
+  // Helper function to convert UTC ISO string to local datetime-local format (YYYY-MM-DDTHH:mm)
+  const utcToLocalDatetimeLocal = (utcIsoString: string): string => {
+    if (!utcIsoString) return '';
+    const date = new Date(utcIsoString);
+    // Get local date components
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Helper function to convert local datetime-local value to UTC ISO string
+  const localDatetimeLocalToUtc = (localDatetime: string): string => {
+    if (!localDatetime) return '';
+    // datetime-local value is in local time, create Date object which interprets it as local
+    const localDate = new Date(localDatetime);
+    // Convert to UTC ISO string
+    return localDate.toISOString();
+  };
   
   // Fetch full event details (including skill_requirements) when modal opens
   useEffect(() => {
@@ -431,8 +453,8 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                     <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
                     <input
                       type="datetime-local"
-                      value={schedule?.start_time_utc ? new Date(schedule.start_time_utc).toISOString().slice(0, 16) : ''}
-                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, start_time_utc: new Date(e.target.value).toISOString() }) : null)}
+                      value={schedule?.start_time_utc ? utcToLocalDatetimeLocal(schedule.start_time_utc) : ''}
+                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, start_time_utc: localDatetimeLocalToUtc(e.target.value) }) : null)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     />
                   </div>
@@ -440,8 +462,8 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                     <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
                     <input
                       type="datetime-local"
-                      value={schedule?.end_time_utc ? new Date(schedule.end_time_utc).toISOString().slice(0, 16) : ''}
-                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, end_time_utc: new Date(e.target.value).toISOString() }) : null)}
+                      value={schedule?.end_time_utc ? utcToLocalDatetimeLocal(schedule.end_time_utc) : ''}
+                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, end_time_utc: localDatetimeLocalToUtc(e.target.value) }) : null)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     />
                   </div>
