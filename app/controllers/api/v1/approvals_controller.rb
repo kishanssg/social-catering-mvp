@@ -146,6 +146,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         edited_at_utc: Time.current
       }
       
+      # Update break duration if provided
+      if approval_params[:break_duration_minutes].present?
+        update_attrs[:break_duration_minutes] = approval_params[:break_duration_minutes]
+      end
+      
       # Update notes if provided
       if approval_params[:notes].present?
         update_attrs[:approval_notes] = approval_params[:notes]
@@ -412,7 +417,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   end
 
   def approval_params
-    params.permit(:hours_worked, :actual_start_time_utc, :actual_end_time_utc, :hourly_rate, :notes, :lock_version)
+    params.permit(:hours_worked, :actual_start_time_utc, :actual_end_time_utc, :hourly_rate, :break_duration_minutes, :notes, :lock_version)
   end
 
   def approve_selected_params

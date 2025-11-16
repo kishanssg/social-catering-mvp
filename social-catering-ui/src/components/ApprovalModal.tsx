@@ -1764,6 +1764,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             updatePayload.actual_end_time_utc = edited.timeOut;
           }
           
+          // Send break duration if it was edited
+          if (edited.breakMinutes !== undefined) {
+            updatePayload.break_duration_minutes = edited.breakMinutes;
+          }
+          
           if (edited.hourlyRate !== undefined) {
             updatePayload.hourly_rate = edited.hourlyRate;
           }
