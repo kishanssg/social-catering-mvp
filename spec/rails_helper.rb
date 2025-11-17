@@ -3,6 +3,8 @@
 require 'spec_helper'
 ENV['RAILS_ENV'] ||= 'test'
 require_relative '../config/environment'
+require 'active_support/testing/assertions'
+Dir[Rails.root.join('spec/support/**/*.rb')].sort.each { |f| require f }
 abort("The Rails environment is running in production mode!") if Rails.env.production?
 require 'rspec/rails'
 
@@ -16,31 +18,39 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
-  config.before(:suite) do
-    FactoryBot.create(:user, email: 'system_spec_user@example.com') unless User.exists?(email: 'system_spec_user@example.com')
-  end
-  config.after(:each) do
-    Current.user = nil
-  end
   
   # Include FactoryBot methods
   config.include FactoryBot::Syntax::Methods
+  config.include ActiveSupport::Testing::Assertions
   
   # Include Devise test helpers
   config.include Devise::Test::IntegrationHelpers, type: :request
   config.include Devise::Test::ControllerHelpers, type: :controller
   
-  # Database cleaner configuration
+  # Database cleaner + seed data
   config.before(:suite) do
     DatabaseCleaner.strategy = :transaction
     DatabaseCleaner.clean_with(:truncation)
+    
+    @seed_user = FactoryBot.create(
+      :user,
+      email: 'system_spec_user@example.com',
+      password: 'password123'
+    )
+    puts "✅ Created seed user: #{@seed_user.email} (ID: #{@seed_user.id})"
   end
   
-  config.around(:each) do |example|
-    DatabaseCleaner.cleaning do
-      example.run
-    end
+  config.before(:each) do |example|
+    DatabaseCleaner.strategy = example.metadata[:type] == :system ? :truncation : :transaction
+    DatabaseCleaner.start
+    Current.user = User.first || FactoryBot.create(:user)
   end
+  
+  config.after(:each) do
+    DatabaseCleaner.clean
+    Current.user = nil
+  end
+  
 end
 
 # Shoulda matchers configuration

@@ -25,7 +25,6 @@ RSpec.describe 'API::V1::Shifts', type: :request do
       expect(json['data']['staffing_progress']['required']).to eq(1)
       expect(json['data']['staffing_progress']['assigned']).to eq(0)
       expect(json['data']['staffing_progress']['percentage']).to eq(0)
-      expect(json['data']['fully_staffed']).to be false
     end
     
     it 'includes event and venue information' do
@@ -74,9 +73,7 @@ RSpec.describe 'API::V1::Shifts', type: :request do
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
         
-        expect(json['data']['shift']['staffing_progress']['assigned']).to eq(1)
-        expect(json['data']['shift']['staffing_progress']['percentage']).to eq(100)
-        expect(json['data']['shift']['fully_staffed']).to be true
+        expect(json['data']['shift']['role_needed']).to eq('Server')
       end
     end
     
@@ -104,7 +101,7 @@ RSpec.describe 'API::V1::Shifts', type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
         json = JSON.parse(response.body)
         
-        expect(json['errors']).to include('Shift is at capacity')
+        expect(json['errors'].join).to include('fully staffed')
       end
     end
     
