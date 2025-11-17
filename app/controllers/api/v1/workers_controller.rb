@@ -1,3 +1,27 @@
+      def worker_certifications_payload(worker, worker_certs)
+        worker_certs.map do |wc|
+          {
+            id: wc.id,
+            certification_id: wc.certification_id,
+            certification_name: wc.certification&.name,
+            expires_at_utc: wc.expires_at_utc,
+            expired: wc.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false
+          }
+        end
+      end
+
+      def certifications_payload(worker, worker_certs)
+        worker.certifications.map do |cert|
+          wc = worker_certs.find { |row| row.certification_id == cert.id }
+          {
+            id: cert.id,
+            name: cert.name,
+            expires_at_utc: wc&.expires_at_utc,
+            expired: wc&.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false,
+            worker_certification_id: wc&.id
+          }
+        end
+      end
 require 'set'
 
 module Api
@@ -71,7 +95,7 @@ module Api
           end
           
           # Order by name
-          workers = workers.order(:first_name, :last_name).to_a
+          workers = workers.order(active: :desc).order(:last_name, :first_name).to_a
         end
         
         render json: { 
@@ -100,17 +124,12 @@ module Api
         begin
           @worker = Worker.new(worker_params)
           attach_photo(@worker)
+          return render_duplicate_cert_errors if duplicate_cert_errors.present?
           if @worker.save
             render json: {
               status: 'success',
               data: {
-                worker: @worker.as_json(
-                  include: {
-                    worker_certifications: {
-                      include: { certification: { only: [:id, :name] } }
-                    }
-                  }
-                )
+                worker: serialize_worker(@worker)
               }
             }, status: :created
           else
@@ -133,17 +152,12 @@ module Api
           # Reload worker to ensure we have fresh associations before update
           @worker.reload
           
+          return render_duplicate_cert_errors if duplicate_cert_errors.present?
           if @worker.update(worker_params)
             render json: {
               status: 'success',
               data: {
-                worker: @worker.as_json(
-                  include: {
-                    worker_certifications: {
-                      include: { certification: { only: [:id, :name] } }
-                    }
-                  }
-                )
+                worker: serialize_worker(@worker.reload)
               }
             }
           else
@@ -240,7 +254,9 @@ module Api
       private
 
       def set_worker
-        @worker = Worker.find(params[:id])
+        includes = [:certifications, { worker_certifications: :certification }]
+        includes << :worker_skills if Worker.reflect_on_association(:worker_skills)
+        @worker = Worker.includes(*includes).find(params[:id])
       end
 
       def worker_params
@@ -263,51 +279,90 @@ module Api
       # Accept dates like "YYYY-MM-DD" from the UI and coerce to UTC ISO8601
       # so TIMESTAMPTZ columns are set correctly. Also drop empty rows.
       def normalize_cert_params!
-        w = params[:worker]
-        return unless w
-        attrs = w[:worker_certifications_attributes]
-        return unless attrs.is_a?(ActionController::Parameters) || attrs.is_a?(Hash)
-        seen = Set.new
-        attrs.each do |_k, cert|
-          next unless cert
-          # Remove entirely if missing certification_id
-          if cert[:certification_id].blank?
-            cert[:_destroy] = true
-            next
-          end
-          # De-duplicate within the same payload
-          if seen.include?(cert[:certification_id].to_s)
-            cert[:_destroy] = true
-            next
-          end
-          seen << cert[:certification_id].to_s
+        worker_params_hash = params[:worker]
+        return unless worker_params_hash
+        attrs = worker_params_hash[:worker_certifications_attributes]
+        return if attrs.blank?
 
-          # On update: convert create into update when the worker already has this cert
-          if defined?(@worker) && @worker&.persisted?
-            begin
-              # Reload to ensure fresh associations
-              @worker.reload if @worker.respond_to?(:reload)
-              existing = @worker.worker_certifications.find_by(certification_id: cert[:certification_id])
-              if existing
-                # Always set the id if we found an existing certification
-                cert[:id] = existing.id
-                # Remove _destroy if it was set (we're updating, not destroying)
-                cert.delete(:_destroy) if cert[:_destroy] == 'true' || cert[:_destroy] == true
-              end
-            rescue => _e
-              # ignore lookup issues; validation will handle
-            end
+        normalized_attrs = normalize_cert_array(attrs)
+        Rails.logger.debug { "[WorkersController] raw worker_certifications_attributes=#{normalized_attrs.inspect}" } if Rails.env.development?
+
+        existing_by_cert = if defined?(@worker) && @worker.present?
+                             @worker.worker_certifications.index_by(&:certification_id)
+                           else
+                             {}
+                           end
+
+        deduped = {}
+
+        normalized_attrs.each do |_key, cert|
+          next unless cert
+
+          cert_id = cert[:certification_id] || cert['certification_id']
+          if cert_id.blank?
+            cert[:_destroy] = true
+            next
           end
-          val = cert[:expires_at_utc]
-          next if val.blank?
-          if val.is_a?(String) && val.match?(/^\d{4}-\d{2}-\d{2}$/)
-            # Interpret as local date end-of-day UTC
-            begin
-              t = Time.zone.parse(val).end_of_day.utc
-              cert[:expires_at_utc] = t.iso8601
-            rescue
-              # leave as-is; model validation will handle
-            end
+
+          cert_id = cert_id.to_i
+          next if cert_id <= 0
+
+          cert[:certification_id] = cert_id
+          deduped[cert_id] = cert # keep latest occurrence
+        end
+
+        final_attrs = deduped.values
+        final_attrs.each do |cert|
+          normalize_expiration!(cert)
+
+          boolean_destroy = ActiveModel::Type::Boolean.new.cast(cert[:_destroy])
+          cert[:_destroy] = boolean_destroy ? 'true' : nil
+          cert.delete(:_destroy) unless cert[:_destroy]
+
+          next unless @worker&.persisted?
+
+          existing = existing_by_cert[cert[:certification_id]]
+          next unless existing
+
+          cert[:id] ||= existing.id
+        end
+
+        final_attrs_hash = final_attrs.each_with_index.each_with_object({}) do |(attr, idx), memo|
+          memo[idx.to_s] = attr.compact
+        end
+
+        Rails.logger.info("[WorkersController] normalized worker_certifications_attributes=#{final_attrs_hash.inspect}") if Rails.env.development?
+
+        worker_params_hash[:worker_certifications_attributes] = final_attrs_hash
+      end
+
+      def normalize_cert_array(attrs)
+        case attrs
+        when ActionController::Parameters
+          normalize_cert_array(attrs.to_unsafe_h)
+        when Array
+          attrs.each_with_index.each_with_object({}) do |(value, idx), hash|
+            hash[idx.to_s] = value.is_a?(ActionController::Parameters) ? value.to_unsafe_h : value
+          end
+        when Hash
+          attrs.transform_values do |value|
+            value.is_a?(ActionController::Parameters) ? value.to_unsafe_h : value
+          end
+        else
+          {}
+        end
+      end
+
+      def normalize_expiration!(cert)
+        val = cert[:expires_at_utc] || cert['expires_at_utc']
+        return if val.blank?
+
+        if val.is_a?(String) && val.match?(/^\d{4}-\d{2}-\d{2}$/)
+          begin
+            t = Time.zone.parse(val).end_of_day.utc
+            cert[:expires_at_utc] = t.iso8601
+          rescue
+            # leave original format; model validation will handle invalid value
           end
         end
       end
@@ -318,7 +373,43 @@ module Api
         worker.profile_photo.attach(params[:profile_photo])
       end
 
+      def duplicate_cert_errors
+        @duplicate_cert_errors ||= []
+      end
+
+      def render_duplicate_cert_errors
+        render json: {
+          status: 'validation_error',
+          errors: duplicate_cert_errors.presence || ['Duplicate certification detected for this worker']
+        }, status: :unprocessable_entity
+      end
+
       def serialize_worker(worker)
+        worker_certs = worker.worker_certifications.includes(:certification)
+
+        certifications_payload = worker_certifications_payload(worker, worker_certs)
+        worker_certs_payload = worker_certs.map do |wc|
+          {
+            id: wc.id,
+            certification_id: wc.certification_id,
+            certification_name: wc.certification&.name,
+            expires_at_utc: wc.expires_at_utc,
+            expired: wc.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false
+          }
+        end
+
+        worker_skills_payload = if worker.respond_to?(:worker_skills)
+                                  worker.worker_skills.map do |ws|
+                                    {
+                                      id: ws.id,
+                                      skill_id: ws.try(:skill_id),
+                                      skill_name: ws.respond_to?(:skill) ? ws.skill&.name : nil
+                                    }
+                                  end
+                                else
+                                  []
+                                end
+
         {
           id: worker.id,
           first_name: worker.first_name,
@@ -330,15 +421,9 @@ module Api
           active: worker.active,
           hourly_rate: worker.hourly_rate,
           skills_json: worker.try(:skills_json) || [],
-          certifications: worker.worker_certifications.includes(:certification).map { |wc|
-            next unless wc.certification
-            {
-              id: wc.certification.id,
-              name: wc.certification.name,
-              expires_at_utc: wc.expires_at_utc,
-              expired: wc.expires_at_utc && wc.expires_at_utc < Time.current
-            }
-          }.compact,
+          certifications: certifications_payload,
+          worker_certifications: worker_certs_payload,
+          worker_skills: worker_skills_payload,
           profile_photo_url: worker.profile_photo_url,
           profile_photo_thumb_url: worker.profile_photo_thumb_url,
           created_at: worker.created_at,
