@@ -812,8 +812,13 @@ export function EventsPage() {
             if (!aTime) return 1;
             if (!bTime) return -1;
             
-            // Sort descending (newest/latest events first)
-            return new Date(bTime).getTime() - new Date(aTime).getTime();
+            // Active events: sort ascending (closest/soonest events first)
+            // Completed events: sort descending (newest/latest events first)
+            if (activeTab === 'active') {
+              return new Date(aTime).getTime() - new Date(bTime).getTime();
+            } else {
+              return new Date(bTime).getTime() - new Date(aTime).getTime();
+            }
         }
       });
   }, [events, activeTab, filterStatus, debouncedSearchQuery, sortBy]);
