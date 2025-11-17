@@ -271,6 +271,10 @@ class Api::V1::EventsController < Api::V1::BaseController
           @event.create_event_schedule!(schedule_params(params[:event][:schedule]))
         end
       end
+
+      if @event.status == 'published'
+        @event.ensure_shifts_for_requirements!
+      end
       
       render json: {
         status: 'success',
@@ -359,12 +363,8 @@ class Api::V1::EventsController < Api::V1::BaseController
 
     ActiveRecord::Base.transaction do
       # Set status to published (triggers generation via callback) if still draft
-      if @event.status == 'draft'
-        @event.update!(status: 'published')
-      else
-        # If already published but shifts not generated, attempt generation
-        @event.generate_shifts! unless @event.shifts_generated
-      end
+      @event.update!(status: 'published') if @event.status == 'draft'
+      @event.ensure_shifts_for_requirements!
     end
 
     render json: {
@@ -480,7 +480,15 @@ class Api::V1::EventsController < Api::V1::BaseController
   end
 
   def skill_requirement_params(skill_req)
-    skill_req.permit(:skill_name, :needed_workers, :description, :uniform_name, :certification_name, :pay_rate)
+    skill_req.permit(
+      :skill_name,
+      :needed_workers,
+      :description,
+      :uniform_name,
+      :certification_name,
+      :required_certification_id,
+      :pay_rate
+    )
   end
 
   def schedule_params(schedule)

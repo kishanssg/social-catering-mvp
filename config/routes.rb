@@ -66,7 +66,11 @@ Rails.application.routes.draw do
           post :approve_all, to: 'approvals#approve_event'
           post :approve_selected, to: 'approvals#approve_selected'
         end
-        resources :event_skill_requirements, only: [:create, :update, :destroy]
+        resources :event_skill_requirements, only: [:create, :update, :destroy] do
+          member do
+            get :eligible_workers
+          end
+        end
       end
       
       # Keep jobs as alias for backward compatibility
