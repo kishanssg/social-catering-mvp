@@ -80,8 +80,18 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
   const handleSelectVenue = async (result: VenueSearchResult) => {
     setIsLoading(true);
     try {
-      const response = await venuesApi.select(result.place_id, sessionToken);
-      onVenueSelect(response.venue);
+      let venue: Venue | null = null;
+
+      if (result.id) {
+        venue = await venuesApi.getById(result.id);
+      } else if (result.place_id) {
+        const response = await venuesApi.select(result.place_id, sessionToken);
+        venue = response.venue;
+      } else {
+        throw new Error('Venue is missing both id and place_id');
+      }
+
+      onVenueSelect(venue);
       setIsOpen(false);
       setQuery('');
     } catch (error) {

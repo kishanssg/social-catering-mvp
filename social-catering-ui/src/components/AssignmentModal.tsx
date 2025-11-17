@@ -2,18 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Search, Users, Clock, MapPin, AlertCircle, DollarSign } from 'lucide-react';
 import { formatDateTime, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
+import { fetchEligibleWorkers } from '../services/eventsApi';
 import { Modal } from './common/Modal';
+
+interface WorkerCertificationMeta {
+  id: number;
+  name?: string;
+  expires_at_utc?: string;
+}
 
 interface Worker {
   id: number;
   first_name: string;
   last_name: string;
+  full_name?: string;
   email: string;
   phone?: string;
-  skills: string[];
-  certifications: string[];
-  availability_status: string;
+  skills?: string[];
   skills_json?: string[];
+  certifications?: WorkerCertificationMeta[];
+  has_required_certification?: boolean;
 }
 
 interface Shift {
@@ -53,6 +61,7 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventSkillRequirementPayRate, setEventSkillRequirementPayRate] = useState<number | null>(null);
+  const [requiredCertificationName, setRequiredCertificationName] = useState<string | null>(null);
 
   const setWorkerPayRate = (workerId: number, payRate: number) => {
     setWorkerPayRates(prev => ({ ...prev, [workerId]: payRate }));
@@ -64,7 +73,7 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
 
   useEffect(() => {
     if (shift) {
-      loadAvailableWorkers();
+      loadWorkers();
     }
   }, [shift]);
 
@@ -129,7 +138,54 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
     }
   }
 
-  async function loadAvailableWorkers() {
+  async function loadWorkers() {
+    if (!shift) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const roleId = shift.event_skill_requirement_id || shift.skill_requirement?.id;
+      if (shift.event_id && roleId) {
+        const payload = await fetchEligibleWorkers(shift.event_id, roleId, shift.id);
+        if (payload) {
+          const eligibleList = payload.eligible_workers || [];
+          const normalized = eligibleList.map(normalizeEligibleWorker);
+          setWorkers(normalized);
+          setFilteredWorkers(normalized);
+          setRequiredCertificationName(payload.role?.required_certification?.name || null);
+          return;
+        }
+      }
+
+      setRequiredCertificationName(null);
+      await loadFallbackWorkers();
+    } catch (error) {
+      console.warn('Failed to fetch eligible workers; falling back to legacy filtering', error);
+      setRequiredCertificationName(null);
+      await loadFallbackWorkers();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function normalizeEligibleWorker(worker: any): Worker {
+    const skills = worker.skills || worker.skills_json || [];
+    return {
+      id: worker.id,
+      first_name: worker.first_name || worker.full_name?.split(' ')[0] || '',
+      last_name: worker.last_name || worker.full_name?.split(' ').slice(1).join(' ') || '',
+      full_name: worker.full_name || `${worker.first_name || ''} ${worker.last_name || ''}`.trim(),
+      email: worker.email,
+      phone: worker.phone,
+      skills,
+      skills_json: skills,
+      certifications: worker.certifications,
+      has_required_certification: worker.has_required_certification ?? true
+    };
+  }
+
+  async function loadFallbackWorkers() {
     try {
       // First, get assigned worker IDs for this shift
       const assignedWorkerIds = new Set<number>();
@@ -172,25 +228,25 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
         const allWorkers = response.data.data.workers || response.data.data;
         
         // Filter workers by required skill if shift has one AND exclude already assigned workers
-        if (shift?.role_needed) {
-          const filteredWorkers = allWorkers.filter(worker => 
-            worker.skills_json?.includes(shift.role_needed) &&
-            !assignedWorkerIds.has(worker.id)
-          );
-          console.log(`AssignmentModal: Showing ${filteredWorkers.length} eligible workers`);
-          setWorkers(filteredWorkers);
-        } else {
-          const filteredWorkers = allWorkers.filter(worker => !assignedWorkerIds.has(worker.id));
-          setWorkers(filteredWorkers);
-        }
+          if (shift?.role_needed) {
+            const filteredWorkers = allWorkers.filter(worker => 
+              worker.skills_json?.includes(shift.role_needed) &&
+              !assignedWorkerIds.has(worker.id)
+            );
+            console.log(`AssignmentModal: Showing ${filteredWorkers.length} eligible workers`);
+            setWorkers(filteredWorkers);
+            setFilteredWorkers(filteredWorkers);
+          } else {
+            const filteredWorkers = allWorkers.filter(worker => !assignedWorkerIds.has(worker.id));
+            setWorkers(filteredWorkers);
+            setFilteredWorkers(filteredWorkers);
+          }
       } else {
         setError('Failed to load workers');
       }
     } catch (error) {
       console.error('Failed to load workers:', error);
       setError('Failed to load workers');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -209,7 +265,11 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
           assigned_at_utc: new Date().toISOString(),
           hourly_rate: (selectedWorker.id in workerPayRates) 
             ? workerPayRates[selectedWorker.id] 
-            : (suggestedPayRate || Number(shift.pay_rate) || 0),
+            : ((suggestedPayRate && suggestedPayRate > 0) ? suggestedPayRate :
+               (shift?.skill_requirement?.pay_rate && shift.skill_requirement.pay_rate > 0 ? Number(shift.skill_requirement.pay_rate) : null) ||
+               (eventSkillRequirementPayRate && eventSkillRequirementPayRate > 0 ? eventSkillRequirementPayRate : null) ||
+               (shift?.pay_rate && shift.pay_rate > 0 ? Number(shift.pay_rate) : null) || 
+               13.00),
         }
       });
 
@@ -353,10 +413,11 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                     <div className="pt-2 border-t border-gray-200">
                       <div className="text-sm text-gray-600">
                         <span className="font-medium">Pay Rate:</span> ${(
-                          suggestedPayRate || 
-                          (shift?.skill_requirement?.pay_rate != null ? Number(shift.skill_requirement.pay_rate) : null) || 
-                          Number(shift.pay_rate) || 
-                          0
+                          (suggestedPayRate && suggestedPayRate > 0) ? suggestedPayRate :
+                          (shift?.skill_requirement?.pay_rate != null && shift.skill_requirement.pay_rate > 0 ? Number(shift.skill_requirement.pay_rate) : null) || 
+                          (eventSkillRequirementPayRate && eventSkillRequirementPayRate > 0 ? eventSkillRequirementPayRate : null) ||
+                          (shift?.pay_rate && shift.pay_rate > 0 ? Number(shift.pay_rate) : null) || 
+                          13.00
                         ).toFixed(2)}/hour
                       </div>
                       {shift.uniform_name && (
@@ -413,6 +474,12 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                 />
               </div>
             </div>
+            {requiredCertificationName && (
+              <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-sm text-amber-900 flex items-center gap-2">
+                <AlertCircle size={16} className="text-amber-500" />
+                <span>Requires certification: {requiredCertificationName}</span>
+              </div>
+            )}
 
             {/* Workers List */}
             <div className="flex-1 overflow-y-auto">
@@ -485,20 +552,23 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                   <ul>
                     {filteredWorkers.map((worker) => {
                       const isSelected = selectedWorker?.id === worker.id;
-                    // Priority: suggestedPayRate (from roleGroup) > skill_requirement.pay_rate (SSOT) > eventSkillRequirementPayRate (fallback) > shift.pay_rate > 0
+                    // Priority: suggestedPayRate (from roleGroup) > skill_requirement.pay_rate (SSOT) > eventSkillRequirementPayRate (fallback) > shift.pay_rate > default (13.00)
                     const skillRequirementPayRate = shift?.skill_requirement?.pay_rate;
-                    // Convert null/undefined to null explicitly, then fall through to shift.pay_rate
-                    const defaultRate = suggestedPayRate || 
-                      (skillRequirementPayRate != null && skillRequirementPayRate !== undefined ? Number(skillRequirementPayRate) : null) || 
-                      (eventSkillRequirementPayRate != null ? eventSkillRequirementPayRate : null) ||
-                      (shift?.pay_rate != null && shift.pay_rate !== undefined ? Number(shift.pay_rate) : null) || 
-                      0;
+                    // Convert null/undefined to null explicitly, then fall through to shift.pay_rate, then default
+                    const DEFAULT_PAY_RATE = 13.00; // Fallback when no pay rate is set
+                    const defaultRate = (suggestedPayRate && suggestedPayRate > 0) ? suggestedPayRate : 
+                      (skillRequirementPayRate != null && skillRequirementPayRate !== undefined && skillRequirementPayRate > 0 ? Number(skillRequirementPayRate) : null) || 
+                      (eventSkillRequirementPayRate != null && eventSkillRequirementPayRate > 0 ? eventSkillRequirementPayRate : null) ||
+                      (shift?.pay_rate != null && shift.pay_rate !== undefined && shift.pay_rate > 0 ? Number(shift.pay_rate) : null) || 
+                      DEFAULT_PAY_RATE;
                     
                     // Debug log for troubleshooting
-                    if (defaultRate === 0) {
-                      console.warn('AssignmentModal: Default rate is 0', {
+                    if (defaultRate === 0 || (defaultRate === DEFAULT_PAY_RATE && !suggestedPayRate && !skillRequirementPayRate && !eventSkillRequirementPayRate && !shift?.pay_rate)) {
+                      console.warn('AssignmentModal: Using default pay rate', {
+                        defaultRate,
                         suggestedPayRate,
                         skillRequirementPayRate,
+                        eventSkillRequirementPayRate,
                         shiftPayRate: shift?.pay_rate,
                         shiftId: shift?.id
                       });

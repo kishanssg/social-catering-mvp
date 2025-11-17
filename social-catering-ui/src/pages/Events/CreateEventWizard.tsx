@@ -24,6 +24,7 @@ import { venuesApi } from '../../services/venuesApi';
 import type { Venue } from '../../types/venues';
 import { Toast } from '../../components/common/Toast';
 import { apiClient } from '../../lib/api';
+import { useCertificationsCatalog } from '../../hooks/useCertificationsCatalog';
 
 // Define types locally to avoid import issues
 interface EventSkillRequirement {
@@ -295,13 +296,11 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     'Prep Cook': 'Handles food preparation tasks including chopping, cooking, and assembling dishes according to recipes and specifications. Must maintain cleanliness, follow food safety guidelines, and work efficiently in a kitchen environment.',
   };
 
-  const certificationOptions = [
-    'TIPs Certification',
-    'ServSafe Food Handler',
-    'ServSafe Alcohol',
-    'Food Safety Manager',
-    'Allergen Awareness',
-  ];
+  const { certifications: certificationCatalog } = useCertificationsCatalog();
+  const certificationOptions = useMemo(
+    () => certificationCatalog.map((cert) => cert.name),
+    [certificationCatalog]
+  );
 
   const steps: Step[] = [
     {

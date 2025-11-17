@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Plus, Trash2, Save, Edit } from 'lucide-react';
 import { Modal } from './common/Modal';
@@ -65,36 +65,6 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     message: '',
     type: 'error'
   });
-  // Schedule editing state (P1)
-  const [schedule, setSchedule] = useState<{
-    start_time_utc: string;
-    end_time_utc: string;
-    break_minutes: number;
-  } | null>(null);
-  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
-
-  // Helper function to convert UTC ISO string to local datetime-local format (YYYY-MM-DDTHH:mm)
-  const utcToLocalDatetimeLocal = (utcIsoString: string): string => {
-    if (!utcIsoString) return '';
-    const date = new Date(utcIsoString);
-    // Get local date components
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
-  // Helper function to convert local datetime-local value to UTC ISO string
-  const localDatetimeLocalToUtc = (localDatetime: string): string => {
-    if (!localDatetime) return '';
-    // datetime-local value is in local time, create Date object which interprets it as local
-    const localDate = new Date(localDatetime);
-    // Convert to UTC ISO string
-    return localDate.toISOString();
-  };
-  
   // Fetch full event details (including skill_requirements) when modal opens
   useEffect(() => {
     if (isOpen && event.id) {
@@ -178,18 +148,6 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     }
   }, [eventData]);
 
-  // Initialize schedule when event data loads (P1)
-  useEffect(() => {
-    const eventToUse = fullEventData || event;
-    if (eventToUse?.schedule) {
-      setSchedule({
-        start_time_utc: eventToUse.schedule.start_time_utc,
-        end_time_utc: eventToUse.schedule.end_time_utc,
-        break_minutes: eventToUse.schedule.break_minutes || 0
-      });
-    }
-  }, [fullEventData, event]);
-
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
     if (index < 0 || index >= roles.length) return; // Guard against invalid index
     const newRoles = [...roles];
@@ -263,17 +221,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
             description: role.description,
             uniform_id: role.uniform_id,
             cert_id: role.cert_id
-          })),
-          // ✅ Fix: Include schedule data to trigger shift sync
-          schedule: schedule ? {
-            start_time_utc: schedule.start_time_utc,
-            end_time_utc: schedule.end_time_utc,
-            break_minutes: schedule.break_minutes
-          } : (eventToUpdate.schedule ? {
-            start_time_utc: eventToUpdate.schedule.start_time_utc,
-            end_time_utc: eventToUpdate.schedule.end_time_utc,
-            break_minutes: eventToUpdate.schedule.break_minutes || 0
-          } : undefined)
+          }))
         }
       });
 
@@ -383,7 +331,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Location</p>
                 <p className="text-sm font-semibold text-gray-900 leading-relaxed">{displayEvent.venue?.formatted_address}</p>
               </div>
-              <div className="space-y-1 md:col-start-2">
+              <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Time</p>
                 <p className="text-sm font-semibold text-gray-900">
                   {displayEvent.schedule && (
@@ -401,88 +349,15 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                   )}
                 </p>
               </div>
-              <div></div>
-            </div>
-          </div>
-
-          {/* Schedule Section - Editable (P1) */}
-          <div className="col-span-2 bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Event Schedule</h3>
-              <button
-                type="button"
-                onClick={() => setIsEditingSchedule(!isEditingSchedule)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                {isEditingSchedule ? 'Cancel' : 'Edit Schedule'}
-              </button>
-            </div>
-
-            {!isEditingSchedule ? (
-              // Read-only view
-              <div className="grid grid-cols-3 gap-4">
+              {displayEvent.schedule && (
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Break</p>
                   <p className="text-sm font-semibold text-gray-900">
-                    {displayEvent.schedule && new Date(displayEvent.schedule.start_time_utc).toLocaleDateString('en-US', {
-                      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-                    })}
+                    {displayEvent.schedule.break_minutes || 0} minutes
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Time</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {schedule && (
-                      <>
-                        {new Date(schedule.start_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} -
-                        {new Date(schedule.end_time_utc).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Break</p>
-                  <p className="text-sm font-semibold text-gray-900">{schedule?.break_minutes || 0} minutes</p>
-                </div>
-              </div>
-            ) : (
-              // Edit mode
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Time</label>
-                    <input
-                      type="datetime-local"
-                      value={schedule?.start_time_utc ? utcToLocalDatetimeLocal(schedule.start_time_utc) : ''}
-                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, start_time_utc: localDatetimeLocalToUtc(e.target.value) }) : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">End Time</label>
-                    <input
-                      type="datetime-local"
-                      value={schedule?.end_time_utc ? utcToLocalDatetimeLocal(schedule.end_time_utc) : ''}
-                      onChange={(e) => setSchedule(prev => prev ? ({ ...prev, end_time_utc: localDatetimeLocalToUtc(e.target.value) }) : null)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Break Minutes</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={schedule?.break_minutes || 0}
-                    onChange={(e) => setSchedule(prev => prev ? ({ ...prev, break_minutes: parseInt(e.target.value) || 0 }) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  />
-                </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-xs text-blue-800">⚠️ Changing schedule times will update ALL shifts and worker schedules for this event.</p>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Roles List */}

@@ -31,19 +31,17 @@ interface WorkerForm {
   address_line2: string;
   profile_photo_url: string;
   skills: string[];
-  // Nested attributes array that backend expects
-  worker_certifications_attributes: Array<{
-    id?: number | null;
-    certification_id: number;
-    expires_at_utc: string; // YYYY-MM-DD
-    _destroy?: boolean;
-    // local-only for UI rendering
-    name?: string;
-  }>;
 }
 
-// Global certifications list fetched from API
-interface Certification { id: number; name: string }
+type WorkerCertificationRow = {
+  workerCertificationId?: number;
+  certificationId?: number | null;
+  certificationName?: string;
+  expiresAt?: string | null;
+};
+
+import { useCertificationsCatalog } from '../hooks/useCertificationsCatalog';
+import type { Certification } from '../hooks/useCertificationsCatalog';
 
 export function WorkerCreatePage() {
   const { id } = useParams();
@@ -56,8 +54,9 @@ export function WorkerCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
-  const [certificationsCatalog, setCertificationsCatalog] = useState<Certification[]>([]);
+  const initialCertRowsRef = useRef<WorkerCertificationRow[]>([]);
+  const [certRows, setCertRows] = useState<WorkerCertificationRow[]>([]);
+  const { certifications: certificationCatalog } = useCertificationsCatalog();
   
   const [formData, setFormData] = useState<WorkerForm>({
     first_name: '',
@@ -67,8 +66,7 @@ export function WorkerCreatePage() {
     address_line1: '',
     address_line2: '',
     profile_photo_url: '',
-    skills: [],
-    worker_certifications_attributes: []
+    skills: []
   });
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -126,21 +124,13 @@ export function WorkerCreatePage() {
   };
   
   useEffect(() => {
-    // Load global certifications for consistent selection everywhere
-    (async () => {
-      try {
-        const res = await apiClient.get('/certifications');
-        const list = res.data?.data?.certifications || res.data?.certifications || [];
-        setCertificationsCatalog(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.error('Failed to load certifications catalog', e);
-      }
-    })();
-
     if (isEditMode) {
-      loadWorker();
+      void loadWorker();
+    } else {
+      initialCertRowsRef.current = [];
+      setCertRows([]);
     }
-  }, [id]);
+  }, [id, isEditMode]);
   
   async function loadWorker() {
     setLoading(true);
@@ -156,25 +146,37 @@ export function WorkerCreatePage() {
         let normalizedCerts: any[] = [];
         
         if (Array.isArray(worker?.worker_certifications)) {
-          // Nested structure: worker_certifications array with certification object
+          // Preferred structure: worker_certifications array with join ids
           normalizedCerts = worker.worker_certifications.map((wc: any) => ({
-            worker_certification_id: wc.id, // The join table ID
-            certification_id: wc.certification?.id ?? wc.certification_id,
+            worker_certification_id: wc.id,
+            certification_id: wc.certification_id ?? wc.certification?.id,
             certification_name: wc.certification?.name ?? wc.name,
             expires_at_utc: wc.expires_at_utc
           }));
         } else if (Array.isArray(worker?.certifications)) {
-          // Flat structure: certifications array where id = certification.id
-          // Note: This structure doesn't include worker_certification.id, but backend will find it
+          // Backwards compatible structure: flat certifications array
           normalizedCerts = worker.certifications.map((cert: any) => ({
-            worker_certification_id: null, // Not available in flat structure
-            certification_id: cert.id, // In flat structure, id IS the certification.id
-            certification_name: cert.name,
+            worker_certification_id: cert.worker_certification_id || cert.worker_certification?.id || null,
+            certification_id: cert.id ?? cert.certification_id,
+            certification_name: cert.name ?? cert.certification?.name,
             expires_at_utc: cert.expires_at_utc
           }));
         }
         
-        setFormData({
+        const mappedCertRows: WorkerCertificationRow[] = normalizedCerts
+          .filter((wc: any) => wc.certification_id != null && wc.certification_id !== undefined && wc.certification_id !== '')
+          .map((wc: any) => ({
+            workerCertificationId: wc.worker_certification_id || undefined,
+            certificationId: wc.certification_id,
+            certificationName: wc.certification_name,
+            expiresAt: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : ''
+          }));
+
+        initialCertRowsRef.current = mappedCertRows;
+        setCertRows(mappedCertRows);
+
+        setFormData((prev) => ({
+          ...prev,
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
           email: worker.email || '',
@@ -182,22 +184,8 @@ export function WorkerCreatePage() {
           address_line1: worker.address_line1 || '',
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
-          skills: worker.skills_json || [],
-          // Map certifications into nested attributes format
-          // Backend will automatically find worker_certification.id by certification_id if id is missing
-          worker_certifications_attributes: normalizedCerts
-            .filter((wc: any) => {
-              // Only include if we have a valid certification_id
-              return wc.certification_id != null && wc.certification_id !== undefined && wc.certification_id !== '';
-            })
-            .map((wc: any) => ({
-              id: wc.worker_certification_id || undefined, // Include if available, backend will find it if missing
-              certification_id: wc.certification_id,
-              name: wc.certification_name,
-              expires_at_utc: wc.expires_at_utc ? String(wc.expires_at_utc).split('T')[0] : '',
-              _destroy: false
-            }))
-        });
+          skills: worker.skills_json || []
+        }));
         if (worker.profile_photo_url) setPhotoPreview(worker.profile_photo_url);
       }
     } catch (error) {
@@ -222,6 +210,126 @@ export function WorkerCreatePage() {
     reader.readAsDataURL(file);
   }
   
+  const selectedCertIds = certRows
+    .map((row) => row.certificationId)
+    .filter((id): id is number => typeof id === 'number');
+
+  const remainingCertifications: Certification[] = certificationCatalog.filter(
+    (cert) => !selectedCertIds.includes(cert.id)
+  );
+
+  const canAddCertification = remainingCertifications.length > 0;
+
+  const getSelectableCertsForRow = (rowIndex: number): Certification[] => {
+    const row = certRows[rowIndex];
+    const otherSelectedIds = certRows
+      .filter((_, idx) => idx !== rowIndex)
+      .map((r) => r.certificationId)
+      .filter((id): id is number => typeof id === 'number');
+
+    let options = certificationCatalog.filter((cert) => !otherSelectedIds.includes(cert.id));
+
+    if (
+      row.certificationId &&
+      !options.some((opt) => opt.id === row.certificationId)
+    ) {
+      options = [
+        {
+          id: row.certificationId,
+          name: row.certificationName || 'Unknown certification',
+        },
+        ...options,
+      ];
+    }
+
+    return options;
+  };
+
+  const handleAddCertificationRow = () => {
+    if (!canAddCertification) return;
+    setCertRows((prev) => [
+      ...prev,
+      {
+        certificationId: undefined,
+        certificationName: '',
+        expiresAt: '',
+      },
+    ]);
+  };
+
+  const handleCertificationSelect = (index: number, certId: number | null) => {
+    setCertRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== index) return row;
+        const selected = certificationCatalog.find((c) => c.id === certId || c.id === Number(certId));
+        return {
+          ...row,
+          certificationId: certId ?? undefined,
+          certificationName: selected?.name || row.certificationName,
+        };
+      })
+    );
+  };
+
+  const handleCertificationDateChange = (index: number, value: string) => {
+    setCertRows((prev) =>
+      prev.map((row, idx) => (idx === index ? { ...row, expiresAt: value } : row))
+    );
+  };
+
+  const handleRemoveCertificationRow = (index: number) => {
+    setCertRows((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const buildCertificationAttributes = () => {
+    const latestByCertId = new Map<number, WorkerCertificationRow>();
+    certRows.forEach((row) => {
+      if (!row.certificationId) return;
+      latestByCertId.set(row.certificationId, row);
+    });
+
+    const attrs: Array<Record<string, any>> = [];
+    const retainedExistingIds = new Set<number>();
+
+    Array.from(latestByCertId.values()).forEach((row) => {
+      if (!row.certificationId) return;
+      const payload: Record<string, any> = {
+        certification_id: row.certificationId,
+      };
+      if (row.expiresAt) {
+        payload.expires_at_utc = row.expiresAt;
+      }
+      if (row.workerCertificationId) {
+        payload.id = row.workerCertificationId;
+        retainedExistingIds.add(row.workerCertificationId);
+      }
+      attrs.push(payload);
+    });
+
+    initialCertRowsRef.current.forEach((initialRow) => {
+      if (
+        initialRow.workerCertificationId &&
+        !retainedExistingIds.has(initialRow.workerCertificationId)
+      ) {
+        attrs.push({
+          id: initialRow.workerCertificationId,
+          _destroy: true,
+        });
+      }
+    });
+
+    return attrs.reduce<Record<string, Record<string, any>>>((acc, attr, idx) => {
+      const sanitized = Object.entries(attr).reduce<Record<string, any>>((memo, [key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          memo[key] = value;
+        }
+        return memo;
+      }, {});
+      acc[idx.toString()] = sanitized;
+      return acc;
+    }, {});
+  };
+
   async function handleSubmit() {
     setSubmitting(true);
     try {
@@ -252,31 +360,16 @@ export function WorkerCreatePage() {
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
       // Always include nested attributes entries; backend will handle _destroy and id mapping
       // Filter out certifications marked for destruction and ensure certification_id is present
-      const validCerts = formData.worker_certifications_attributes.filter(
-        (c) => !c._destroy && c.certification_id != null && c.certification_id !== undefined
-      );
-      
-      validCerts.forEach((c, i) => {
-        // Always include id if it exists (for updates)
-        if (c.id != null) {
-          form.append(`worker[worker_certifications_attributes][${i}][id]`, String(c.id));
-        }
-        // Always include certification_id (required)
-        form.append(`worker[worker_certifications_attributes][${i}][certification_id]`, String(c.certification_id));
-        // Include expires_at_utc if present
-        if (c.expires_at_utc) {
-          form.append(`worker[worker_certifications_attributes][${i}][expires_at_utc]`, c.expires_at_utc);
-        }
-      });
-      
-      // Handle certifications marked for destruction separately
-      formData.worker_certifications_attributes
-        .filter((c) => c._destroy && c.id != null)
-        .forEach((c, i) => {
-          const destroyIndex = validCerts.length + i;
-          form.append(`worker[worker_certifications_attributes][${destroyIndex}][id]`, String(c.id));
-          form.append(`worker[worker_certifications_attributes][${destroyIndex}][_destroy]`, 'true');
+      const certificationAttributes = buildCertificationAttributes();
+      console.log('Worker certification payload:', certificationAttributes);
+      Object.entries(certificationAttributes).forEach(([index, attr]) => {
+        Object.entries(attr).forEach(([key, value]) => {
+          form.append(
+            `worker[worker_certifications_attributes][${index}][${key}]`,
+            String(value)
+          );
         });
+      });
       if (photoFile) form.append('profile_photo', photoFile);
       
       // Debug: Log what we're sending
@@ -286,7 +379,7 @@ export function WorkerCreatePage() {
         email: formData.email,
         phone: formData.phone,
         skills_count: formData.skills.length,
-        certifications_count: formData.worker_certifications_attributes.length
+        certifications_count: certificationAttributes.length
       });
 
       const response = await apiClient.request({ method, url, data: form });
@@ -335,13 +428,6 @@ export function WorkerCreatePage() {
   }
   
   
-  const availableCertsFiltered = (certificationsCatalog || []).filter((cert) => {
-    const certs = Array.isArray(formData.worker_certifications_attributes)
-      ? formData.worker_certifications_attributes
-      : [];
-    return !certs.some((c) => c.certification_id === cert.id && !c._destroy);
-  });
-
   // Define steps similar to CreateEventWizard
   const steps = [
     {
@@ -721,53 +807,42 @@ export function WorkerCreatePage() {
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-medium text-font-primary">Certifications</label>
                     <div className="space-y-3">
-                      {(Array.isArray(formData.worker_certifications_attributes)
-                        ? formData.worker_certifications_attributes
-                        : []
-                      ).map((cert, index) => (
-                        <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      {certRows.length === 0 && (
+                        <p className="text-sm text-font-secondary">No certifications selected.</p>
+                      )}
+                      {certRows.map((row, index) => (
+                        <div
+                          key={row.workerCertificationId ?? `cert-row-${index}`}
+                          className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                        >
                           <div className="flex-1">
                             <select
-                              value={cert.certification_id || ''}
+                              value={row.certificationId ?? ''}
                               onChange={(e) => {
-                                const selectedId = parseInt(e.target.value || '0', 10);
-                                const selected = certificationsCatalog.find(c => c.id === selectedId);
-                                const newCerts = [...formData.worker_certifications_attributes];
-                                newCerts[index].certification_id = selectedId;
-                                newCerts[index].name = selected?.name || '';
-                                setFormData({ ...formData, worker_certifications_attributes: newCerts });
+                                const value = e.target.value ? parseInt(e.target.value, 10) : null;
+                                handleCertificationSelect(index, value);
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                             >
                               <option value="">Select certification…</option>
-                              {certificationsCatalog.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
+                              {getSelectableCertsForRow(index).map((cert) => (
+                                <option key={cert.id} value={cert.id}>
+                                  {cert.name}
+                                </option>
                               ))}
                             </select>
                           </div>
                           <div className="flex-1">
                             <input
                               type="date"
-                              value={cert.expires_at_utc}
-                              onChange={(e) => {
-                                const newCerts = [...formData.worker_certifications_attributes];
-                                newCerts[index].expires_at_utc = e.target.value;
-                                setFormData({ ...formData, worker_certifications_attributes: newCerts });
-                              }}
+                              value={row.expiresAt ?? ''}
+                              onChange={(e) => handleCertificationDateChange(index, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                             />
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              const newCerts = [...formData.worker_certifications_attributes];
-                              if (newCerts[index].id) {
-                                newCerts[index]._destroy = true;
-                              } else {
-                                newCerts.splice(index, 1);
-                              }
-                              setFormData({ ...formData, worker_certifications_attributes: newCerts });
-                            }}
+                            onClick={() => handleRemoveCertificationRow(index)}
                             className="text-red-600 hover:text-red-800"
                           >
                             <X size={16} />
@@ -775,57 +850,23 @@ export function WorkerCreatePage() {
                         </div>
                       ))}
                     </div>
-                    
-                    <div className="relative">
+
+                    <div className="flex flex-col gap-1">
                       <button
                         type="button"
-                        onClick={() => setShowCertDropdown(!showCertDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                        onClick={handleAddCertificationRow}
+                        disabled={!canAddCertification}
+                        className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg transition ${
+                          canAddCertification ? 'hover:bg-gray-50' : 'opacity-50 cursor-not-allowed'
+                        }`}
                       >
                         <Plus size={16} />
                         <span>Add Certification</span>
                       </button>
-                      
-                      {showCertDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
-                          {availableCertsFiltered.map((cert) => (
-                            <button
-                              type="button"
-                              key={cert.id}
-                              onClick={() => {
-                                // Prevent duplicates; if exists and marked for destroy, unmark instead
-                                const existingIdx = formData.worker_certifications_attributes.findIndex(
-                                  (c) => c.certification_id === cert.id && !c._destroy
-                                );
-                                if (existingIdx !== -1) {
-                                  setShowCertDropdown(false);
-                                  return;
-                                }
-                                const resurrectIdx = formData.worker_certifications_attributes.findIndex(
-                                  (c) => c.certification_id === cert.id && c._destroy
-                                );
-                                if (resurrectIdx !== -1) {
-                                  const newCerts = [...formData.worker_certifications_attributes];
-                                  newCerts[resurrectIdx]._destroy = false;
-                                  setFormData({ ...formData, worker_certifications_attributes: newCerts });
-                                  setShowCertDropdown(false);
-                                  return;
-                                }
-                                setFormData({
-                                  ...formData,
-                                  worker_certifications_attributes: [
-                                    ...formData.worker_certifications_attributes,
-                                    { id: null, certification_id: cert.id, name: cert.name, expires_at_utc: '', _destroy: false }
-                                  ]
-                                });
-                                setShowCertDropdown(false);
-                              }}
-                              className="w-full text-left px-4 py-2 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                            >
-                              {cert.name}
-                            </button>
-                          ))}
-                        </div>
+                      {!canAddCertification && certificationCatalog.length > 0 && (
+                        <p className="text-xs text-font-secondary">
+                          All available certifications have been assigned.
+                        </p>
                       )}
                     </div>
                   </div>

@@ -52,6 +52,10 @@ interface Assignment {
       venue_name?: string;
     } | null;
   };
+  // SSOT: Actual times if available, otherwise use shift scheduled times
+  actual_start_time_utc?: string;
+  actual_end_time_utc?: string;
+  break_duration_minutes?: number;
   hours_worked?: number;
   status: string;
   is_completed: boolean;
@@ -490,7 +494,8 @@ export function WorkerDetailPage() {
                       <div className="flex items-center gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar size={14} />
-                          {formatDate(assignment.shift.start_time_utc)}
+                          {/* SSOT: Use actual time if available, otherwise scheduled time */}
+                          {formatDate(assignment.actual_start_time_utc || assignment.shift.start_time_utc)}
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin size={14} />

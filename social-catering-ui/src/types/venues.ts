@@ -10,9 +10,11 @@ export interface Venue {
 }
 
 export interface VenueSearchResult {
-  place_id: string;
+  id?: number;
+  place_id?: string;
   name: string;
   address: string;
+  source?: string;
 }
 
 export interface VenueSearchResponse {

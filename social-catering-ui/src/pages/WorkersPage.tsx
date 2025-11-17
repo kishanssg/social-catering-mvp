@@ -71,7 +71,7 @@ export function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'email' | 'status'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'status'>('status');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   
   // Bulk assignment state

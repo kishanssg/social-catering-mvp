@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
@@ -257,6 +257,7 @@ const isEventCompleted = (event: any): boolean => {
 export function EventsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const latestRequestId = useRef(0);
   
   const initialTab = ((searchParams.get('tab') as TabType) === 'completed' ? 'completed' : (searchParams.get('tab') as TabType)) || 'active';
   // Default to 'all' for all tabs so users can see all events and their shifts
@@ -383,6 +384,7 @@ export function EventsPage() {
   }, [searchParams, events]);
   
   async function loadEvents() {
+    const requestId = ++latestRequestId.current;
     setLoading(true);
     try {
       const tabForApi = activeTab === 'completed' ? 'completed' : activeTab;
@@ -403,6 +405,9 @@ export function EventsPage() {
       const response = await apiClient.get(url);
       
       if (response.data.status === 'success') {
+        if (latestRequestId.current !== requestId) {
+          return;
+        }
         console.log('Received events:', response.data.data.length);
         const loadedEvents = response.data.data;
         
@@ -435,6 +440,9 @@ export function EventsPage() {
               return event;
             })
           );
+          if (latestRequestId.current !== requestId) {
+            return;
+          }
           setEvents(eventsWithApprovals);
         } else {
           // ✅ CRITICAL FIX: Preserve detailed data temporarily, then refresh for expanded events
@@ -473,15 +481,19 @@ export function EventsPage() {
       console.error('Failed to load events:', error);
       // Don't clear events on error - keep previous data to prevent "no events" flash
       // Only clear if we have no events at all (first load)
-      if (events.length === 0) {
+      if (events.length === 0 && latestRequestId.current === requestId) {
         setEvents([]);
       }
     } finally {
-      setLoading(false);
+      if (latestRequestId.current === requestId) {
+        setLoading(false);
+      }
     }
   }
   
   const handleTabChange = (tab: TabType) => {
+    if (tab === activeTab) return;
+    setLoading(true);
     setActiveTab(tab);
     setSearchParams({ tab });
     // Only set needs_workers filter for active tab, otherwise no filter
@@ -800,8 +812,8 @@ export function EventsPage() {
             if (!aTime) return 1;
             if (!bTime) return -1;
             
-            // Sort ascending (closest/earliest events first)
-            return new Date(aTime).getTime() - new Date(bTime).getTime();
+            // Sort descending (newest/latest events first)
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
         }
       });
   }, [events, activeTab, filterStatus, debouncedSearchQuery, sortBy]);
@@ -1201,8 +1213,19 @@ function DraftEventsTab({ events, onDelete, onPublish, onNavigate, searchQuery }
                 >
                   <Edit size={18} />
                 </button>
-                
-                {/* Publish and explicit delete actions removed from header to avoid redundancy */}
+                <button
+                  onClick={() => onPublish(event.id)}
+                  className="px-4 py-2 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  Publish
+                </button>
+                <button
+                  onClick={() => onDelete(event.id)}
+                  className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                  title="Delete Draft"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </div>
           </div>

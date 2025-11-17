@@ -7,6 +7,41 @@ import { Toast } from './common/Toast';
 import { Avatar } from './common/Avatar';
 import { format, parseISO } from 'date-fns';
 
+// Helper: Convert local time input (HH:MM) to UTC ISO string, preserving the original date
+// This ensures time edits preserve the date while converting local time to UTC correctly
+const localTimeToUtc = (originalTime: string, newTimeHHMM: string): string => {
+  // Parse the original UTC time
+  const originalDate = new Date(originalTime);
+  
+  // Get the LOCAL date components from the original time (what the user sees)
+  // This preserves the date the user sees, not the UTC date
+  const localYear = originalDate.getFullYear();
+  const localMonth = originalDate.getMonth();
+  const localDay = originalDate.getDate();
+  
+  // Parse the new time input (HH:MM) - this is in LOCAL time
+  const [hours, minutes] = newTimeHHMM.split(':').map(Number);
+  
+  // Create a new Date object using LOCAL timezone constructor
+  // This creates: "localYear-localMonth-localDay hours:minutes" in the user's timezone
+  const localDate = new Date(localYear, localMonth, localDay, hours, minutes, 0, 0);
+  
+  // Convert to UTC ISO string
+  // This will correctly convert the local time to UTC, potentially shifting the date if needed
+  const isoString = localDate.toISOString();
+  
+  console.log('localTimeToUtc conversion:', {
+    originalTime,
+    originalLocal: originalDate.toLocaleString(),
+    newTimeHHMM,
+    localDate: localDate.toLocaleString(),
+    isoString,
+    localDateUTC: new Date(isoString).toLocaleString()
+  });
+  
+  return isoString;
+};
+
 interface AssignmentForApproval {
   id: number;
   worker_id: number;
@@ -20,6 +55,7 @@ interface AssignmentForApproval {
   scheduled_hours: number;
   actual_start?: string;
   actual_end?: string;
+  break_duration_minutes?: number;
   hours_worked?: number;
   effective_hours: number;
   hourly_rate: number;
@@ -943,9 +979,10 @@ function MobileAssignmentCard({
   const [showActionMenu, setShowActionMenu] = useState(false);
   
   const edited = editedValues[assignment.id] || {};
-  const timeIn = edited.timeIn || assignment.scheduled_start;
-  const timeOut = edited.timeOut || assignment.scheduled_end;
-  const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+  // Use edited values first, then actual times (saved edits), then scheduled times
+  const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+  const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+  const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
   const hourlyRate = edited.hourlyRate ?? assignment.effective_hourly_rate;
   const currentStatus = getStatusValue(assignment);
   
@@ -1073,11 +1110,12 @@ function MobileAssignmentCard({
                 type="time"
                 value={formatTimeInput(timeIn)}
                 onChange={(e) => {
-                  const [hours, minutes] = e.target.value.split(':').map(Number);
-                  // Use timeIn as base to preserve date and timezone, just update hours/minutes
-                  const baseDate = new Date(timeIn);
-                  baseDate.setHours(hours, minutes, 0, 0);
-                  onEditValue(assignment.id, 'timeIn', baseDate.toISOString());
+                  // Use helper function to convert local time to UTC while preserving date
+                  // Always use the original scheduled_start, not the edited timeIn, as the base
+                  const originalTime = assignment.scheduled_start || assignment.actual_start;
+                  const isoString = localTimeToUtc(originalTime, e.target.value);
+                  console.log('Mobile timeIn change:', { input: e.target.value, originalTime, isoString });
+                  onEditValue(assignment.id, 'timeIn', isoString);
                 }}
                 className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -1092,11 +1130,12 @@ function MobileAssignmentCard({
                 type="time"
                 value={formatTimeInput(timeOut)}
                 onChange={(e) => {
-                  const [hours, minutes] = e.target.value.split(':').map(Number);
-                  // Use timeOut as base to preserve date and timezone, just update hours/minutes
-                  const baseDate = new Date(timeOut);
-                  baseDate.setHours(hours, minutes, 0, 0);
-                  onEditValue(assignment.id, 'timeOut', baseDate.toISOString());
+                  // Use helper function to convert local time to UTC while preserving date
+                  // Always use the original scheduled_end, not the edited timeOut, as the base
+                  const originalTime = assignment.scheduled_end || assignment.actual_end;
+                  const isoString = localTimeToUtc(originalTime, e.target.value);
+                  console.log('Mobile timeOut change:', { input: e.target.value, originalTime, isoString });
+                  onEditValue(assignment.id, 'timeOut', isoString);
                 }}
                 className="w-full px-3 py-2 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -1472,9 +1511,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     const edited = editedValues[assignment.id] || {};
     const status = getStatusValue(assignment);
     
-    const timeIn = edited.timeIn || assignment.scheduled_start;
-    const timeOut = edited.timeOut || assignment.scheduled_end;
-    const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+    // Use edited values first, then actual times (saved edits), then scheduled times
+    const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+    const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+    const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
     
     const hoursString = calculateHours(timeIn, timeOut, breakMinutes, status);
     return parseFloat(hoursString);
@@ -1533,6 +1573,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     }
   };
 
+
   // Handle time input changes
   const handleTimeChange = (
     assignmentId: number, 
@@ -1540,30 +1581,19 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
     value: string,
     originalTime: string
   ) => {
-    // Parse the time input (HH:MM)
-    const [hours, minutes] = value.split(':').map(Number);
-    
     // Find the assignment to get the shift date
     const assignment = assignments.find(a => a.id === assignmentId);
     if (!assignment) return;
     
-    // Use the original time (scheduled_start/actual_start) as base to preserve timezone
-    // Then update just the hours/minutes while keeping the same date and timezone
-    const baseDate = new Date(originalTime);
-    
-    // Set the new time (hours and minutes) on the same date
-    baseDate.setHours(hours, minutes, 0, 0);
-    
-    // Convert to UTC ISO string (this preserves the correct date/time)
-    const isoString = baseDate.toISOString();
+    // Convert local time input to UTC while preserving the original date
+    const isoString = localTimeToUtc(originalTime, value);
     
     console.log(`handleTimeChange: ${field} for assignment ${assignmentId}`, {
       inputValue: value,
       originalTime,
-      baseDate: baseDate.toISOString(),
       isoString,
-      hours,
-      minutes
+      originalDate: new Date(originalTime).toLocaleString(),
+      newDate: new Date(isoString).toLocaleString()
     });
     
     setEditedValues(prev => ({
@@ -1631,9 +1661,9 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         // Cancel no-show: restore assignment to pending/assigned status by updating hours
         // This will restore status from no_show to 'assigned' and recalculate hours
         const edited = editedValues[assignmentId] || {};
-        const timeIn = edited.timeIn || assignment.scheduled_start;
-        const timeOut = edited.timeOut || assignment.scheduled_end;
-        const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+        const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+        const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+        const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
         
         // Calculate hours from time in/out (use 'pending' status so hours are calculated)
         const hoursString = calculateHours(timeIn, timeOut, breakMinutes, 'pending');
@@ -1649,9 +1679,9 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         if (assignment.status === 'no_show' || assignment.status === 'cancelled' || assignment.status === 'removed') {
           // First, restore the assignment and recalculate hours
           const edited = editedValues[assignmentId] || {};
-          const timeIn = edited.timeIn || assignment.scheduled_start;
-          const timeOut = edited.timeOut || assignment.scheduled_end;
-          const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+          const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+          const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+          const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
           
           // Calculate hours from time in/out
           const hoursString = calculateHours(timeIn, timeOut, breakMinutes, 'approved');
@@ -1681,9 +1711,9 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
         // Unapprove: If it was approved, we need to un-approve it by updating hours
         // This will reset the approved status
         const edited = editedValues[assignmentId] || {};
-        const timeIn = edited.timeIn || assignment.scheduled_start;
-        const timeOut = edited.timeOut || assignment.scheduled_end;
-        const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+        const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+        const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+        const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
         const calculatedHours = calculateHoursForAssignment(assignment);
         
         await apiClient.patch(`/approvals/${assignmentId}/update_hours`, {
@@ -1764,10 +1794,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           const assignment = assignments.find(a => a.id === assignmentId);
           if (!assignment) return;
           
-          const edited = editedValues[assignmentId];
-          const timeIn = edited.timeIn || assignment.scheduled_start;
-          const timeOut = edited.timeOut || assignment.scheduled_end;
-          const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+          const edited = editedValues[assignmentId] || {};
+          // Use edited values first, then actual times (saved edits), then scheduled times
+          const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+          const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+          const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
           
           const calculatedHours = calculateHoursForAssignment(assignment);
           
@@ -1776,20 +1807,24 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             hours_worked: calculatedHours
           };
           
-          // Send actual times if they were edited (they're already ISO strings from handleTimeChange)
-          if (edited.timeIn !== undefined) {
+          // Always send actual times if they exist in editedValues (they're already ISO strings from handleTimeChange)
+          // Check for both undefined and null to ensure we catch all cases
+          if (edited && edited.timeIn !== undefined && edited.timeIn !== null) {
             updatePayload.actual_start_time_utc = edited.timeIn;
             console.log(`Saving timeIn for assignment ${assignmentId}:`, edited.timeIn);
           }
           
-          if (edited.timeOut !== undefined) {
+          if (edited && edited.timeOut !== undefined && edited.timeOut !== null) {
             updatePayload.actual_end_time_utc = edited.timeOut;
             console.log(`Saving timeOut for assignment ${assignmentId}:`, edited.timeOut);
           }
           
-          // Send break duration if it was edited
-          if (edited.breakMinutes !== undefined) {
+          // Always send break duration if it exists in editedValues (including 0, which is valid)
+          if (edited && edited.breakMinutes !== undefined && edited.breakMinutes !== null) {
             updatePayload.break_duration_minutes = edited.breakMinutes;
+            console.log(`Saving break_duration_minutes for assignment ${assignmentId}:`, edited.breakMinutes);
+          } else {
+            console.log(`No breakMinutes in edited values for assignment ${assignmentId}, edited:`, edited);
           }
           
           if (edited.hourlyRate !== undefined) {
@@ -1799,6 +1834,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
           if (edited.notes !== undefined) {
             updatePayload.notes = edited.notes;
           }
+
+          // Debug: Log what we're checking
+          console.log(`Assignment ${assignmentId} edited values:`, edited);
+          console.log(`Saving assignment ${assignmentId} with payload:`, updatePayload);
 
           // Handle status changes
           if (edited.status !== undefined) {
@@ -2664,13 +2703,18 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                   onStatusChange={handleStatusChange}
                   editedValues={editedValues}
                   onEditValue={(id, field, value) => {
-                    setEditedValues(prev => ({
-                      ...prev,
-                      [id]: {
-                        ...prev[id],
-                        [field]: value
-                      }
-                    }));
+                    console.log(`Setting edited value for assignment ${id}:`, { field, value });
+                    setEditedValues(prev => {
+                      const updated = {
+                        ...prev,
+                        [id]: {
+                          ...prev[id],
+                          [field]: value
+                        }
+                      };
+                      console.log(`Updated editedValues for assignment ${id}:`, updated[id]);
+                      return updated;
+                    });
                   }}
                   formatTimeInput={formatTimeInput}
                   calculateHours={calculateHours}
@@ -2713,9 +2757,10 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
               <tbody className="bg-white divide-y divide-gray-200">
                 {assignments.map((assignment) => {
                   const edited = editedValues[assignment.id] || {};
-                  const timeIn = edited.timeIn || assignment.scheduled_start;
-                  const timeOut = edited.timeOut || assignment.scheduled_end;
-                  const breakMinutes = edited.breakMinutes ?? (event?.schedule?.break_minutes || 0);
+                  // Use edited values first, then actual times (saved edits), then scheduled times
+                  const timeIn = edited.timeIn || assignment.actual_start || assignment.scheduled_start;
+                  const timeOut = edited.timeOut || assignment.actual_end || assignment.scheduled_end;
+                  const breakMinutes = edited.breakMinutes ?? assignment.break_duration_minutes ?? (event?.schedule?.break_minutes || 0);
                   const hourlyRate = edited.hourlyRate ?? assignment.effective_hourly_rate;
                   const currentStatus = getStatusValue(assignment);
                   const canSelect = !assignment.approved && assignment.can_approve && assignment.status !== 'no_show' && assignment.status !== 'cancelled';
@@ -2776,7 +2821,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                         <input
                           type="time"
                           value={formatTimeInput(timeIn)}
-                          onChange={(e) => handleTimeChange(assignment.id, 'timeIn', e.target.value, timeIn)}
+                          onChange={(e) => {
+                            // Always use the original scheduled_start as base, not the edited/actual timeIn
+                            const originalTime = assignment.scheduled_start || assignment.actual_start;
+                            handleTimeChange(assignment.id, 'timeIn', e.target.value, originalTime);
+                          }}
                           className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                       </td>
@@ -2786,7 +2835,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                         <input
                           type="time"
                           value={formatTimeInput(timeOut)}
-                          onChange={(e) => handleTimeChange(assignment.id, 'timeOut', e.target.value, timeOut)}
+                          onChange={(e) => {
+                            // Always use the original scheduled_end as base, not the edited/actual timeOut
+                            const originalTime = assignment.scheduled_end || assignment.actual_end;
+                            handleTimeChange(assignment.id, 'timeOut', e.target.value, originalTime);
+                          }}
                           className="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                       </td>

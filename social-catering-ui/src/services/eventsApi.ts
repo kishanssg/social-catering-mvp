@@ -210,3 +210,12 @@ export async function restoreEvent(id: number | string) {
   
   throw new Error(response.data.message || 'Failed to restore event');
 }
+
+export async function fetchEligibleWorkers(eventId: number, roleId: number, shiftId?: number) {
+  const params = shiftId ? { shift_id: shiftId } : undefined;
+  const response = await apiClient.get(
+    `/events/${eventId}/event_skill_requirements/${roleId}/eligible_workers`,
+    { params }
+  );
+  return response.data?.data;
+}

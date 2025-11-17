@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Users, CheckCircle, AlertTriangle, DollarSign } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { fetchEligibleWorkers } from '../services/eventsApi';
 import { Modal } from './common/Modal';
 
 interface WorkerLite {
   id: number;
   first_name: string;
   last_name: string;
+  full_name?: string;
   email?: string;
   skills_json?: string[];
+  certifications?: { id: number; name?: string; expires_at_utc?: string }[];
 }
 
 interface QuickFillModalProps {
@@ -29,6 +32,7 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
   const [submitting, setSubmitting] = useState(false);
   const [workerPayRates, setWorkerPayRates] = useState<{ [workerId: number]: number }>({});
   const [currentDefaultPayRate, setCurrentDefaultPayRate] = useState<number>(0);
+  const [requiredCertificationName, setRequiredCertificationName] = useState<string | null>(null);
 
   const setWorkerPayRate = (workerId: number, payRate: number) => {
     setWorkerPayRates(prev => ({ ...prev, [workerId]: payRate }));
@@ -36,93 +40,84 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
 
   useEffect(() => {
     if (!isOpen) return;
-    
-    // Reset state when modal opens
+
     setWorkers([]);
     setSelected([]);
     setSearch('');
     setWorkerPayRates({});
     setLoading(true);
-    
-    (async () => {
+
+    const loadWorkers = async () => {
       try {
-        // Fetch event to get assigned workers for this role
         const eventRes = await apiClient.get(`/events/${eventId}`);
         const event = eventRes.data?.data || {};
-        
-        console.log('QuickFill: Full event data:', JSON.stringify(event, null, 2));
-        console.log('QuickFill: Looking for role:', roleName);
-        console.log('QuickFill: shifts_by_role:', event.shifts_by_role);
-        
-        // Get all assigned worker IDs for this specific role
-        const assignedWorkerIds = new Set<number>();
-        if (event.shifts_by_role) {
-          const roleShifts = event.shifts_by_role.find((r: any) => {
-            console.log('QuickFill: Checking role:', r.skill_name, r.role_name, 'vs', roleName);
-            return r.skill_name === roleName || r.role_name === roleName;
-          });
-          
-          if (roleShifts) {
-            console.log('QuickFill: Found role shifts:', roleShifts);
-            if (roleShifts.shifts) {
-              roleShifts.shifts.forEach((shift: any) => {
-                if (shift.assignments) {
-                  console.log('QuickFill: Shift has assignments:', shift.assignments);
-                  shift.assignments.forEach((assignment: any) => {
-                    // Check for worker_id in multiple places (assignment.worker_id or assignment.worker.id)
-                    const workerId = assignment.worker_id || assignment.worker?.id;
-                    const status = assignment.status;
-                    
-                    if (workerId && status !== 'cancelled') {
-                      assignedWorkerIds.add(workerId);
-                      console.log('QuickFill: Adding worker_id to exclude:', workerId, 'status:', status);
-                    }
-                  });
-                }
-              });
+        const requirement = (event.skill_requirements || []).find((req: any) => req.skill_name === roleName);
+        const defaultRate = defaultPayRate != null ? Number(defaultPayRate) : requirement?.pay_rate != null ? Number(requirement.pay_rate) : 0;
+        setCurrentDefaultPayRate(defaultRate || 0);
+
+        const primaryShiftId = unfilledShiftIds[0];
+        if (requirement?.id && primaryShiftId) {
+          try {
+            const payload = await fetchEligibleWorkers(eventId, requirement.id, primaryShiftId);
+            if (payload) {
+              const normalized = (payload.eligible_workers || []).map(normalizeWorkerLite);
+              setWorkers(normalized);
+              setRequiredCertificationName(payload.role?.required_certification?.name || null);
+              return;
             }
-          } else {
-            console.log('QuickFill: No role shifts found for:', roleName);
+          } catch (eligibleError) {
+            console.warn('Eligible workers endpoint failed, falling back to legacy filtering', eligibleError);
           }
         }
-        
-        console.log(`QuickFill: Found ${assignedWorkerIds.size} already assigned worker IDs:`, Array.from(assignedWorkerIds));
-        
-        // Fetch workers
-        const res = await apiClient.get('/workers?active=true');
-        const list = res.data?.data || res.data || [];
-        
-        // Filter: must have the skill AND not already be assigned to this role
-        const filtered = list.filter((w: any) => {
-          const hasSkill = (w.skills_json || []).includes(roleName);
-          const isAlreadyAssigned = assignedWorkerIds.has(w.id);
-          
-          if (isAlreadyAssigned) {
-            console.log(`QuickFill: Excluding ${w.first_name} ${w.last_name} (ID: ${w.id}) - already assigned`);
-          }
-          
-          return hasSkill && !isAlreadyAssigned;
-        });
-        
-        console.log(`QuickFill: Found ${filtered.length} eligible workers for "${roleName}"`);
-        console.log(`QuickFill: Eligible workers:`, filtered.map(w => `${w.first_name} ${w.last_name}`));
-        setWorkers(filtered);
-        
-        // Set default pay rate from prop
-        if (defaultPayRate) {
-          const numericRate = Number(defaultPayRate) || 0;
-          setCurrentDefaultPayRate(numericRate);
-          console.log(`QuickFill: Default pay rate for ${roleName}: $${numericRate}/hr`);
-        } else {
-          console.log(`QuickFill: No default pay rate provided for ${roleName}`);
-        }
+
+        setRequiredCertificationName(requirement?.required_certification?.name || null);
+        await loadFallbackWorkersForQuickFill(event);
       } catch (error) {
         console.error('Error loading workers:', error);
+        setWorkers([]);
+        setRequiredCertificationName(null);
       } finally {
         setLoading(false);
       }
-    })();
-  }, [isOpen, eventId, roleName, defaultPayRate]);
+    };
+
+    loadWorkers();
+  }, [isOpen, eventId, roleName, defaultPayRate, unfilledShiftIds]);
+
+  const loadFallbackWorkersForQuickFill = async (eventData: any) => {
+    const assignedWorkerIds = new Set<number>();
+    if (eventData?.shifts_by_role) {
+      const roleShifts = eventData.shifts_by_role.find((r: any) => r.skill_name === roleName || r.role_name === roleName);
+      if (roleShifts?.shifts) {
+        roleShifts.shifts.forEach((shift: any) => {
+          (shift.assignments || []).forEach((assignment: any) => {
+            const workerId = assignment.worker_id || assignment.worker?.id;
+            const status = assignment.status;
+            if (workerId && status !== 'cancelled' && status !== 'no_show') {
+              assignedWorkerIds.add(workerId);
+            }
+          });
+        });
+      }
+    }
+
+    const res = await apiClient.get('/workers?active=true');
+    const list = res.data?.data || res.data || [];
+    const filtered = list
+      .filter((w: any) => (w.skills_json || []).includes(roleName) && !assignedWorkerIds.has(w.id))
+      .map(normalizeWorkerLite);
+    setWorkers(filtered);
+  };
+
+  const normalizeWorkerLite = (worker: any): WorkerLite => ({
+    id: worker.id,
+    first_name: worker.first_name,
+    last_name: worker.last_name,
+    full_name: worker.full_name || `${worker.first_name} ${worker.last_name}`,
+    email: worker.email,
+    skills_json: worker.skills_json || worker.skills || [],
+    certifications: worker.certifications
+  });
 
   const eligibleWorkers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -289,6 +284,12 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
+          {requiredCertificationName && (
+            <div className="mt-3 mb-3 flex items-center gap-2 px-3 py-2 text-sm text-amber-900 bg-amber-50 border border-amber-100 rounded-lg">
+              <AlertTriangle size={16} className="text-amber-500" />
+              <span>Requires certification: {requiredCertificationName}</span>
+            </div>
+          )}
 
           {/* Eligible list */}
           <div className="max-h-[340px] overflow-y-auto border border-gray-200 rounded-lg">
