@@ -206,6 +206,32 @@ RSpec.describe 'API::V1::Events', type: :request do
         expect(response).to have_http_status(:not_found)
       end
     end
+
+    context 'published event regenerates shifts' do
+      let(:event) { create(:event, status: 'published', venue: venue) }
+      let!(:schedule) do
+        create(:event_schedule, event: event, start_time_utc: Time.current + 2.days, end_time_utc: Time.current + 2.days + 4.hours)
+      end
+
+      it 'creates shifts for new requirements after update' do
+        payload = {
+          event: {
+            skill_requirements: [
+              { skill_name: 'Server', needed_workers: 2, pay_rate: 18 }
+            ]
+          }
+        }
+
+        expect {
+          put "/api/v1/events/#{event.id}", params: payload
+          event.reload
+        }.to change { event.shifts.count }.from(0).to(2)
+
+        expect(response).to have_http_status(:ok)
+        json = JSON.parse(response.body)
+        expect(json['data']['skill_requirements'].first['skill_name']).to eq('Server')
+      end
+    end
   end
   
   describe 'DELETE /api/v1/events/:id' do

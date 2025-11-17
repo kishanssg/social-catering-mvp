@@ -16,6 +16,12 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
+  config.before(:suite) do
+    FactoryBot.create(:user, email: 'system_spec_user@example.com') unless User.exists?(email: 'system_spec_user@example.com')
+  end
+  config.after(:each) do
+    Current.user = nil
+  end
   
   # Include FactoryBot methods
   config.include FactoryBot::Syntax::Methods

@@ -4,6 +4,8 @@ require 'rails_helper'
 
 RSpec.describe Worker, type: :model do
   describe 'validations' do
+    subject { build(:worker) }
+
     it { should validate_presence_of(:first_name) }
     it { should validate_presence_of(:last_name) }
     it { should validate_presence_of(:email) }
@@ -110,8 +112,8 @@ RSpec.describe Worker, type: :model do
   end
   
   describe 'scopes' do
-    let!(:active_worker) { create(:worker, active: true) }
-    let!(:inactive_worker) { create(:worker, active: false) }
+    let!(:active_worker) { create(:worker, active: true, skills_json: []) }
+    let!(:inactive_worker) { create(:worker, active: false, skills_json: []) }
     
     describe '.active' do
       it 'returns only active workers' do
@@ -146,6 +148,54 @@ RSpec.describe Worker, type: :model do
       
       it 'returns empty for no matches' do
         expect(Worker.search('NonExistent')).to be_empty
+      end
+    end
+  end
+
+  describe 'callbacks' do
+    describe 'auto-unassigning active assignments on deactivation' do
+      let(:user) { create(:user) }
+      let(:event_status) { 'published' }
+      let(:event) { create(:event, status: event_status) }
+      let(:shift) { create(:shift, event: event, created_by: user) }
+      let(:worker) { create(:worker, active: true, skills_json: ['Server']) }
+      let(:assignment_status) { 'assigned' }
+      let!(:assignment) do
+        create(:assignment, shift: shift, worker: worker, status: assignment_status, assigned_by: user)
+      end
+
+      around do |example|
+        previous_user = Current.user
+        Current.user = user
+        example.run
+      ensure
+        Current.user = previous_user
+      end
+
+      it 'removes assignments tied to active events when worker is deactivated' do
+        expect {
+          worker.update!(active: false)
+        }.to change { Assignment.exists?(assignment.id) }.from(true).to(false)
+      end
+
+      context 'when assignment is confirmed' do
+        let(:assignment_status) { 'confirmed' }
+
+        it 'also removes the assignment' do
+          expect {
+            worker.update!(active: false)
+          }.to change { Assignment.exists?(assignment.id) }.from(true).to(false)
+        end
+      end
+
+      context 'when event is not active' do
+        let(:event_status) { 'draft' }
+
+        it 'does not touch the assignment' do
+          expect {
+            worker.update!(active: false)
+          }.not_to change { Assignment.exists?(assignment.id) }
+        end
       end
     end
   end

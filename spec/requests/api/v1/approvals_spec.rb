@@ -18,7 +18,6 @@ RSpec.describe 'Api::V1::Approvals', type: :request do
     context 'when idempotent' do
       it 'approves assignments on first call' do
         post "/api/v1/events/#{event.id}/approve_selected", params: { assignment_ids: [assignment.id] }
-        
         expect(response).to have_http_status(:success)
         expect(assignment.reload.approved).to be true
         expect(json_response['data']['approved_count']).to eq(1)
@@ -78,6 +77,17 @@ RSpec.describe 'Api::V1::Approvals', type: :request do
       expect {
         assignment2.update!(hours_worked: 8.0)
       }.to raise_error(ActiveRecord::StaleObjectError)
+    end
+
+    it 'persists break duration changes' do
+      patch "/api/v1/approvals/#{assignment.id}/update_hours", params: {
+        hours_worked: 5.0,
+        break_duration_minutes: 45
+      }
+
+      expect(response).to have_http_status(:success)
+      expect(assignment.reload.break_duration_minutes).to eq(45)
+      expect(json_response['data']['break_duration_minutes']).to eq(45)
     end
   end
 

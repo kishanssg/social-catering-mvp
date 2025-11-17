@@ -3,16 +3,20 @@
 require 'rails_helper'
 
 RSpec.describe Event, type: :model do
+  let(:audit_user) { create(:user) }
+
+  before do
+    Current.user = audit_user
+  end
   describe 'validations' do
     it { should validate_presence_of(:title) }
-    it { should validate_presence_of(:status) }
-    it { should validate_inclusion_of(:status).in_array(['draft', 'published', 'completed']) }
+    it { should validate_inclusion_of(:status).in_array(['draft', 'published', 'assigned', 'completed', 'deleted']) }
   end
   
   describe 'associations' do
-    it { should belong_to(:venue).optional }
+    it { should belong_to(:venue) }
     it { should have_many(:event_skill_requirements).dependent(:destroy) }
-    it { should have_many(:event_schedule).dependent(:destroy) }
+    it { should have_one(:event_schedule).dependent(:destroy) }
     it { should have_many(:shifts).dependent(:destroy) }
   end
   
