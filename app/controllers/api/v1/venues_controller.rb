@@ -19,10 +19,11 @@ class Api::V1::VenuesController < Api::V1::BaseController
     
     if query.blank? || query.length < 3
       # Return all venues for empty/short queries (show test venues)
-      local_venues = Venue.order(:name).limit(20)
+      local_venues = Venue.distinct.order(:name).limit(20)
     else
       # Search local venues by name or address
       local_venues = Venue.where('name ILIKE ? OR formatted_address ILIKE ?', "%#{query}%", "%#{query}%")
+                          .distinct
                           .order(:name)
                           .limit(20)
     end

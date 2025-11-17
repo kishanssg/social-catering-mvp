@@ -40,13 +40,30 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   }, [selectedVenue]);
 
+  // Helper function to deduplicate venues by id or place_id
+  const deduplicateVenues = (venues: VenueSearchResult[]): VenueSearchResult[] => {
+    const seen = new Set<string>();
+    return venues.filter((venue) => {
+      // Use id if available, otherwise use place_id
+      const key = venue.id ? `id-${venue.id}` : (venue.place_id ? `place-${venue.place_id}` : null);
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  };
+
   // Debounced search
   const performSearch = useCallback(async (searchQuery: string) => {
     setIsLoading(true);
     try {
       const response = await venuesApi.search(searchQuery, sessionToken);
-      setCachedResults(response.cached || []);
-      setGoogleResults(response.google_results || []);
+      // Deduplicate cached results and google results
+      const deduplicatedCached = deduplicateVenues(response.cached || []);
+      const deduplicatedGoogle = deduplicateVenues(response.google_results || []);
+      setCachedResults(deduplicatedCached);
+      setGoogleResults(deduplicatedGoogle);
       
       // Update session token if provided
       if (response.session_token) {
