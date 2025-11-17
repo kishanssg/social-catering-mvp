@@ -387,28 +387,21 @@ module Api
       def serialize_worker(worker)
         worker_certs = worker.worker_certifications.includes(:certification)
 
-        certifications_payload = worker_certifications_payload(worker, worker_certs)
-        worker_certs_payload = worker_certs.map do |wc|
-          {
-            id: wc.id,
-            certification_id: wc.certification_id,
-            certification_name: wc.certification&.name,
-            expires_at_utc: wc.expires_at_utc,
-            expired: wc.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false
-          }
-        end
+        certifications_payload = build_certifications_payload(worker, worker_certs)
+        worker_certs_payload = build_worker_certifications_payload(worker_certs)
 
-        worker_skills_payload = if worker.respond_to?(:worker_skills)
-                                  worker.worker_skills.map do |ws|
-                                    {
-                                      id: ws.id,
-                                      skill_id: ws.try(:skill_id),
-                                      skill_name: ws.respond_to?(:skill) ? ws.skill&.name : nil
-                                    }
-                                  end
-                                else
-                                  []
-                                end
+        worker_skills_payload =
+          if worker.respond_to?(:worker_skills)
+            worker.worker_skills.map do |ws|
+              {
+                id: ws.id,
+                skill_id: ws.try(:skill_id),
+                skill_name: ws.respond_to?(:skill) ? ws.skill&.name : nil
+              }
+            end
+          else
+            []
+          end
 
         {
           id: worker.id,
@@ -429,6 +422,31 @@ module Api
           created_at: worker.created_at,
           updated_at: worker.updated_at
         }
+      end
+
+      def build_worker_certifications_payload(worker_certs)
+        worker_certs.map do |wc|
+          {
+            id: wc.id,
+            certification_id: wc.certification_id,
+            certification_name: wc.certification&.name,
+            expires_at_utc: wc.expires_at_utc,
+            expired: wc.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false
+          }
+        end
+      end
+
+      def build_certifications_payload(worker, worker_certs)
+        worker.certifications.map do |cert|
+          wc = worker_certs.find { |row| row.certification_id == cert.id }
+          {
+            id: cert.id,
+            name: cert.name,
+            expires_at_utc: wc&.expires_at_utc,
+            expired: wc&.expires_at_utc.present? ? wc.expires_at_utc < Time.current : false,
+            worker_certification_id: wc&.id
+          }
+        end
       end
     end
   end
