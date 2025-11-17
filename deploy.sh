@@ -1,9 +1,18 @@
 #!/bin/bash
 set -e
 
-# Staging app name
-APP_NAME="sc-mvp-staging"
-APP_URL="https://sc-mvp-staging-c6ef090c6c41.herokuapp.com"
+# Determine target (staging or production)
+TARGET="${1:-staging}"
+
+if [ "$TARGET" = "production" ] || [ "$TARGET" = "prod" ]; then
+  APP_NAME="sc-mvp-production"
+  APP_URL="https://sc-mvp-production-6b7a268cc8ad.herokuapp.com"
+  REMOTE="production"
+else
+  APP_NAME="sc-mvp-staging"
+  APP_URL="https://sc-mvp-staging-c6ef090c6c41.herokuapp.com"
+  REMOTE="staging"
+fi
 
 echo "═══════════════════════════════════════════════════"
 echo "🚀 Social Catering MVP - Deployment Script"
@@ -38,11 +47,17 @@ cd ..
 rm -rf public/assets public/index.html
 mkdir -p public/assets
 
-# Copy ALL files from dist root
+# Copy ALL files from dist root (Vite builds to dist/ root)
 cp -a social-catering-ui/dist/*.js public/assets/ 2>/dev/null || true
 cp -a social-catering-ui/dist/*.css public/assets/ 2>/dev/null || true
 cp -a social-catering-ui/dist/*.svg public/assets/ 2>/dev/null || true
 cp -a social-catering-ui/dist/*.png public/assets/ 2>/dev/null || true
+
+# Also copy from dist/assets/ if it exists (some builds use this structure)
+if [ -d social-catering-ui/dist/assets ]; then
+  cp -a social-catering-ui/dist/assets/. public/assets/ 2>/dev/null || true
+fi
+
 cp social-catering-ui/dist/index.html public/index.html
 
 # Copy logo files to public root (not assets/) - these are served from /sc_logo.svg
@@ -99,9 +114,9 @@ git add public/
 git commit -m "feat: Sync Vite build to public/ for deployment" || echo "   (No changes to commit)"
 
 echo ""
-echo "🚀 Step 5: Deploying to staging..."
+echo "🚀 Step 5: Deploying to $TARGET..."
 CURRENT_BRANCH=$(git branch --show-current)
-git push staging ${CURRENT_BRANCH}:main --force
+git push $REMOTE ${CURRENT_BRANCH}:main --force
 
 # Step 6: Wait for deployment and verify
 echo ""
