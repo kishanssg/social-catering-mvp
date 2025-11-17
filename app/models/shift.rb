@@ -94,6 +94,23 @@ class Shift < ApplicationRecord
     "#{progress[:assigned]} of #{progress[:required]}"
   end
 
+  # Compatibility helpers for legacy code/tests
+  def event_skill_requirement
+    skill_requirement
+  end
+
+  def event_skill_requirement=(requirement)
+    self.skill_requirement = requirement
+  end
+
+  def required_certification
+    required_cert
+  end
+
+  def required_certification=(certification)
+    self.required_cert = certification
+  end
+
   # Assignment helpers
   def can_assign_worker?(worker)
     return false if fully_staffed?

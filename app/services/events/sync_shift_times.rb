@@ -45,19 +45,21 @@ class Events::SyncShiftTimes
         end
       end
       
-      # Log activity (inside transaction)
-      ActivityLog.create!(
-        actor_user_id: Current.user&.id,
-        entity_type: 'EventSchedule',
-        entity_id: @event.event_schedule&.id,
-        action: 'shift_times_synced',
-        after_json: { 
-          updated_shifts_count: updated_count,
-          start_time_utc: @start_time_utc,
-          end_time_utc: @end_time_utc
-        },
-        created_at_utc: Time.current
-      )
+      # Log activity (inside transaction) when we have a valid actor
+      if (user_id = Current.user&.id)
+        ActivityLog.create!(
+          actor_user_id: user_id,
+          entity_type: 'EventSchedule',
+          entity_id: @event.event_schedule&.id,
+          action: 'shift_times_synced',
+          after_json: { 
+            updated_shifts_count: updated_count,
+            start_time_utc: @start_time_utc,
+            end_time_utc: @end_time_utc
+          },
+          created_at_utc: Time.current
+        )
+      end
       
       success(updated_count)
     end

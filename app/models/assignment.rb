@@ -241,14 +241,22 @@ class Assignment < ApplicationRecord
     return if skip_availability_and_skill_checks
 
     req_name = shift.required_cert&.name || 'required certification'
-    wc = worker.worker_certifications.find_by(certification_id: shift.required_cert_id)
-    if wc.nil?
-      errors.add(:base, "Worker does not have required certification: #{req_name}")
-      return
-    end
+    shift_end = shift.end_time_utc || Time.current
 
-    if wc.expires_at_utc && wc.expires_at_utc < shift.end_time_utc
-      errors.add(:base, "Worker's #{req_name} expires on #{wc.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends")
+    return if worker.has_valid_certification?(shift.required_cert_id, shift_end)
+
+    latest_cert = worker.worker_certifications
+                        .where(certification_id: shift.required_cert_id)
+                        .order(expires_at_utc: :desc)
+                        .first
+
+    if latest_cert.nil?
+      errors.add(:base, "Worker does not have required certification: #{req_name}")
+    else
+      errors.add(
+        :base,
+        "Worker's #{req_name} expires on #{latest_cert.expires_at_utc.strftime('%m/%d/%Y')}, before shift ends"
+      )
     end
   end
 
@@ -278,9 +286,17 @@ class Assignment < ApplicationRecord
     result = Events::RecalculateTotals.new(event: event).call
     unless result[:success]
       Rails.logger.error "Assignment #{id}: Failed to update event totals: #{result[:error]}"
-      # Don't raise - allow assignment update to succeed even if totals fail
-      # Totals will be recalculated on next assignment change
+      raise Events::RecalculateTotals::RecalculationError, result[:error]
     end
+  rescue Events::RecalculateTotals::RecalculationError => e
+    Rails.logger.error "Assignment #{id}: recalculation error - #{e.message}"
+    raise
+  rescue ActiveRecord::StatementInvalid => e
+    Rails.logger.error "Assignment #{id}: recalculation raised #{e.class} - #{e.message}"
+    raise
+  rescue => e
+    Rails.logger.error "Assignment #{id}: update_event_totals encountered #{e.class} - #{e.message}"
+    raise
   ensure
     # Restore previous user context
     Current.user = previous_user

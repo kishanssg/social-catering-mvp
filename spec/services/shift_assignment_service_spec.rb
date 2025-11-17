@@ -7,6 +7,9 @@ RSpec.describe ShiftAssignmentService, type: :service do
   let(:worker) { create(:worker, skills_json: ['Server']) }
   let(:shift) { create(:shift, role_needed: 'Server', capacity: 1) }
   let(:service) { ShiftAssignmentService.new(shift: shift, worker: worker, assigned_by: user) }
+  before do
+    Current.user = user
+  end
   
   describe '#call' do
     context 'valid assignment' do

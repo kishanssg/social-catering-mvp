@@ -46,7 +46,8 @@ class EventCreationService
         needed_workers: skill_data[:needed_workers] || skill_data['needed_workers'] || 1,
         description: skill_data[:description] || skill_data['description'],
         uniform_name: skill_data[:uniform_name] || skill_data['uniform_name'],
-        certification_name: skill_data[:certification_name] || skill_data['certification_name']
+        certification_name: skill_data[:certification_name] || skill_data['certification_name'],
+        required_certification_id: skill_data[:required_certification_id] || skill_data['required_certification_id']
       )
     end
   end

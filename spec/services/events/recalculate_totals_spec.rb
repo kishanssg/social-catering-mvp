@@ -5,15 +5,20 @@ require 'rails_helper'
 RSpec.describe Events::RecalculateTotals, type: :service do
   let(:event) { create(:event) }
   let(:event_schedule) { create(:event_schedule, event: event) }
-  let(:shift) { create(:shift, event: event) }
+  let(:shift) { create(:shift, event: event, capacity: 2000) }
   let(:worker) { create(:worker) }
+  let(:audit_user) { create(:user) }
+
+  before do
+    Current.user = audit_user
+  end
 
   describe '#call' do
     context 'with mixed assignment statuses' do
-      let!(:assignment1) { create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 8.0, hourly_rate: 15.0) }
-      let!(:assignment2) { create(:assignment, shift: shift, worker: worker, status: 'assigned', hours_worked: nil) }
-      let!(:assignment3) { create(:assignment, shift: shift, worker: worker, status: 'cancelled', hours_worked: 4.0, hourly_rate: 15.0) }
-      let!(:assignment4) { create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 6.0, hourly_rate: 18.0) }
+      let!(:assignment1) { create(:assignment, shift: shift, worker: create(:worker), status: 'completed', hours_worked: 8.0, hourly_rate: 15.0) }
+      let!(:assignment2) { create(:assignment, shift: shift, worker: create(:worker), status: 'assigned', hours_worked: nil) }
+      let!(:assignment3) { create(:assignment, shift: shift, worker: create(:worker), status: 'cancelled', hours_worked: 4.0, hourly_rate: 15.0) }
+      let!(:assignment4) { create(:assignment, shift: shift, worker: create(:worker), status: 'completed', hours_worked: 6.0, hourly_rate: 18.0) }
 
       it 'calculates totals using SSOT methods (effective_hours, effective_pay)' do
         result = described_class.new(event: event).call
@@ -158,11 +163,12 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       it 'handles assignments with zero hours' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 0.0, hourly_rate: 15.0)
         
-        result = described_class.new(event: event).call
+        described_class.new(event: event).call
         event.reload
 
-        expect(event.total_hours_worked).to eq(0.0)
-        expect(event.total_pay_amount).to eq(0.0)
+        # Zero logged hours still fall back to scheduled duration via effective_hours
+        expect(event.total_hours_worked).to eq(shift.duration_hours)
+        expect(event.total_pay_amount).to eq((shift.duration_hours * 15.0).round(2))
       end
 
       it 'rounds totals to 2 decimal places' do

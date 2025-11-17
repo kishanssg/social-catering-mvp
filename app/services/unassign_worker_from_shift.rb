@@ -15,8 +15,8 @@ class UnassignWorkerFromShift < ApplicationService
 
       begin
         # Check if assignment can be removed
-        if @assignment.status != "assigned"
-          return failure("Assignment is not in assigned status")
+        unless %w[assigned confirmed].include?(@assignment.status)
+          return failure("Assignment is not in a removable status")
         end
 
         # Log the unassignment before destroying

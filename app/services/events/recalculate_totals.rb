@@ -3,6 +3,7 @@
 # Service to recalculate event totals (hours, pay, counts)
 # Single Source of Truth for event aggregate calculations
 class Events::RecalculateTotals
+  class RecalculationError < StandardError; end
   def initialize(event:)
     @event = event
   end

@@ -106,7 +106,8 @@ class Events::ApplyRoleDiff
       pay_rate: role_params[:pay_rate],
       description: role_params[:description],
       uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
-      certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil
+      certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
+      required_certification_id: role_params[:cert_id]
     )
     
     create_shifts_for_requirement(req, count)
@@ -212,6 +213,7 @@ class Events::ApplyRoleDiff
         event_skill_requirement_id: requirement.id,
         auto_generated: true,
         required_skill: requirement.skill_name,
+        required_cert_id: requirement.required_certification_id,
         uniform_name: requirement.uniform_name,
         status: 'published',
         created_by: Current.user
@@ -231,6 +233,7 @@ class Events::ApplyRoleDiff
       pay_rate: role_params[:pay_rate],
       uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
+      required_certification_id: role_params[:cert_id],
       description: role_params[:description]
     )
   end

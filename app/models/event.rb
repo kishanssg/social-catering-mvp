@@ -233,42 +233,38 @@ class Event < ApplicationRecord
   def generate_shifts!
     return unless can_be_published?
     
-    # Use a database lock to prevent race conditions
     with_lock do
-      # Double-check if shifts already exist (prevents race conditions)
-      if shifts.any?
-        return shifts
-      end
+      return shifts if shifts.any?
 
-      generated = []
+      generated = false
       event_skill_requirements.find_each do |skill_req|
         skill_req.needed_workers.times do
-          generated << shifts.create!(
-            client_name: title,
-            role_needed: skill_req.skill_name,
-            start_time_utc: event_schedule.start_time_utc,
-            end_time_utc: event_schedule.end_time_utc,
-            capacity: 1,
-            pay_rate: skill_req.pay_rate || 0,
-            notes: check_in_instructions,
-            event_skill_requirement_id: skill_req.id,
-            auto_generated: true,
-            required_skill: skill_req.skill_name,
-            uniform_name: skill_req.uniform_name,
-            status: 'published',
-            created_by: Current.user || User.first
-          )
+          create_shift_for_requirement(skill_req)
+          generated = true
         end
       end
 
-      update_columns(
-        total_shifts_count: shifts.count,
-        published_at_utc: Time.current,
-        shifts_generated: true
-      )
-
-      generated
+      finalize_shift_generation if generated
     end
+  end
+
+  def ensure_shifts_for_requirements!
+    return unless status == 'published'
+    return unless can_be_published?
+
+    generated = false
+    event_skill_requirements.find_each do |skill_req|
+      existing = shifts.where(event_skill_requirement_id: skill_req.id).count
+      missing = skill_req.needed_workers.to_i - existing
+      next unless missing.positive?
+
+      missing.times do
+        create_shift_for_requirement(skill_req)
+        generated = true
+      end
+    end
+
+    finalize_shift_generation if generated
   end
 
   # Force recalculation of totals (called by callbacks and other models)
@@ -296,7 +292,35 @@ class Event < ApplicationRecord
 
   def generate_shifts_if_published
     return unless status == 'published'
-    generate_shifts!
+    ensure_shifts_for_requirements!
+  end
+
+  def create_shift_for_requirement(skill_req)
+    shifts.create!(
+      client_name: title,
+      role_needed: skill_req.skill_name,
+      start_time_utc: event_schedule.start_time_utc,
+      end_time_utc: event_schedule.end_time_utc,
+      capacity: 1,
+      pay_rate: skill_req.pay_rate || 0,
+      notes: check_in_instructions,
+      event_skill_requirement_id: skill_req.id,
+      auto_generated: true,
+      required_skill: skill_req.skill_name,
+      required_cert_id: skill_req.required_certification_id,
+      uniform_name: skill_req.uniform_name,
+      status: 'published',
+      created_by: Current.user || User.order(:id).first,
+      location: venue&.respond_to?(:location) ? venue.location : nil
+    )
+  end
+
+  def finalize_shift_generation
+    update_columns(
+      total_shifts_count: shifts.count,
+      published_at_utc: published_at_utc || Time.current,
+      shifts_generated: true
+    )
   end
 
   def update_staffing_counts

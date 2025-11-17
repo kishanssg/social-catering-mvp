@@ -63,9 +63,9 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
             start_time_utc: new_start,
             end_time_utc: new_end
           ).call
-        }.to change(ActivityLog, :count).by(1)
+        }.to change { ActivityLog.where(action: 'shift_times_synced').count }.by(1)
 
-        log = ActivityLog.last
+        log = ActivityLog.where(action: 'shift_times_synced').last
         expect(log.entity_type).to eq('EventSchedule')
         expect(log.action).to eq('shift_times_synced')
         expect(log.after_json['updated_shifts_count']).to eq(2)
@@ -83,7 +83,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
       end
 
       it 'wraps operations in transaction' do
-        allow(event.shifts).to receive(:update_all).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
+        allow_any_instance_of(ActiveRecord::Relation).to receive(:update_all).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
         
         result = described_class.new(
           event: event,

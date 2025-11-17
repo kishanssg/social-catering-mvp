@@ -3,6 +3,7 @@ class EventSkillRequirement < ApplicationRecord
 
   # Associations
   belongs_to :event
+  belongs_to :required_certification, class_name: 'Certification', optional: true
 
   # Validations
   validates :skill_name, presence: true
@@ -19,7 +20,7 @@ class EventSkillRequirement < ApplicationRecord
 
   # Instance methods
   def has_certification?
-    certification_name.present?
+    required_certification.present? || certification_name.present?
   end
 
   def has_uniform?
@@ -31,7 +32,11 @@ class EventSkillRequirement < ApplicationRecord
     requirements << "#{needed_workers} worker#{'s' if needed_workers > 1} needed"
     requirements << "Pay: $#{pay_rate}/hour" if pay_rate.present?
     requirements << "Uniform: #{uniform_name}" if has_uniform?
-    requirements << "Certification: #{certification_name}" if has_certification?
+    if required_certification.present?
+      requirements << "Certification: #{required_certification.name}"
+    elsif certification_name.present?
+      requirements << "Certification: #{certification_name}"
+    end
     requirements.join(', ')
   end
 

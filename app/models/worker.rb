@@ -11,7 +11,7 @@ class Worker < ApplicationRecord
   validates :first_name, :last_name, presence: true
   validates :email,
             presence: true,
-            uniqueness: true,
+            uniqueness: { case_sensitive: false },
             format: { with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address" }
   validates :phone, 
             presence: true,
@@ -21,12 +21,33 @@ class Worker < ApplicationRecord
             }
 
   scope :active, -> { where(active: true) }
-  scope :with_skill, ->(skill) { where("skills_json @> ?", [skill].to_json) }
+  scope :with_skill, ->(skill) {
+    skill.present? ? where("skills_json @> ?", [skill].to_json) : all
+  }
+  scope :with_certification, ->(cert_id, as_of_time = Time.current) {
+    cert_id.present? ? joins(:worker_certifications)
+                        .merge(WorkerCertification.valid_on(as_of_time))
+                        .where(worker_certifications: { certification_id: cert_id })
+                        .distinct : all
+  }
+  scope :without_conflicts, ->(shift_start_utc:, shift_end_utc:, exclude_shift_id: nil) {
+    if shift_start_utc.present? && shift_end_utc.present?
+      conflicting = Assignment
+                      .joins(:shift)
+                      .where.not(assignments: { status: %w[cancelled no_show] })
+                      .where("shifts.start_time_utc < ? AND shifts.end_time_utc > ?", shift_end_utc, shift_start_utc)
+      conflicting = conflicting.where.not(shifts: { id: exclude_shift_id }) if exclude_shift_id.present?
+      where.not(id: conflicting.select(:worker_id))
+    else
+      all
+    end
+  }
 
   before_save :sync_skills_tsvector
   before_save :normalize_phone
   after_save :clear_workers_cache
   after_destroy :clear_workers_cache
+  after_commit :unassign_from_active_events_if_deactivated, on: :update
 
   # Attach profile photo via Active Storage
   has_one_attached :profile_photo
@@ -58,6 +79,30 @@ class Worker < ApplicationRecord
     skills.include?(skill_name)
   end
 
+  def has_valid_certification?(certification_id, as_of_time = Time.current)
+    return false if certification_id.blank?
+    worker_certifications.valid_on(as_of_time).where(certification_id: certification_id).exists?
+  end
+
+  def self.eligible_for_requirement(event:, role:, shift:)
+    raise ArgumentError, "event is required" unless event
+    raise ArgumentError, "role is required" unless role
+
+    skill_name = role.respond_to?(:skill_name) ? role.skill_name : nil
+    required_cert_id = role.try(:required_certification_id)
+    shift_start = shift&.start_time_utc || event.event_schedule&.start_time_utc
+    shift_end = shift&.end_time_utc || event.event_schedule&.end_time_utc
+
+    scope = active
+    scope = scope.with_skill(skill_name) if skill_name.present?
+    scope = scope.with_certification(required_cert_id, shift_end) if required_cert_id.present?
+    scope.without_conflicts(
+      shift_start_utc: shift_start,
+      shift_end_utc: shift_end,
+      exclude_shift_id: shift&.id
+    )
+  end
+
   def available_for_shift?(shift)
     return false unless has_skill?(shift.role_needed)
     
@@ -72,12 +117,29 @@ class Worker < ApplicationRecord
 
   def self.search(query)
     return all if query.blank?
-    
+
+    like_query = "%#{query}%"
+    name_scope = where(
+      "first_name ILIKE ? OR last_name ILIKE ?",
+      like_query, like_query
+    )
+
     if query.length >= 3
-      where("skills_tsvector @@ to_tsquery(?)", "#{query}:*")
+      ts_query = build_tsquery(query)
+      return name_scope if ts_query.blank?
+
+      skill_scope = where("skills_tsvector @@ to_tsquery(?)", ts_query)
+      name_scope.or(skill_scope)
     else
-      where("first_name ILIKE ? OR last_name ILIKE ?", "#{query}%", "#{query}%")
+      name_scope
     end
+  end
+
+  def self.build_tsquery(term)
+    sanitized_tokens = term.to_s.downcase.gsub(/[^a-z0-9\s]/, ' ').split
+    return if sanitized_tokens.empty?
+
+    sanitized_tokens.map { |token| "#{token}:*" }.join(' & ')
   end
 
   private
@@ -122,8 +184,8 @@ class Worker < ApplicationRecord
       # Find all assignments to shifts in active (published) events
       active_assignments = assignments
         .joins(shift: :event)
-        .where(events: { status: 'published' })
-        .where.not(status: ['cancelled', 'no_show', 'completed'])
+        .where(events: { status: %w[published assigned] })
+        .where.not(status: %w[cancelled no_show completed])
 
       unassigned_count = 0
       active_assignments.each do |assignment|

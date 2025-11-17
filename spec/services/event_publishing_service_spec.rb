@@ -5,6 +5,11 @@ require 'rails_helper'
 RSpec.describe EventPublishingService, type: :service do
   let(:event) { create(:event, status: 'draft') }
   let(:service) { EventPublishingService.new(event: event) }
+  let(:publisher) { create(:user) }
+
+  before do
+    Current.user = publisher
+  end
   
   describe '#call' do
     context 'valid event with skill requirements and schedule' do
@@ -75,16 +80,16 @@ RSpec.describe EventPublishingService, type: :service do
       end
     end
     
-    context 'multiple schedule periods' do
+    context 'multiple schedule periods (legacy data)' do
       let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 1) }
       let!(:morning_schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
       let!(:evening_schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day + 6.hours, end_time_utc: Time.current + 1.day + 10.hours) }
       
-      it 'generates shifts for all schedule periods' do
+      it 'uses the primary event schedule (events are single-scheduled now)' do
         service.call
         
-        expect(event.shifts.count).to eq(2)
-        expect(event.shifts.pluck(:start_time_utc)).to contain_exactly(morning_schedule.start_time_utc, evening_schedule.start_time_utc)
+        expect(event.shifts.count).to eq(1)
+        expect(event.shifts.first.start_time_utc).to eq(morning_schedule.start_time_utc)
       end
     end
   end
