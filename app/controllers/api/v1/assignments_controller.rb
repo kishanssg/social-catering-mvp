@@ -323,6 +323,9 @@ module Api
               venue_name: assignment.shift.event.venue&.name
             } : nil
           },
+          # SSOT: Use actual times if available, otherwise scheduled times
+          actual_start_time_utc: assignment.actual_start_time_utc,
+          actual_end_time_utc: assignment.actual_end_time_utc,
           hours_worked: assignment.hours_worked,
           hourly_rate: assignment.hourly_rate,
           status: assignment.status,

@@ -112,14 +112,18 @@ class Api::V1::Reports::TimesheetsController < ApplicationController
           [shift_duration - break_hours, 0].max # Ensure non-negative
         end
         
+        # SSOT: Use actual times if available, otherwise scheduled times
+        start_time = assignment.actual_start_time_utc || shift.start_time_utc
+        end_time = assignment.actual_end_time_utc || shift.end_time_utc
+        
         csv << [
           event&.id || shift.id,
           shift.role_needed,
           worker.first_name,
           worker.last_name,
-          shift.start_time_utc.strftime('%m/%d/%Y'),
-          shift.start_time_utc.strftime('%I:%M %p'),
-          shift.end_time_utc.strftime('%I:%M %p'),
+          start_time.strftime('%m/%d/%Y'),
+          start_time.strftime('%I:%M %p'),
+          end_time.strftime('%I:%M %p'),
           sprintf('%.2f', break_hours.round(2)), # Show break in hours with 2 decimals
           sprintf('%.2f', total_hours.round(2)), # Show total hours with 2 decimals
           event&.supervisor_name || '',

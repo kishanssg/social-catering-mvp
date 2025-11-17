@@ -134,16 +134,19 @@ module Api
           assigned_count: shift.assigned_count,
           assignments_count: shift.assignments.count,
           available_slots: shift.available_slots,
-          created_at: shift.created_at
+          created_at: shift.created_at,
+          event_skill_requirement_id: shift.event_skill_requirement_id
         }
       end
 
       def serialize_shift_detailed(shift)
         serialize_shift(shift).merge(
           skill_requirement: shift.skill_requirement ? {
+            id: shift.skill_requirement.id,
             skill_name: shift.skill_requirement.skill_name,
             uniform_name: shift.skill_requirement.uniform_name,
             certification_name: shift.skill_requirement.certification_name,
+            required_certification: shift.skill_requirement.required_certification&.slice(:id, :name),
             pay_rate: shift.skill_requirement.pay_rate
           } : nil,
           event: shift.event ? {
