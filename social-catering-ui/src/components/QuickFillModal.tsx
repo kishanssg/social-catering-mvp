@@ -3,6 +3,7 @@ import { Search, Users, CheckCircle, AlertTriangle, DollarSign } from 'lucide-re
 import { apiClient } from '../lib/api';
 import { fetchEligibleWorkers } from '../services/eventsApi';
 import { Modal } from './common/Modal';
+import { Avatar } from './common/Avatar';
 
 interface WorkerLite {
   id: number;
@@ -12,6 +13,7 @@ interface WorkerLite {
   email?: string;
   skills_json?: string[];
   certifications?: { id: number; name?: string; expires_at_utc?: string }[];
+  profile_photo_url?: string;
 }
 
 interface QuickFillModalProps {
@@ -304,9 +306,11 @@ export function QuickFillModal({ isOpen, eventId, roleName, unfilledShiftIds, de
                   return (
                     <li key={w.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
-                          {w.first_name[0]}{w.last_name[0]}
-                        </div>
+                        <Avatar
+                          name={`${w.first_name} ${w.last_name}`}
+                          src={w.profile_photo_url}
+                          size={32}
+                        />
                         <div>
                           <div className="text-sm font-medium text-gray-900">{w.first_name} {w.last_name}</div>
                           <div className="flex flex-wrap gap-1 mt-1">

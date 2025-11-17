@@ -4,6 +4,7 @@ import { formatDateTime, formatTime } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 import { fetchEligibleWorkers } from '../services/eventsApi';
 import { Modal } from './common/Modal';
+import { Avatar } from './common/Avatar';
 
 interface WorkerCertificationMeta {
   id: number;
@@ -22,6 +23,7 @@ interface Worker {
   skills_json?: string[];
   certifications?: WorkerCertificationMeta[];
   has_required_certification?: boolean;
+  profile_photo_url?: string;
 }
 
 interface Shift {
@@ -581,9 +583,11 @@ export function AssignmentModal({ shiftId, suggestedPayRate, onClose, onSuccess 
                       return (
                       <li key={worker.id} className={`flex items-center justify-between px-4 py-3 border-b last:border-b-0 ${isSelected ? 'bg-teal-50' : 'bg-white'}`}>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
-                              {worker.first_name[0]}{worker.last_name[0]}
-                            </div>
+                            <Avatar
+                              name={`${worker.first_name} ${worker.last_name}`}
+                              src={worker.profile_photo_url}
+                              size={32}
+                            />
                             <div>
                               <div className="text-sm font-medium text-gray-900">{worker.first_name} {worker.last_name}</div>
                               <div className="flex flex-wrap gap-1 mt-1">

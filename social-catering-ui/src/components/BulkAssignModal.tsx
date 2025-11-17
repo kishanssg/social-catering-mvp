@@ -7,6 +7,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import Toast from './Toast';
 import { format, parseISO } from 'date-fns';
+import { Avatar } from './common/Avatar';
 
 interface BulkAssignModalProps {
   onClose: () => void;
@@ -283,11 +284,11 @@ const BulkAssignModal = ({ onClose, onSuccess }: BulkAssignModalProps) => {
                       className="w-full p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-blue-600 font-medium">
-                            {worker.first_name[0]}{worker.last_name[0]}
-                          </span>
-                        </div>
+                        <Avatar
+                          name={`${worker.first_name} ${worker.last_name}`}
+                          src={worker.profile_photo_url}
+                          size={40}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900">
                             {worker.first_name} {worker.last_name}

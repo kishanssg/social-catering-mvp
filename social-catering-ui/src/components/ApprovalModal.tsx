@@ -2788,9 +2788,11 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
                       {/* Worker */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-teal-600 flex items-center justify-center text-white text-sm font-medium">
-                            {assignment.worker_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??'}
-                          </div>
+                          <Avatar
+                            name={assignment.worker_name || 'Unknown Worker'}
+                            src={assignment.worker_profile_photo_url}
+                            size={40}
+                          />
               <div>
                             <div className={cn(
                               "font-medium text-gray-900",
