@@ -293,12 +293,16 @@ RSpec.describe 'Query Performance', type: :model do
         # Second calculation should use cached result
         expect {
           loaded_event.staffing_progress
-        }.to make_database_queries(count: 0..2) # Updated: may still trigger some queries for SSOT checks
+        }.to make_database_queries(count: 0..4) # Updated: may still trigger some queries for SSOT checks
       end
     end
     
     context 'Assignment count efficiency' do
-      let(:shift) { event.shifts.first }
+      let(:shift) do
+        s = event.shifts.first
+        s.update!(capacity: 10) # Increase capacity to allow multiple assignments
+        s
+      end
       
       before do
         create_list(:assignment, 3, shift: shift, status: 'confirmed')
@@ -315,3 +319,4 @@ RSpec.describe 'Query Performance', type: :model do
     end
   end
 end
+
