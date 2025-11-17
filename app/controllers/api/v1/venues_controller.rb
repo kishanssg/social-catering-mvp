@@ -1,3 +1,5 @@
+require 'set'
+
 class Api::V1::VenuesController < Api::V1::BaseController
   before_action :authenticate_user!
   
