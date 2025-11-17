@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_11_16_213207) do
+ActiveRecord::Schema[7.2].define(version: 2025_11_17_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -136,8 +136,10 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_16_213207) do
     t.timestamptz "created_at_utc", null: false
     t.timestamptz "updated_at_utc", null: false
     t.decimal "pay_rate", precision: 10, scale: 2
+    t.bigint "required_certification_id"
     t.index ["event_id", "skill_name"], name: "index_event_skill_requirements_on_event_id_and_skill_name", unique: true
     t.index ["event_id"], name: "index_event_skill_requirements_on_event_id"
+    t.index ["required_certification_id"], name: "index_event_skill_requirements_on_required_certification_id"
   end
 
   create_table "events", force: :cascade do |t|
@@ -324,6 +326,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_11_16_213207) do
   add_foreign_key "assignments", "users", column: "edited_by_id", on_delete: :nullify
   add_foreign_key "assignments", "workers", on_delete: :restrict
   add_foreign_key "event_schedules", "events", on_delete: :cascade
+  add_foreign_key "event_skill_requirements", "certifications", column: "required_certification_id"
   add_foreign_key "event_skill_requirements", "events", on_delete: :cascade
   add_foreign_key "events", "venues", on_delete: :restrict
   add_foreign_key "shifts", "certifications", column: "required_cert_id", on_delete: :nullify
