@@ -19,19 +19,44 @@ class Api::V1::VenuesController < Api::V1::BaseController
     
     if query.blank? || query.length < 3
       # Return all venues for empty/short queries (show test venues)
-      local_venues = Venue.distinct.order(:name).limit(20)
+      local_venues = Venue.order(:name).limit(20)
     else
       # Search local venues by name or address
       local_venues = Venue.where('name ILIKE ? OR formatted_address ILIKE ?', "%#{query}%", "%#{query}%")
-                          .distinct
                           .order(:name)
                           .limit(20)
+    end
+    
+    # Deduplicate by place_id (preferred) or name+address (fallback)
+    # Group by place_id first, then by name+address for venues without place_id
+    seen_place_ids = Set.new
+    seen_name_address = Set.new
+    deduplicated_venues = []
+    
+    local_venues.each do |venue|
+      # Skip if we've seen this place_id before
+      if venue.place_id.present? && seen_place_ids.include?(venue.place_id)
+        next
+      end
+      
+      # Skip if we've seen this name+address combo before (for venues without place_id)
+      name_address_key = "#{venue.name.downcase.strip}|#{venue.formatted_address.downcase.strip}"
+      if venue.place_id.blank? && seen_name_address.include?(name_address_key)
+        next
+      end
+      
+      # Add to seen sets
+      seen_place_ids.add(venue.place_id) if venue.place_id.present?
+      seen_name_address.add(name_address_key)
+      
+      # Add to results
+      deduplicated_venues << venue
     end
     
     render json: {
       status: 'success',
       data: {
-        cached: local_venues.map { |v| 
+        cached: deduplicated_venues.map { |v| 
           { 
             id: v.id,
             place_id: v.place_id, 

@@ -71,6 +71,14 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
       // Deduplicate cached results and google results
       const deduplicatedCached = deduplicateVenues(response.cached || []);
       const deduplicatedGoogle = deduplicateVenues(response.google_results || []);
+      
+      // Final safety check: log if duplicates still exist
+      const cachedIds = deduplicatedCached.map(v => v.id || v.place_id || `${v.name}-${v.address}`);
+      const duplicateIds = cachedIds.filter((id, index) => cachedIds.indexOf(id) !== index);
+      if (duplicateIds.length > 0) {
+        console.warn('Venue deduplication warning: Still found duplicates after deduplication:', duplicateIds);
+      }
+      
       setCachedResults(deduplicatedCached);
       setGoogleResults(deduplicatedGoogle);
       
@@ -211,16 +219,24 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                       <div className="px-4 py-2 text-xs font-semibold text-font-secondary uppercase">
                         Recent Venues
                       </div>
-                      {cachedResults.map((result, index) => (
-                        <div
-                          key={`cached-${result.place_id}-${index}`}
-                          className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-primary-color/5 last:border-b-0"
-                          onClick={() => handleSelectVenue(result)}
-                        >
-                          <div className="font-semibold text-sm text-font-primary">{result.name}</div>
-                          <div className="text-xs text-font-secondary mt-0.5">{result.address}</div>
-                        </div>
-                      ))}
+                      {cachedResults.map((result) => {
+                        // Create a unique key: prefer id, then place_id, then name+address
+                        const uniqueKey = result.id 
+                          ? `cached-id-${result.id}` 
+                          : (result.place_id 
+                            ? `cached-place-${result.place_id}` 
+                            : `cached-${result.name}-${result.address}`.replace(/\s+/g, '-'));
+                        return (
+                          <div
+                            key={uniqueKey}
+                            className="px-4 py-3 cursor-pointer hover:bg-gray-50 border-b border-primary-color/5 last:border-b-0"
+                            onClick={() => handleSelectVenue(result)}
+                          >
+                            <div className="font-semibold text-sm text-font-primary">{result.name}</div>
+                            <div className="text-xs text-font-secondary mt-0.5">{result.address}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   
