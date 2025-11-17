@@ -94,9 +94,13 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     try {
       const response = await fetch(`/api/v1/skills?name=${encodeURIComponent(skillName)}`);
       if (response.ok) {
-        const skills = await response.json();
-        const skill = skills.find((s: any) => s.name === skillName);
-        return skill?.suggested_pay_rate || null;
+        const result = await response.json();
+        // API returns { status: 'success', data: [...] }
+        const skills = result?.data || [];
+        if (Array.isArray(skills)) {
+          const skill = skills.find((s: any) => s.name === skillName);
+          return skill?.suggested_pay_rate || null;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch suggested pay rate:', error);

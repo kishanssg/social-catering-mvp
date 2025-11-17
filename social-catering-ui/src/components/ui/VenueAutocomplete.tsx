@@ -40,12 +40,21 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
     }
   }, [selectedVenue]);
 
-  // Helper function to deduplicate venues by id or place_id
+  // Helper function to deduplicate venues by id, place_id, or name+address
   const deduplicateVenues = (venues: VenueSearchResult[]): VenueSearchResult[] => {
     const seen = new Set<string>();
     return venues.filter((venue) => {
-      // Use id if available, otherwise use place_id
-      const key = venue.id ? `id-${venue.id}` : (venue.place_id ? `place-${venue.place_id}` : null);
+      // Priority: id > place_id > name+address
+      let key: string | null = null;
+      if (venue.id) {
+        key = `id-${venue.id}`;
+      } else if (venue.place_id) {
+        key = `place-${venue.place_id}`;
+      } else if (venue.name && venue.address) {
+        // Fallback: use name + address as unique key
+        key = `name-${venue.name.toLowerCase().trim()}-addr-${venue.address.toLowerCase().trim()}`;
+      }
+      
       if (!key || seen.has(key)) {
         return false;
       }
