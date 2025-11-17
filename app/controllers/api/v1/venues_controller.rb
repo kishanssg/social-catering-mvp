@@ -27,29 +27,31 @@ class Api::V1::VenuesController < Api::V1::BaseController
                           .limit(20)
     end
     
-    # Deduplicate by place_id (preferred) or name+address (fallback)
-    # Group by place_id first, then by name+address for venues without place_id
-    seen_place_ids = Set.new
+    # Deduplicate by name+address FIRST (most reliable), then by place_id
+    # This handles cases where duplicate records have different place_ids but same name/address
     seen_name_address = Set.new
+    seen_place_ids = Set.new
     deduplicated_venues = []
     
     local_venues.each do |venue|
-      # Skip if we've seen this place_id before
+      # Create normalized name+address key (primary deduplication)
+      name_address_key = "#{venue.name.to_s.downcase.strip}|#{venue.formatted_address.to_s.downcase.strip}"
+      
+      # Skip if we've already seen this name+address combination
+      if seen_name_address.include?(name_address_key)
+        next
+      end
+      
+      # Also skip if we've seen this place_id (secondary check for venues with same place_id)
       if venue.place_id.present? && seen_place_ids.include?(venue.place_id)
         next
       end
       
-      # Skip if we've seen this name+address combo before (for venues without place_id)
-      name_address_key = "#{venue.name.downcase.strip}|#{venue.formatted_address.downcase.strip}"
-      if venue.place_id.blank? && seen_name_address.include?(name_address_key)
-        next
-      end
-      
       # Add to seen sets
-      seen_place_ids.add(venue.place_id) if venue.place_id.present?
       seen_name_address.add(name_address_key)
+      seen_place_ids.add(venue.place_id) if venue.place_id.present?
       
-      # Add to results
+      # Add to results (keep the first occurrence)
       deduplicated_venues << venue
     end
     
