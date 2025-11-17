@@ -42,6 +42,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       }, status: :unprocessable_entity
     end
 
+    provided_lock_version = approval_params[:lock_version]
+    if provided_lock_version.present? && provided_lock_version.to_i != @assignment.lock_version
+      raise ActiveRecord::StaleObjectError.new(@assignment, 'Assignment')
+    end
+
     was_approved = @assignment.approved?
     previous_approver = was_approved ? @assignment.approved_by&.email : nil
     previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
@@ -144,22 +149,34 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         edited_at_utc: Time.current
       }
       
+      # Log what we received
+      Rails.logger.info("ApprovalController#update_hours received params for assignment #{@assignment.id}: #{approval_params.inspect}")
+      
       # Update actual times if provided (convert from ISO string to Time if needed)
       if approval_params[:actual_start_time_utc].present?
         start_time = approval_params[:actual_start_time_utc]
         update_attrs[:actual_start_time_utc] = start_time.is_a?(String) ? Time.parse(start_time) : start_time
         Rails.logger.info("Updating actual_start_time_utc for assignment #{@assignment.id}: #{update_attrs[:actual_start_time_utc]}")
+      else
+        Rails.logger.info("No actual_start_time_utc provided for assignment #{@assignment.id}")
       end
       
       if approval_params[:actual_end_time_utc].present?
         end_time = approval_params[:actual_end_time_utc]
         update_attrs[:actual_end_time_utc] = end_time.is_a?(String) ? Time.parse(end_time) : end_time
         Rails.logger.info("Updating actual_end_time_utc for assignment #{@assignment.id}: #{update_attrs[:actual_end_time_utc]}")
+      else
+        Rails.logger.info("No actual_end_time_utc provided for assignment #{@assignment.id}")
       end
       
-      # Update break duration if provided
-      if approval_params[:break_duration_minutes].present?
-        update_attrs[:break_duration_minutes] = approval_params[:break_duration_minutes]
+      # Update break duration if provided (use key? to allow 0 as valid value)
+      if approval_params.key?(:break_duration_minutes)
+        # Convert to integer to ensure proper type (handles string "50" -> 50)
+        break_value = approval_params[:break_duration_minutes].to_i
+        update_attrs[:break_duration_minutes] = break_value
+        Rails.logger.info("Updating break_duration_minutes for assignment #{@assignment.id}: #{break_value} (raw: #{approval_params[:break_duration_minutes].inspect}, type: #{approval_params[:break_duration_minutes].class})")
+      else
+        Rails.logger.info("No break_duration_minutes provided for assignment #{@assignment.id}")
       end
       
       # Update notes if provided
@@ -172,6 +189,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
       # Capture after state for activity log
       @assignment.reload
+      
+      # Verify break_duration_minutes was saved
+      if update_attrs.key?(:break_duration_minutes)
+        Rails.logger.info("After update, assignment #{@assignment.id} break_duration_minutes = #{@assignment.break_duration_minutes.inspect}")
+      end
       after_state = {
         worker_name: worker_name,
         event_name: event_name,
@@ -198,7 +220,10 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       message: was_approved ? 'Hours re-edited and un-approved. Please re-approve after review.' : 'Hours updated successfully',
       data: serialize_assignment_for_approval(@assignment.reload) 
     }
+  rescue ActiveRecord::StaleObjectError
+    raise
   rescue => e
+    Rails.logger.error "ApprovalsController#approve_selected failed: #{e.class} - #{e.message}\n#{e.backtrace.first(5).join("\n")}"
     render json: { status: 'error', message: e.message }, status: :unprocessable_entity
   end
 
@@ -290,16 +315,25 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     errors = []
 
     Assignment.transaction do
-      # Lock rows to avoid racing double-approval
-      scope = Assignment.where(id: ids)
+      eligible_ids = Assignment.where(id: ids)
         .joins(:shift)
         .where(shifts: { event_id: @event.id })
         .where(approved: false)
         .where(status: ['assigned', 'confirmed', 'completed'])
-        .includes(:worker, :shift)
-        .lock("FOR UPDATE")
+        .pluck(:id)
 
-      scope.find_each do |assignment|
+      # Lock assignments first (without joins to avoid PG::FeatureNotSupported)
+      locked_assignments = Assignment.where(id: eligible_ids)
+        .lock('FOR UPDATE OF assignments')
+        .to_a
+
+      # Preload associations separately after locking
+      ActiveRecord::Associations::Preloader.new(
+        records: locked_assignments,
+        associations: [:shift, :worker]
+      ).call
+
+      locked_assignments.each do |assignment|
         # Skip if already approved (idempotency)
         next if assignment.approved?
 
@@ -310,7 +344,6 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           next
         end
 
-        # Approve using update_columns to bypass validations (already validated above)
         assignment.update_columns(
           approved: true,
           approved_by_id: Current.user.id,
@@ -327,28 +360,38 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       if changed_count > 0
         # Collect worker names for summary
         approved_assignments = Assignment.where(id: changed_ids).includes(:worker)
-        worker_names = approved_assignments.map do |a|
-          if a.worker
-            "#{a.worker.first_name} #{a.worker.last_name[0]}."
-          else
-            'Unknown Worker'
-          end
-        end.compact
+      worker_names = approved_assignments.map do |assignment|
+        worker = assignment.worker
+        next 'Unknown Worker' unless worker
 
-        ActivityLog.create!(
-          actor_user_id: Current.user&.id,
-          entity_type: 'Event',
-          entity_id: @event.id,
-          action: 'bulk_approve_assignments',
-          after_json: { 
-            event_name: @event.title,
-            event_id: @event.id,
-            approved_count: changed_count,
-            assignment_ids: changed_ids,
-            worker_names: worker_names
-          },
-          created_at_utc: Time.current
-        )
+        first = worker.first_name.presence
+        last = worker.last_name.presence
+        case
+        when first && last
+          "#{first} #{last.first}."
+        when first
+          first
+        when last
+          last
+        else
+          'Unknown Worker'
+        end
+      end.compact
+
+      ActivityLog.create!(
+        actor_user_id: Current.user&.id,
+        entity_type: 'Event',
+        entity_id: @event.id,
+        action: 'bulk_approve_assignments',
+        after_json: { 
+          event_name: @event.title,
+          event_id: @event.id,
+          approved_count: changed_count,
+          assignment_ids: changed_ids,
+          worker_names: worker_names
+        },
+        created_at_utc: Time.current
+      )
       end
     end
 
@@ -470,6 +513,9 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       # Actual times
       actual_start: a.actual_start_time_utc,
       actual_end: a.actual_end_time_utc,
+      
+      # Break duration (SSOT: per-assignment break time)
+      break_duration_minutes: a.break_duration_minutes,
       
       # Hours and pay
       hours_worked: a.hours_worked,
