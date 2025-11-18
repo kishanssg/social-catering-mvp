@@ -1,5 +1,6 @@
 class Worker < ApplicationRecord
   include Auditable
+  include PhoneNormalizable
 
   has_many :worker_certifications, dependent: :destroy
   has_many :certifications, through: :worker_certifications
@@ -148,11 +149,7 @@ class Worker < ApplicationRecord
     Rails.cache.delete('active_workers_list')
   end
 
-  def normalize_phone
-    return if phone.blank?
-    # Strip all non-numeric characters
-    self.phone = phone.to_s.gsub(/\D/, '')
-  end
+  # Phone normalization is handled by PhoneNormalizable concern
 
   def sync_skills_tsvector
     skills_array = case skills_json

@@ -27,6 +27,7 @@ import { ConfirmationModal } from '../components/common/ConfirmationModal';
 import { Toast } from '../components/common/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
+import { formatPhone } from '../utils/phone';
 
 interface Worker {
   id: number;
@@ -34,6 +35,7 @@ interface Worker {
   last_name: string;
   email: string;
   phone?: string;
+  phone_formatted?: string;
   active: boolean;
   skills_json: string[];
   profile_photo_url?: string;
@@ -430,7 +432,7 @@ export function WorkersPage() {
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
-                      {worker.phone || '—'}
+                      {worker.phone_formatted || formatPhone(worker.phone) || '—'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
                       {worker.email}

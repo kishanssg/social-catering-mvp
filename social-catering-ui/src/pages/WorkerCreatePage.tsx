@@ -42,6 +42,7 @@ type WorkerCertificationRow = {
 
 import { useCertificationsCatalog } from '../hooks/useCertificationsCatalog';
 import type { Certification } from '../hooks/useCertificationsCatalog';
+import { formatPhoneInput, normalizePhone, formatPhone } from '../utils/phone';
 
 export function WorkerCreatePage() {
   const { id } = useParams();
@@ -92,15 +93,15 @@ export function WorkerCreatePage() {
   };
 
   const validatePhone = (phone: string): boolean => {
-    // Only accept digits (no hyphens, spaces, or special characters)
-    const digitsOnly = phone.replace(/\D/g, '');
-    return digitsOnly.length >= 10 && digitsOnly.length <= 15;
+    // Accept formatted or unformatted phone numbers
+    const digitsOnly = normalizePhone(phone);
+    return digitsOnly.length === 10; // US phone numbers are exactly 10 digits
   };
   
   const handlePhoneChange = (value: string) => {
-    // Strip out all non-numeric characters
-    const digitsOnly = value.replace(/\D/g, '');
-    setFormData({ ...formData, phone: digitsOnly });
+    // Format phone as user types (auto-inserts dashes)
+    const formatted = formatPhoneInput(value);
+    setFormData({ ...formData, phone: formatted });
   };
 
   // Available skills with icons (matching CreateEventWizard)
@@ -180,7 +181,7 @@ export function WorkerCreatePage() {
           first_name: worker.first_name || '',
           last_name: worker.last_name || '',
           email: worker.email || '',
-          phone: worker.phone ? worker.phone.replace(/\D/g, '') : '',
+          phone: worker.phone_formatted || formatPhone(worker.phone) || '',
           address_line1: worker.address_line1 || '',
           address_line2: worker.address_line2 || '',
           profile_photo_url: worker.profile_photo_url || '',
@@ -354,7 +355,8 @@ export function WorkerCreatePage() {
       form.append('worker[first_name]', formData.first_name || '');
       form.append('worker[last_name]', formData.last_name || '');
       form.append('worker[email]', formData.email || '');
-      form.append('worker[phone]', formData.phone || '');
+      // Normalize phone to digits-only before sending to API
+      form.append('worker[phone]', normalizePhone(formData.phone) || '');
       if (formData.address_line1) form.append('worker[address_line1]', formData.address_line1);
       if (formData.address_line2) form.append('worker[address_line2]', formData.address_line2);
       formData.skills.forEach((s) => form.append('worker[skills_json][]', s));
@@ -596,7 +598,7 @@ export function WorkerCreatePage() {
                       className={`px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
                         fieldErrors.phone ? 'border-red-500' : 'border-gray-300 focus:ring-teal-500'
                       }`}
-                      placeholder="1234567890"
+                      placeholder="386-456-8799"
                     />
                     {fieldErrors.phone && (
                       <p className="text-sm text-red-600">{fieldErrors.phone}</p>

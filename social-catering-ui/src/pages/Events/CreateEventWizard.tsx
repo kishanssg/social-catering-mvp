@@ -137,6 +137,15 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     const found = timeOptions.find((t) => t.value === value);
     return found ? found.label : value;
   };
+
+  // Helper to extract date ISO string from local Date object (not UTC)
+  // This prevents date shifting when converting to UTC
+  const getLocalDateISO = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
   // How to Check-in step state
   const defaultCheckInText = 'Upon arrival, please locate the on-site supervisor and have them scan your QR code to check you in. Make sure to arrive a few minutes early and be in proper uniform.';
@@ -215,14 +224,26 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
         setPhoneNumber(eventToUse.supervisor_phone);
       }
       
-      // Set schedule if exists
+      // Set schedule if exists - convert UTC to local timezone properly
       if (eventToUse.schedule) {
-        const startDate = new Date(eventToUse.schedule.start_time_utc);
-        setSelectedDate(startDate);
-        setStartTime(startDate.toTimeString().slice(0, 5));
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         
-        const endDate = new Date(eventToUse.schedule.end_time_utc);
-        setEndTime(endDate.toTimeString().slice(0, 5));
+        // Parse UTC ISO string and convert to local timezone
+        const startLocal = dayjs.utc(eventToUse.schedule.start_time_utc).tz(userTimezone);
+        const endLocal = dayjs.utc(eventToUse.schedule.end_time_utc).tz(userTimezone);
+        
+        // Create a Date object for the selected date (using local date components)
+        // This ensures the calendar shows the correct day
+        const localDate = new Date(
+          startLocal.year(),
+          startLocal.month(),
+          startLocal.date()
+        );
+        setSelectedDate(localDate);
+        
+        // Extract time in HH:mm format from local timezone
+        setStartTime(startLocal.format('HH:mm'));
+        setEndTime(endLocal.format('HH:mm'));
         
         if (eventToUse.schedule.break_minutes) {
           setBreakMinutes(eventToUse.schedule.break_minutes);
@@ -424,7 +445,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
 
       // Build schedule - convert local time to UTC properly
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const eventDateISO = selectedDate.toISOString().split('T')[0];
+      const eventDateISO = getLocalDateISO(selectedDate);
       
       // Convert local time strings to UTC ISO strings
       const toUtcIso = (dateISO: string, timeHHmm: string): string => {
@@ -515,7 +536,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
     
     // Build schedule - convert local time to UTC properly (same as handleCreateEvent)
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const eventDateISO = selectedDate.toISOString().split('T')[0];
+    const eventDateISO = getLocalDateISO(selectedDate);
     
     // Convert local time strings to UTC ISO strings
     const toUtcIso = (dateISO: string, timeHHmm: string): string => {
@@ -1677,7 +1698,7 @@ export default function CreateEventWizard({ editEvent, isEditing = false }: Crea
                           setIsCreating(true);
                           // Build event data same way as handleCreateEvent
                           const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                          const eventDateISO = selectedDate.toISOString().split('T')[0];
+                          const eventDateISO = getLocalDateISO(selectedDate);
                           
                           const toUtcIso = (dateISO: string, timeHHmm: string): string => {
                             const dt = dayjs.tz(`${dateISO} ${timeHHmm}`, 'YYYY-MM-DD HH:mm', userTimezone);

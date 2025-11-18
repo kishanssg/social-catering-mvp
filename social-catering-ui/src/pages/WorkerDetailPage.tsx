@@ -16,6 +16,7 @@ import {
 import { formatDate, formatTime, getAssignmentStatusMessage } from '../utils/dateUtils';
 import { apiClient } from '../lib/api';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { formatPhone } from '../utils/phone';
 
 interface WorkerDetail {
   id: number;
@@ -23,6 +24,7 @@ interface WorkerDetail {
   last_name: string;
   email: string;
   phone?: string;
+  phone_formatted?: string;
   address_line1?: string;
   address_line2?: string;
   active: boolean;
@@ -325,7 +327,7 @@ export function WorkerDetailPage() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Phone</p>
-                  <p className="text-sm font-medium text-gray-900">{worker.phone}</p>
+                  <p className="text-sm font-medium text-gray-900">{worker.phone_formatted || formatPhone(worker.phone)}</p>
                 </div>
               </div>
             )}

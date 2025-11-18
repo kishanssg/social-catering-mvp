@@ -409,6 +409,7 @@ module Api
           last_name: worker.last_name,
           email: worker.email,
           phone: worker.phone,
+          phone_formatted: worker.phone_formatted,
           address_line1: worker.try(:address_line1),
           address_line2: worker.try(:address_line2),
           active: worker.active,

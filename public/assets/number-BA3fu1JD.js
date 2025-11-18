@@ -1,1 +1,0 @@
-function i(t,r=0){const n=typeof t=="string"?Number(t):t;return Number.isFinite(n)?n:r}function s(t,r=2,n="0"){const e=i(t,NaN);if(!Number.isFinite(e))return n;try{return e.toFixed(r)}catch{return n}}export{i as a,s};
