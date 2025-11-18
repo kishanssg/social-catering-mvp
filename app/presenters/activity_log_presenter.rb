@@ -275,12 +275,18 @@ class ActivityLogPresenter
       worker_count = dj(:approved_count) || dj(:worker_count) || 0
       worker_names = dj(:worker_names) || []
       
-      # Always show worker names if available (they're already formatted as "First LastInitial.")
+      # Show worker names in main message (like edits do)
       if worker_names.any?
-        workers_list = format_worker_list(worker_names)
-        worker_text = worker_count == 1 ? 'worker' : 'workers'
-        "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name} (#{workers_list})"
+        if worker_count == 1
+          # Single worker: "approved hours for [Worker Name] on [Event]"
+          "#{actor_name} approved hours for #{worker_names.first} on #{event_name}"
+        else
+          # Multiple workers: "approved hours for [Worker1, Worker2, ...] on [Event]"
+          workers_list = format_worker_list(worker_names)
+          "#{actor_name} approved hours for #{workers_list} on #{event_name}"
+        end
       else
+        # Fallback if worker names not available
         worker_text = worker_count == 1 ? 'worker' : 'workers'
         "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name}"
       end
@@ -290,12 +296,18 @@ class ActivityLogPresenter
       worker_count = dj(:approved_count) || dj(:worker_count) || 0
       worker_names = dj(:worker_names) || []
       
-      # Show worker names if available
+      # Show worker names in main message (like edits do)
       if worker_names.any?
-        workers_list = format_worker_list(worker_names)
-        worker_text = worker_count == 1 ? 'worker' : 'workers'
-        "#{actor_name} approved hours for #{worker_count} #{worker_text} on #{event_name} (#{workers_list})"
+        if worker_count == 1
+          # Single worker: "approved hours for [Worker Name] on [Event]"
+          "#{actor_name} approved hours for #{worker_names.first} on #{event_name}"
+        else
+          # Multiple workers: "approved hours for [Worker1, Worker2, ...] on [Event]"
+          workers_list = format_worker_list(worker_names)
+          "#{actor_name} approved hours for #{workers_list} on #{event_name}"
+        end
       else
+        # Fallback if worker names not available
         worker_text = worker_count == 1 ? 'worker' : 'workers'
         "#{actor_name} approved hours for all #{worker_count} #{worker_text} on #{event_name}"
       end
