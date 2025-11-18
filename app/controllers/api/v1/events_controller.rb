@@ -187,6 +187,11 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # PATCH/PUT /api/v1/events/:id
   def update
+    Rails.logger.info "🚀 EventsController#update called for event #{@event.id}"
+    Rails.logger.info "🔍 Raw params[:event] keys: #{params[:event]&.keys || 'NONE'}"
+    Rails.logger.info "🔍 params[:event][:roles].present? = #{params[:event][:roles].present?}"
+    Rails.logger.info "🔍 params[:event][:roles] = #{params[:event][:roles].inspect}" if params[:event][:roles].present?
+    
     # Allow editing published and draft events
     unless %w[draft published].include?(@event.status)
       return render json: {
