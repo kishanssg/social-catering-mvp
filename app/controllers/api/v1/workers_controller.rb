@@ -152,7 +152,11 @@ module Api
           # Reload worker to ensure we have fresh associations before update
           @worker.reload
           
-          return render_duplicate_cert_errors if duplicate_cert_errors.present?
+          # Only check for duplicate cert errors if we're actually updating certifications
+          if params[:worker][:worker_certifications_attributes].present?
+            return render_duplicate_cert_errors if duplicate_cert_errors.present?
+          end
+          
           if @worker.update(worker_params)
             render json: {
               status: 'success',
