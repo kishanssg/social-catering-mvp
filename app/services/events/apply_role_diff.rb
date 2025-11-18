@@ -53,9 +53,10 @@ class Events::ApplyRoleDiff
   private
 
   def validate_prerequisites
-    # Only published events can be edited
-    unless event.status == 'published'
-      @errors << "Only published events can be edited. Current status: #{event.status}"
+    # Can edit events that haven't started yet (published, draft, or partial status)
+    # Cannot edit completed or deleted events
+    if event.status.in?(['completed', 'deleted'])
+      @errors << "Cannot edit #{event.status} events. Current status: #{event.status}"
     end
     
     # Cannot edit if event has started
@@ -77,19 +78,22 @@ class Events::ApplyRoleDiff
       create_role_and_shifts(role_params, new_needed)
       @added += new_needed
     else
-      # Calculate diff based on needed_workers in the requirement, not actual shift count
-      current_needed = existing_req.needed_workers
-      diff = new_needed - current_needed
+      # ✅ CRITICAL FIX: Always check actual shift count first
+      # Count shifts by event_skill_requirement_id to avoid counting shifts from other requirements
+      actual_shift_count = event.shifts.where(event_skill_requirement_id: existing_req.id).count
+      
+      # Calculate diff based on actual shift count vs. new needed
+      diff = new_needed - actual_shift_count
       
       if diff == 0
         # No change needed (but still update other fields like pay_rate)
         @unchanged += new_needed
       elsif diff > 0
-        # Add shifts
+        # Add shifts - we're below the requested count
         add_shifts_for_role(existing_req, diff)
         @added += diff
       else
-        # Remove shifts - check for assignments
+        # Remove shifts - we have more than requested
         remove_shifts_for_role(existing_req, diff.abs)
         @removed += diff.abs
       end
@@ -120,21 +124,24 @@ class Events::ApplyRoleDiff
   end
 
   def remove_shifts_for_role(requirement, count_to_remove)
-    # Find unfilled shifts
+    # ✅ CRITICAL FIX: Find shifts by event_skill_requirement_id to avoid deleting shifts from other requirements
+    # Find unfilled shifts first (prioritize deleting empty shifts)
     unfilled_shifts = event.shifts
-      .where(role_needed: requirement.skill_name)
+      .where(event_skill_requirement_id: requirement.id)
       .left_joins(:assignments)
       .where(assignments: { id: nil })
+      .order(id: :desc) # Delete newest first
       .limit(count_to_remove)
     
     # Check if we have enough empty shifts
     if unfilled_shifts.count < count_to_remove
       # Check if there are assigned shifts that need force
       assigned_shifts = event.shifts
-        .where(role_needed: requirement.skill_name)
+        .where(event_skill_requirement_id: requirement.id)
         .joins(:assignments)
         .where.not(assignments: { status: ['cancelled', 'no_show'] })
         .distinct
+        .order(id: :desc)
       
       if assigned_shifts.any?
         required = count_to_remove
@@ -224,13 +231,10 @@ class Events::ApplyRoleDiff
   end
 
   def update_requirement(existing_req, role_params)
-    # Calculate new needed_workers based on current shift count
-    # Count shifts by event_skill_requirement_id (not role_needed) to match ensure_shifts_for_requirements! logic
-    # This prevents duplicate shifts when ensure_shifts_for_requirements! runs later
-    total_shifts = event.shifts.where(event_skill_requirement_id: existing_req.id).count
-    
+    # Update the requirement with the requested needed_workers count
+    # The shift creation/deletion logic already handled making the actual shifts match
     existing_req.update!(
-      needed_workers: total_shifts, # Update to match actual shifts for this specific requirement
+      needed_workers: role_params[:needed].to_i, # Use the requested count from role_params
       pay_rate: role_params[:pay_rate],
       uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,

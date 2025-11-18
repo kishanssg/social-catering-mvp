@@ -336,11 +336,22 @@ export function EventDetailPage() {
           <div className="space-y-3">
             {Object.entries(shiftsByRole).map(([roleName, shifts]) => {
               const isExpanded = expandedRoles.has(roleName);
-              const totalForRole = shifts.length;
-              const assignedForRole = shifts.filter(s => s.staffing_progress.percentage === 100).length;
-              const needsWorkersForRole = totalForRole - assignedForRole;
-              
               const skillReq = event.skill_requirements.find(sr => sr.skill_name === roleName);
+              const neededForRole = skillReq?.needed_workers ?? shifts.length;
+              const shiftsToDisplay = shifts.slice(0, neededForRole);
+              const extraShiftCount = Math.max(shifts.length - shiftsToDisplay.length, 0);
+
+              if (extraShiftCount > 0) {
+                console.warn(`Role ${roleName} has ${extraShiftCount} orphaned shift(s) beyond needed count.`, {
+                  roleName,
+                  needed: neededForRole,
+                  totalShifts: shifts.length
+                });
+              }
+
+              const assignedForRole = shiftsToDisplay.filter(s => s.staffing_progress.percentage === 100).length;
+              const totalForRole = neededForRole;
+              const needsWorkersForRole = Math.max(totalForRole - assignedForRole, 0);
               
               return (
                 <div key={roleName} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -407,8 +418,13 @@ export function EventDetailPage() {
                       )}
                       
                       {/* Individual Shifts */}
+                      {extraShiftCount > 0 && (
+                        <div className="text-sm text-amber-600 font-medium mb-2">
+                          Showing first {neededForRole} of {shifts.length} shifts (unassigned extras hidden)
+                        </div>
+                      )}
                       <div className="space-y-2">
-                        {shifts.map((shift, index) => (
+                        {shiftsToDisplay.map((shift, index) => (
                           <div
                             key={shift.id}
                             className="flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-200"

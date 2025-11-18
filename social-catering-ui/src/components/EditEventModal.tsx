@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Plus, Trash2, Save, Edit } from 'lucide-react';
 import { Modal } from './common/Modal';
@@ -60,6 +60,14 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const [loadingEvent, setLoadingEvent] = useState(false);
   const [fullEventData, setFullEventData] = useState<EditableEvent | null>(null);
   const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
+  const showErrorToast = (message: string) => {
+    setToast({
+      isVisible: true,
+      message,
+      type: 'error'
+    });
+  };
+
   const [toast, setToast] = useState<{ isVisible: boolean; message: string; type: 'success' | 'error' }>({
     isVisible: false,
     message: '',
@@ -105,29 +113,41 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   // Use fullEventData if available (includes skill_requirements), otherwise fallback to event prop
   const eventData = fullEventData || event;
   const displayEvent = fullEventData || event; // ✅ Fix: Define displayEvent for JSX usage
+
+  const roleMetaBySkill = useMemo(() => {
+    if (!displayEvent?.shifts_by_role) return new Map<string, any>();
+    const map = new Map<string, any>();
+    displayEvent.shifts_by_role.forEach((group: any) => {
+      const key = group.skill_name || group.role_name;
+      if (key) {
+        map.set(key, group);
+      }
+    });
+    return map;
+  }, [displayEvent]);
   
   useEffect(() => {
     if (!eventData) return;
     
     // Use skill_requirements as Single Source of Truth for pay rates
     if (eventData.skill_requirements && Array.isArray(eventData.skill_requirements)) {
-      const initialRoles: SkillRequirement[] = eventData.skill_requirements.map((req) => {
+      const initialRoles: SkillRequirement[] = eventData.skill_requirements
+        .map((req) => {
         // Find corresponding shift count from shifts_by_role
-        const roleGroup = eventData.shifts_by_role?.find(
-          (r: any) => (r.skill_name || r.role_name) === req.skill_name
-        );
-        const shiftCount = roleGroup?.shifts?.length || roleGroup?.total_shifts || req.needed_workers || 1;
-        
-        return {
-          skill_name: req.skill_name,
-          needed_workers: shiftCount,
-          // Use pay_rate from EventSkillRequirement - this is the SSOT
-          pay_rate: req.pay_rate || 15, // Falls back to 15 if not set
-          description: req.description || '',
-          uniform_id: undefined, // TODO: Map uniform_name to uniform_id if needed
-          cert_id: undefined // TODO: Map certification_name to cert_id if needed
-        };
-      });
+          const roleGroup = roleMetaBySkill.get(req.skill_name);
+          const shiftCount = roleGroup?.shifts?.length || roleGroup?.total_shifts || req.needed_workers || 1;
+          
+          return {
+            skill_name: req.skill_name,
+            needed_workers: shiftCount,
+            // Use pay_rate from EventSkillRequirement - this is the SSOT
+            pay_rate: req.pay_rate || 15, // Falls back to 15 if not set
+            description: req.description || '',
+            uniform_id: undefined, // TODO: Map uniform_name to uniform_id if needed
+            cert_id: undefined // TODO: Map certification_name to cert_id if needed
+          };
+        })
+        .sort((a, b) => a.skill_name.localeCompare(b.skill_name));
       setRoles(initialRoles);
     } else if (eventData.shifts_by_role && Array.isArray(eventData.shifts_by_role)) {
       // Fallback to shifts_by_role if skill_requirements not available
@@ -150,6 +170,16 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
     if (index < 0 || index >= roles.length) return; // Guard against invalid index
+    const role = roles[index];
+    const roleMeta = roleMetaBySkill.get(role.skill_name);
+    const assignedCount = roleMeta?.assigned_workers || roleMeta?.filled_shifts || 0;
+    if (field === 'needed_workers') {
+      const numeric = typeof value === 'number' ? value : parseInt(value, 10);
+      if (Number.isNaN(numeric) || numeric < assignedCount || numeric < 1) {
+        showErrorToast(`Cannot set below ${Math.max(assignedCount,1)}. ${assignedCount} worker(s) currently assigned to ${role.skill_name || 'this role'}.`);
+        return;
+      }
+    }
     const newRoles = [...roles];
     newRoles[index] = { ...newRoles[index], [field]: value };
     setRoles(newRoles);
@@ -169,17 +199,15 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const handleRemoveRole = (index: number) => {
     if (index < 0 || index >= roles.length) return; // Guard against invalid index
     const role = roles[index];
-    if (role?.needed_workers > 0) {
-      const roleData = displayEvent?.shifts_by_role?.[index];
-      const assignedCount = roleData?.assigned_workers || roleData?.filled_shifts || 0;
-      if (assignedCount > 0) {
-        setToast({
-          isVisible: true,
-          message: 'Cannot remove role with assigned workers. Please unassign workers first.',
-          type: 'error'
-        });
-        return;
-      }
+    const roleMeta = roleMetaBySkill.get(role.skill_name);
+    const assignedCount = roleMeta?.assigned_workers || roleMeta?.filled_shifts || 0;
+    if (assignedCount > 0) {
+      setToast({
+        isVisible: true,
+        message: `Cannot remove role with ${assignedCount} worker(s) assigned. Please unassign workers first.`,
+        type: 'error'
+      });
+      return;
     }
     setRoles(roles.filter((_, i) => i !== index));
   };
@@ -373,7 +401,10 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </button>
             </div>
 
-            {roles.map((role, index) => (
+            {roles.map((role, index) => {
+              const roleMeta = roleMetaBySkill.get(role.skill_name);
+              const assignedCount = roleMeta?.assigned_workers || roleMeta?.filled_shifts || 0;
+              return (
               <div key={index} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                 <div className="flex items-start gap-4 mb-3">
                   <div className="flex-1 relative overflow-visible">
@@ -438,7 +469,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                     </label>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleRoleChange(index, 'needed_workers', Math.max(1, role.needed_workers - 1))}
+                        onClick={() => handleRoleChange(index, 'needed_workers', role.needed_workers - 1)}
                         className="w-8 h-8 flex items-center justify-center border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors font-semibold text-gray-700"
                       >
                         -
@@ -447,7 +478,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                         type="number"
                         value={role.needed_workers}
                         onChange={(e) => handleRoleChange(index, 'needed_workers', parseInt(e.target.value) || 1)}
-                        min="1"
+                        min={Math.max(assignedCount, 1)}
                         className="w-16 px-2 py-2 border border-gray-300 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                       />
                       <button
@@ -469,8 +500,6 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
 
                 {/* Show assigned workers count */}
                 {(() => {
-                  const roleData = displayEvent?.shifts_by_role?.[index];
-                  const assignedCount = roleData?.assigned_workers || roleData?.filled_shifts || 0;
                   return assignedCount > 0 ? (
                     <div className="text-sm text-amber-600 font-semibold bg-amber-50 px-3 py-2 rounded-lg">
                       {assignedCount} worker(s) assigned
@@ -478,7 +507,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
                   ) : null;
                 })()}
               </div>
-            ))}
+            )})}
           </div>
           </div>
           {/* Footer */}

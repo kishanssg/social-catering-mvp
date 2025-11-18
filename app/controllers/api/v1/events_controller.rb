@@ -242,9 +242,20 @@ class Api::V1::EventsController < Api::V1::BaseController
         }, status: :unprocessable_entity
       end
       
-      # Reload event to get fresh data, but DON'T call ensure_shifts_for_requirements!
-      # ApplyRoleDiff already handles shift creation, so calling it again would create duplicates
+      # Reload event to get fresh data
       @event.reload
+      
+      # ✅ CRITICAL FIX: Clean up any orphaned shifts that exceed needed_workers
+      # This handles cases where shifts were created but needed_workers was reduced
+      # or where duplicate shifts were accidentally created
+      @event.event_skill_requirements.each do |req|
+        current_shifts = @event.shifts.where(event_skill_requirement_id: req.id).count
+        needed = req.needed_workers || 0
+        if current_shifts > needed
+          Rails.logger.info "Cleaning up #{current_shifts - needed} orphaned shifts for #{req.skill_name} (needed: #{needed}, current: #{current_shifts})"
+          cleanup_orphan_shifts(req, needed)
+        end
+      end
       
       render json: {
         status: 'success',
@@ -261,20 +272,37 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       # Update skill requirements (replace all)
       if params[:event][:skill_requirements].present?
-        # Before destroying requirements, update existing shifts to point to new requirements
-        # OR delete orphaned shifts to prevent duplicates
-        old_requirement_ids = @event.event_skill_requirements.pluck(:id)
-        
-        # Destroy orphaned shifts (shifts pointing to requirements that will be deleted)
-        # This prevents ensure_shifts_for_requirements! from seeing them and creating duplicates
-        @event.shifts.where(event_skill_requirement_id: old_requirement_ids)
-              .where.not(id: @event.assignments.select(:shift_id))
-              .destroy_all
-        
-        @event.event_skill_requirements.destroy_all
-        
+        existing_requirements = @event.event_skill_requirements.index_by(&:id)
+        requirements_by_skill = @event.event_skill_requirements.index_by(&:skill_name)
+        processed_ids = []
+
         params[:event][:skill_requirements].each do |skill_req|
-          @event.event_skill_requirements.create!(skill_requirement_params(skill_req))
+          permitted = skill_requirement_params(skill_req)
+          requirement = nil
+
+          if skill_req[:id].present?
+            requirement = existing_requirements[skill_req[:id].to_i]
+          elsif permitted[:skill_name].present?
+            requirement = requirements_by_skill[permitted[:skill_name]]
+          end
+
+          new_needed = permitted[:needed_workers].to_i
+          if requirement
+            processed_ids << requirement.id
+            cleanup_orphan_shifts(requirement, new_needed)
+            requirement.update!(permitted)
+          else
+            new_requirement = @event.event_skill_requirements.create!(permitted)
+            processed_ids << new_requirement.id
+          end
+        end
+
+        # Remove any requirements that were omitted from the payload (interpreted as deleted)
+        (@event.event_skill_requirements.pluck(:id) - processed_ids).each do |removed_id|
+          req = existing_requirements[removed_id]
+          next unless req
+          cleanup_orphan_shifts(req, 0)
+          req.destroy
         end
       end
       
@@ -498,6 +526,7 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   def skill_requirement_params(skill_req)
     skill_req.permit(
+      :id,
       :skill_name,
       :needed_workers,
       :description,
@@ -506,6 +535,27 @@ class Api::V1::EventsController < Api::V1::BaseController
       :required_certification_id,
       :pay_rate
     )
+  end
+
+  def cleanup_orphan_shifts(requirement, new_needed)
+    old_needed = requirement.needed_workers || 0
+    return if new_needed >= old_needed
+
+    excess = old_needed - new_needed
+    scope = requirement.shifts
+                       .left_joins(:assignments)
+                       .where(assignments: { id: nil })
+                       .order(id: :desc)
+
+    removed = 0
+    scope.limit(excess).find_each do |shift|
+      shift.destroy
+      removed += 1
+    end
+
+    if removed < excess
+      Rails.logger.warn "Cleanup shifts: only removed #{removed} of #{excess} extra shifts for requirement #{requirement.id}"
+    end
   end
 
   def schedule_params(schedule)
