@@ -6,26 +6,32 @@ namespace :events do
 
     scope.find_each do |event|
       puts "Checking event #{event.id} - #{event.title}"
-      event.event_skill_requirements.includes(:shifts).each do |req|
+      cleaned = false
+      event.event_skill_requirements.each do |req|
         needed = req.needed_workers || 0
-        total_shifts = req.shifts.count
+        # Use event.shifts instead of req.shifts (EventSkillRequirement doesn't have shifts association)
+        total_shifts = event.shifts.where(event_skill_requirement_id: req.id).count
         extra = total_shifts - needed
         next if extra <= 0
 
         puts "  Role #{req.skill_name}: #{total_shifts} shifts, needs #{needed} (removing #{extra})"
-        orphan_scope = req.shifts
+        orphan_scope = event.shifts
+                            .where(event_skill_requirement_id: req.id)
                             .left_joins(:assignments)
                             .where(assignments: { id: nil })
                             .order(id: :desc)
         removed = 0
-        orphan_scope.limit(extra).find_each do |shift|
+        orphan_scope.limit(extra).each do |shift|
           shift.destroy
           removed += 1
         end
 
         puts "    Removed #{removed} orphan shift(s)"
+        cleaned = true
       end
+      puts "  No cleanup needed" unless cleaned
     end
+    puts "=== Cleanup complete ==="
   end
 end
 
