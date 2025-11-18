@@ -45,7 +45,7 @@ class Worker < ApplicationRecord
   }
 
   before_save :sync_skills_tsvector
-  before_save :normalize_phone
+  # Phone normalization is handled by PhoneNormalizable concern (before_validation :normalize_phone_number)
   after_save :clear_workers_cache
   after_destroy :clear_workers_cache
   after_commit :unassign_from_active_events_if_deactivated, on: :update
