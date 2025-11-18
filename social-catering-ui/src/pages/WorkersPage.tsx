@@ -431,7 +431,7 @@ export function WorkersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-600">
+                    <td className="py-4 px-6 text-sm text-gray-600 whitespace-nowrap">
                       {worker.phone_formatted || formatPhone(worker.phone) || '—'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { Shift } from '../types';
 import { apiService } from '../services/api';
+import { formatPhone } from '../utils/phone';
 
 interface ShiftRosterProps {
   shift: Shift;
@@ -167,13 +168,13 @@ const ShiftRoster = ({ shift, onUpdate, onAssignWorker }: ShiftRosterProps) => {
                         {(() => {
                           const worker = getWorkerForAssignment(assignment);
                           return worker?.phone && (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <Phone className="h-4 w-4" />
                               <a
                                 href={`tel:${worker.phone}`}
                                 className="hover:text-blue-600"
                               >
-                                {worker.phone}
+                                {formatPhone(worker.phone)}
                               </a>
                             </div>
                           );

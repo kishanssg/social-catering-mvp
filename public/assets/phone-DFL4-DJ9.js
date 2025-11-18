@@ -1,1 +1,0 @@
-function n(e){if(!e)return"";const t=e.replace(/\D/g,"");return t.length===10?`${t.slice(0,3)}-${t.slice(3,6)}-${t.slice(6,10)}`:e}function r(e){return e?e.replace(/\D/g,""):""}function s(e){const i=e.replace(/\D/g,"").slice(0,10);return i.length<=3?i:i.length<=6?`${i.slice(0,3)}-${i.slice(3)}`:`${i.slice(0,3)}-${i.slice(3,6)}-${i.slice(6)}`}export{s as a,n as f,r as n};
