@@ -254,8 +254,13 @@ class Event < ApplicationRecord
 
     generated = false
     event_skill_requirements.find_each do |skill_req|
+      # Count only shifts that belong to THIS specific requirement
+      # This prevents counting shifts from deleted requirements or other requirements with same role name
       existing = shifts.where(event_skill_requirement_id: skill_req.id).count
       missing = skill_req.needed_workers.to_i - existing
+      
+      # Only create shifts if we're actually missing some
+      # If needed_workers is 0 or negative, don't create any shifts
       next unless missing.positive?
 
       missing.times do

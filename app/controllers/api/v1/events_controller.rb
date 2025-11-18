@@ -261,7 +261,18 @@ class Api::V1::EventsController < Api::V1::BaseController
       
       # Update skill requirements (replace all)
       if params[:event][:skill_requirements].present?
+        # Before destroying requirements, update existing shifts to point to new requirements
+        # OR delete orphaned shifts to prevent duplicates
+        old_requirement_ids = @event.event_skill_requirements.pluck(:id)
+        
+        # Destroy orphaned shifts (shifts pointing to requirements that will be deleted)
+        # This prevents ensure_shifts_for_requirements! from seeing them and creating duplicates
+        @event.shifts.where(event_skill_requirement_id: old_requirement_ids)
+              .where.not(id: @event.assignments.select(:shift_id))
+              .destroy_all
+        
         @event.event_skill_requirements.destroy_all
+        
         params[:event][:skill_requirements].each do |skill_req|
           @event.event_skill_requirements.create!(skill_requirement_params(skill_req))
         end
@@ -276,7 +287,9 @@ class Api::V1::EventsController < Api::V1::BaseController
         end
       end
 
-      if @event.status == 'published'
+      # Only ensure shifts if event is published AND we didn't use ApplyRoleDiff
+      # ApplyRoleDiff already handles shift creation, so we don't want to duplicate
+      if @event.status == 'published' && !params[:event][:roles].present?
         @event.ensure_shifts_for_requirements!
       end
       
