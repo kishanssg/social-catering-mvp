@@ -78,28 +78,36 @@ class Events::ApplyRoleDiff
       create_role_and_shifts(role_params, new_needed)
       @added += new_needed
     else
-      # ✅ CRITICAL FIX: Always check actual shift count first
-      # Count shifts by event_skill_requirement_id to avoid counting shifts from other requirements
+      # ✅ CRITICAL FIX: Check both actual shifts AND assigned workers
       actual_shift_count = event.shifts.where(event_skill_requirement_id: existing_req.id).count
+      assigned_count = event.shifts
+                          .where(event_skill_requirement_id: existing_req.id)
+                          .joins(:assignments)
+                          .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                          .distinct
+                          .count
       
-      # Calculate diff based on actual shift count vs. new needed
-      diff = new_needed - actual_shift_count
+      # Don't allow reducing below assigned workers (protects assigned people)
+      effective_needed = [new_needed, assigned_count].max
+      
+      # Calculate diff based on actual shifts vs. effective needed
+      diff = effective_needed - actual_shift_count
       
       if diff == 0
         # No change needed (but still update other fields like pay_rate)
-        @unchanged += new_needed
+        @unchanged += effective_needed
       elsif diff > 0
         # Add shifts - we're below the requested count
         add_shifts_for_role(existing_req, diff)
         @added += diff
       else
-        # Remove shifts - we have more than requested
+        # Remove ONLY unassigned shifts (never touches assigned ones)
         remove_shifts_for_role(existing_req, diff.abs)
         @removed += diff.abs
       end
       
-      # Update the requirement with new details
-      update_requirement(existing_req, role_params)
+      # Update the requirement with new details (use effective_needed, not user's request if too low)
+      update_requirement(existing_req, role_params.merge(needed: effective_needed))
     end
   end
 
@@ -124,8 +132,8 @@ class Events::ApplyRoleDiff
   end
 
   def remove_shifts_for_role(requirement, count_to_remove)
-    # ✅ CRITICAL FIX: Find shifts by event_skill_requirement_id to avoid deleting shifts from other requirements
-    # Find unfilled shifts first (prioritize deleting empty shifts)
+    # ✅ SIMPLIFIED: Only delete unassigned shifts, never touch assigned ones
+    # The caller (process_role_diff) already ensures we never try to go below assigned count
     unfilled_shifts = event.shifts
       .where(event_skill_requirement_id: requirement.id)
       .left_joins(:assignments)
@@ -133,39 +141,15 @@ class Events::ApplyRoleDiff
       .order(id: :desc) # Delete newest first
       .limit(count_to_remove)
     
-    # Check if we have enough empty shifts
-    if unfilled_shifts.count < count_to_remove
-      # Check if there are assigned shifts that need force
-      assigned_shifts = event.shifts
-        .where(event_skill_requirement_id: requirement.id)
-        .joins(:assignments)
-        .where.not(assignments: { status: ['cancelled', 'no_show'] })
-        .distinct
-        .order(id: :desc)
-      
-      if assigned_shifts.any?
-        required = count_to_remove
-        available = unfilled_shifts.count
-        needed_from_assigned = required - available
-        
-        if !@force
-          @errors << "Can't remove #{count_to_remove} shifts; only #{available} unfilled shifts are available. #{needed_from_assigned} would require unassigning workers. Use force: true to proceed."
-          return
-        end
-        
-        # With force, unassign and delete
-        assigned_shifts.limit(needed_from_assigned).each do |shift|
-          unassign_workers_and_delete_shift(shift)
-          @removed += 1
-        end
-      end
-    end
-    
-    # Delete unfilled shifts
+    # Delete unfilled shifts (will be 0 to count_to_remove shifts)
+    removed_count = 0
     unfilled_shifts.each do |shift|
       log_shift_deletion(shift, nil)
       shift.destroy!
+      removed_count += 1
     end
+    
+    Rails.logger.info "Removed #{removed_count} orphaned shifts for #{requirement.skill_name}"
   end
 
   def unassign_workers_and_delete_shift(shift)
