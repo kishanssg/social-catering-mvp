@@ -227,6 +227,11 @@ class Api::V1::EventsController < Api::V1::BaseController
 
     # Use ApplyRoleDiff service for role changes
     if params[:event][:roles].present?
+      Rails.logger.info "🔥 EventsController#update: Received #{params[:event][:roles].length} roles"
+      params[:event][:roles].each do |role|
+        Rails.logger.info "  - #{role[:skill_name]}: needed=#{role[:needed]}"
+      end
+      
       result = Events::ApplyRoleDiff.new(
         event: @event,
         roles: params[:event][:roles],
