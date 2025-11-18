@@ -82,9 +82,9 @@ class Events::ApplyRoleDiff
       @added += new_needed
     else
       # ✅ CRITICAL FIX: Check both actual shifts AND assigned workers
-      actual_shift_count = event.shifts.where(event_skill_requirement_id: existing_req.id).count
-      assigned_count = event.shifts
-                          .where(event_skill_requirement_id: existing_req.id)
+      # Use Shift.where instead of event.shifts to avoid cached association
+      actual_shift_count = Shift.where(event_id: event.id, event_skill_requirement_id: existing_req.id).count
+      assigned_count = Shift.where(event_id: event.id, event_skill_requirement_id: existing_req.id)
                           .joins(:assignments)
                           .where.not(assignments: { status: ['cancelled', 'no_show'] })
                           .distinct
