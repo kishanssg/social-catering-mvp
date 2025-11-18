@@ -129,17 +129,25 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   useEffect(() => {
     if (!eventData) return;
     
-    // Use skill_requirements as Single Source of Truth for pay rates
+    // Use skill_requirements as Single Source of Truth for pay rates AND needed_workers
     if (eventData.skill_requirements && Array.isArray(eventData.skill_requirements)) {
+      console.log('=== EditEventModal: Initializing roles from skill_requirements ===');
       const initialRoles: SkillRequirement[] = eventData.skill_requirements
         .map((req) => {
-        // Find corresponding shift count from shifts_by_role
+          // ✅ CRITICAL FIX: Use req.needed_workers from EventSkillRequirement (SSOT), NOT shifts.length
+          // shifts.length can include orphaned shifts that shouldn't exist
+          // The backend will auto-clean orphaned shifts when we save
           const roleGroup = roleMetaBySkill.get(req.skill_name);
-          const shiftCount = roleGroup?.shifts?.length || roleGroup?.total_shifts || req.needed_workers || 1;
+          console.log(`Role: ${req.skill_name}`, {
+            needed_workers_from_req: req.needed_workers,
+            shifts_length_from_meta: roleGroup?.shifts?.length,
+            total_shifts_from_meta: roleGroup?.total_shifts,
+            using: req.needed_workers || 1
+          });
           
           return {
             skill_name: req.skill_name,
-            needed_workers: shiftCount,
+            needed_workers: req.needed_workers || 1, // SSOT: Use needed_workers from requirement
             // Use pay_rate from EventSkillRequirement - this is the SSOT
             pay_rate: req.pay_rate || 15, // Falls back to 15 if not set
             description: req.description || '',
@@ -148,15 +156,24 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
           };
         })
         .sort((a, b) => a.skill_name.localeCompare(b.skill_name));
+      console.log('Initialized roles:', initialRoles);
       setRoles(initialRoles);
     } else if (eventData.shifts_by_role && Array.isArray(eventData.shifts_by_role)) {
       // Fallback to shifts_by_role if skill_requirements not available
+      // In this case, use total_shifts from the role group (which should match needed_workers from backend)
+      console.log('=== EditEventModal: Initializing roles from shifts_by_role ===');
       const initialRoles: SkillRequirement[] = eventData.shifts_by_role.map((role: any) => {
-        const shiftCount = role.shifts ? role.shifts.length : (role.total_shifts || 1);
+        // Use total_shifts (which comes from needed_workers in backend) NOT shifts.length
+        const neededCount = role.total_shifts || 1;
+        console.log(`Role: ${role.skill_name}`, {
+          total_shifts: role.total_shifts,
+          shifts_length: role.shifts?.length,
+          using: neededCount
+        });
         
         return {
           skill_name: role.skill_name || role.role_name || '',
-          needed_workers: shiftCount,
+          needed_workers: neededCount, // Use total_shifts, not actual shift count
           // Use pay_rate from role-level (from our API fix)
           pay_rate: role.pay_rate || 15,
           description: '',
@@ -164,9 +181,10 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
           cert_id: undefined
         };
       });
+      console.log('Initialized roles:', initialRoles);
       setRoles(initialRoles);
     }
-  }, [eventData]);
+  }, [eventData, roleMetaBySkill]);
 
   const handleRoleChange = (index: number, field: keyof SkillRequirement, value: any) => {
     if (index < 0 || index >= roles.length) return; // Guard against invalid index
