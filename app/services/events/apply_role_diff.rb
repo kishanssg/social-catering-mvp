@@ -73,6 +73,9 @@ class Events::ApplyRoleDiff
     new_needed = role_params[:needed].to_i
     existing_req = event.event_skill_requirements.find_by(skill_name: skill_name)
     
+    Rails.logger.info "=== ApplyRoleDiff: Processing #{skill_name} ==="
+    Rails.logger.info "  new_needed: #{new_needed}"
+    
     if existing_req.nil?
       # New role - create shifts
       create_role_and_shifts(role_params, new_needed)
@@ -87,27 +90,36 @@ class Events::ApplyRoleDiff
                           .distinct
                           .count
       
+      Rails.logger.info "  actual_shift_count: #{actual_shift_count}"
+      Rails.logger.info "  assigned_count: #{assigned_count}"
+      
       # Don't allow reducing below assigned workers (protects assigned people)
       effective_needed = [new_needed, assigned_count].max
+      Rails.logger.info "  effective_needed: #{effective_needed} (max of #{new_needed}, #{assigned_count})"
       
       # Calculate diff based on actual shifts vs. effective needed
       diff = effective_needed - actual_shift_count
+      Rails.logger.info "  diff: #{diff} (#{effective_needed} - #{actual_shift_count})"
       
       if diff == 0
         # No change needed (but still update other fields like pay_rate)
         @unchanged += effective_needed
+        Rails.logger.info "  Action: No change (diff == 0)"
       elsif diff > 0
         # Add shifts - we're below the requested count
         add_shifts_for_role(existing_req, diff)
         @added += diff
+        Rails.logger.info "  Action: Adding #{diff} shifts"
       else
         # Remove ONLY unassigned shifts (never touches assigned ones)
+        Rails.logger.info "  Action: Removing #{diff.abs} unassigned shifts"
         remove_shifts_for_role(existing_req, diff.abs)
         @removed += diff.abs
       end
       
       # Update the requirement with new details (use effective_needed, not user's request if too low)
       update_requirement(existing_req, role_params.merge(needed: effective_needed))
+      Rails.logger.info "  Updated needed_workers to: #{effective_needed}"
     end
   end
 
@@ -134,6 +146,8 @@ class Events::ApplyRoleDiff
   def remove_shifts_for_role(requirement, count_to_remove)
     # ✅ SIMPLIFIED: Only delete unassigned shifts, never touch assigned ones
     # The caller (process_role_diff) already ensures we never try to go below assigned count
+    Rails.logger.info "=== remove_shifts_for_role: #{requirement.skill_name}, count_to_remove: #{count_to_remove} ==="
+    
     unfilled_shifts = event.shifts
       .where(event_skill_requirement_id: requirement.id)
       .left_joins(:assignments)
@@ -141,12 +155,16 @@ class Events::ApplyRoleDiff
       .order(id: :desc) # Delete newest first
       .limit(count_to_remove)
     
+    Rails.logger.info "  Found #{unfilled_shifts.count} unassigned shifts (shift IDs: #{unfilled_shifts.pluck(:id).join(', ')})"
+    
     # Delete unfilled shifts (will be 0 to count_to_remove shifts)
     removed_count = 0
     unfilled_shifts.each do |shift|
+      Rails.logger.info "  Deleting shift #{shift.id}..."
       log_shift_deletion(shift, nil)
       shift.destroy!
       removed_count += 1
+      Rails.logger.info "  ✓ Deleted shift #{shift.id}"
     end
     
     Rails.logger.info "Removed #{removed_count} orphaned shifts for #{requirement.skill_name}"
