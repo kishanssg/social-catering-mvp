@@ -242,10 +242,14 @@ class Api::V1::EventsController < Api::V1::BaseController
         }, status: :unprocessable_entity
       end
       
+      # Reload event to get fresh data, but DON'T call ensure_shifts_for_requirements!
+      # ApplyRoleDiff already handles shift creation, so calling it again would create duplicates
+      @event.reload
+      
       render json: {
         status: 'success',
         message: "Updated #{result[:summary][:added]} roles added, #{result[:summary][:removed]} removed",
-        data: serialize_event(@event.reload),
+        data: serialize_event(@event),
         summary: result[:summary]
       }
       return
