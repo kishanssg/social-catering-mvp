@@ -231,15 +231,27 @@ class Api::V1::EventsController < Api::V1::BaseController
     end
 
     # Use ApplyRoleDiff service for role changes
-    if params[:event][:roles].present?
-      Rails.logger.info "🔥 EventsController#update: Received #{params[:event][:roles].length} roles"
-      params[:event][:roles].each do |role|
-        Rails.logger.info "  - #{role[:skill_name]}: needed=#{role[:needed]}"
+    # Support both :roles (from EditEventModal) and :skill_requirements (from CreateEventWizard)
+    roles_data = params[:event][:roles] || (params[:event][:skill_requirements]&.map { |sr|
+      {
+        skill_name: sr[:skill_name],
+        needed: sr[:needed_workers],
+        pay_rate: sr[:pay_rate],
+        description: sr[:description],
+        uniform_id: sr[:uniform_id],
+        cert_id: sr[:required_certification_id]
+      }
+    })
+    
+    if roles_data.present?
+      Rails.logger.info "🔥 EventsController#update: Received #{roles_data.length} roles"
+      roles_data.each do |role|
+        Rails.logger.info "  - #{role[:skill_name]}: needed=#{role[:needed] || role[:needed_workers]}"
       end
       
       result = Events::ApplyRoleDiff.new(
         event: @event,
-        roles: params[:event][:roles],
+        roles: roles_data,
         force: params[:force] == 'true',
         reason: params[:reason],
         apply_time_to_all_shifts: params[:apply_time_to_all_shifts] == 'true'
@@ -277,11 +289,13 @@ class Api::V1::EventsController < Api::V1::BaseController
     end
     
     # Fallback to standard update for non-role changes
-    ActiveRecord::Base.transaction do
-      @event.update!(event_params.except(:skill_requirements, :schedule))
-      
-      # Update skill requirements (replace all)
-      if params[:event][:skill_requirements].present?
+    # Skip this path if we already handled roles via ApplyRoleDiff above
+    unless roles_data.present?
+      ActiveRecord::Base.transaction do
+        @event.update!(event_params.except(:skill_requirements, :schedule))
+        
+        # Update skill requirements (replace all)
+        if params[:event][:skill_requirements].present?
         existing_requirements = @event.event_skill_requirements.index_by(&:id)
         requirements_by_skill = @event.event_skill_requirements.index_by(&:skill_name)
         processed_ids = []
@@ -325,16 +339,17 @@ class Api::V1::EventsController < Api::V1::BaseController
         end
       end
 
-      # Only ensure shifts if event is published AND we didn't use ApplyRoleDiff
-      # ApplyRoleDiff already handles shift creation, so we don't want to duplicate
-      if @event.status == 'published' && !params[:event][:roles].present?
-        @event.ensure_shifts_for_requirements!
+        # Only ensure shifts if event is published AND we didn't use ApplyRoleDiff
+        # ApplyRoleDiff already handles shift creation, so we don't want to duplicate
+        if @event.status == 'published' && !params[:event][:roles].present?
+          @event.ensure_shifts_for_requirements!
+        end
+        
+        render json: {
+          status: 'success',
+          data: serialize_event_detailed(@event.reload) # ✅ Return detailed serializer with skill_requirements
+        }
       end
-      
-      render json: {
-        status: 'success',
-        data: serialize_event_detailed(@event.reload) # ✅ Return detailed serializer with skill_requirements
-      }
     end
   rescue ActiveRecord::StaleObjectError => e
     render json: {
