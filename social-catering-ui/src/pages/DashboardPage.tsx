@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
+import { StaffingStatusBadge } from '../components/ui/StaffingStatusBadge';
 import {
   format,
   startOfMonth,
@@ -625,18 +626,9 @@ function MonthCalendar({
       
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-gray-200">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-xl">✓</span>
-          <span className="text-gray-600">Ready</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-xl">🟡</span>
-          <span className="text-gray-600">Partial</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-xl">🔴</span>
-          <span className="text-gray-600">Needs Workers</span>
-        </div>
+        <StaffingStatusBadge status="ready" size="sm" />
+        <StaffingStatusBadge status="partial" size="sm" />
+        <StaffingStatusBadge status="needs_workers" size="sm" />
       </div>
     </div>
   );

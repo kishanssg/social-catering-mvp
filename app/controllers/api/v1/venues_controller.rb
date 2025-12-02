@@ -145,12 +145,22 @@ class Api::V1::VenuesController < Api::V1::BaseController
 
   # POST /api/v1/venues
   def create
-    venue = Venue.new(venue_params)
+    attrs = venue_params.to_h.symbolize_keys
+
+    # Inline-created venues won't have a Google place_id; generate a stable UUID
+    attrs[:place_id] ||= SecureRandom.uuid
+
+    # If formatted_address is blank but address is present, use it as a fallback
+    if attrs[:formatted_address].blank? && attrs[:address].present?
+      attrs[:formatted_address] = attrs[:address]
+    end
+
+    venue = Venue.new(attrs)
     
     if venue.save
       render json: {
         status: 'success',
-        data: venue
+        data: venue_json(venue)
       }, status: :created
     else
       render json: {

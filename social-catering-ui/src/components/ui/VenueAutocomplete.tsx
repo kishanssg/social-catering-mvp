@@ -287,7 +287,7 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(true)}
-                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium"
+                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
                       <span>Can't find your venue? Create a new one</span>
@@ -301,7 +301,7 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(true)}
-                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium"
+                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
                       <span>Can't find your venue? Create a new one</span>

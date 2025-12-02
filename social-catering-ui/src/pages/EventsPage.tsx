@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   CheckCircle
 } from 'lucide-react';
+import { StaffingStatusBadge } from '../components/ui/StaffingStatusBadge';
 import { format, parseISO } from 'date-fns';
 import { getAssignmentStatusMessage } from '../utils/dateUtils';
 import { safeToFixed, safeNumber } from '../utils/number';
@@ -1290,26 +1291,11 @@ function ActiveEventsTab({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'fully_staffed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-            <Check size={14} />
-            Ready
-          </span>
-        );
+        return <StaffingStatusBadge status="ready" size="sm" />;
       case 'partially_staffed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">
-            <AlertCircle size={14} />
-            Partial
-          </span>
-        );
+        return <StaffingStatusBadge status="partial" size="sm" />;
       case 'needs_workers':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-            <X size={14} />
-            Needs Workers
-          </span>
-        );
+        return <StaffingStatusBadge status="needs_workers" size="sm" />;
       default:
         return null;
     }
