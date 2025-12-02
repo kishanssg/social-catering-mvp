@@ -578,7 +578,7 @@ function MonthCalendar({
               className={`
                 relative min-h-[80px] p-2 rounded-lg border transition-all text-left
                 ${isTodayDate 
-                  ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' 
+                  ? 'border-gray-400 bg-white ring-2 ring-gray-300' 
                   : hasEvents 
                     ? `${getStatusColor(dayData.status)} hover:shadow-md cursor-pointer` 
                     : 'border-gray-100 bg-white'
@@ -589,7 +589,7 @@ function MonthCalendar({
               {/* Date number */}
               <div className={`text-sm font-medium mb-1 ${
                 isTodayDate 
-                  ? 'text-teal-600' 
+                  ? 'text-gray-700' 
                   : isCurrentMonth 
                     ? 'text-gray-900' 
                     : 'text-gray-400'

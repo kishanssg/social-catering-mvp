@@ -113,7 +113,7 @@ export function MonthCalendar({ daysData, onDayClick }: MonthCalendarProps) {
               className={`
                 relative aspect-square rounded-lg border p-2 transition-all
                 ${isTodayDate 
-                  ? 'border-teal-500 bg-teal-50' 
+                  ? 'border-gray-400 bg-white ring-2 ring-gray-300' 
                   : dayData 
                     ? 'border-gray-200 hover:border-teal-300 hover:shadow-sm cursor-pointer' 
                     : 'border-gray-100'
@@ -122,7 +122,7 @@ export function MonthCalendar({ daysData, onDayClick }: MonthCalendarProps) {
               `}
             >
               {/* Date number */}
-              <div className={`text-sm font-medium ${isTodayDate ? 'text-teal-600' : 'text-gray-900'}`}>
+              <div className={`text-sm font-medium ${isTodayDate ? 'text-gray-700' : 'text-gray-900'}`}>
                 {format(day, 'd')}
               </div>
               

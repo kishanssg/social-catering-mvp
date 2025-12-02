@@ -277,7 +277,7 @@ export function EventDetailPage() {
                 <span className="text-sm font-medium">Staffing Status</span>
               </div>
               <p className="text-gray-900 font-medium mb-2">
-                {event.staffing_summary}
+                {event.assigned_workers_count || 0} of {event.total_workers_needed || 0} workers hired
               </p>
               <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div
