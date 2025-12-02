@@ -155,6 +155,14 @@ class Api::V1::VenuesController < Api::V1::BaseController
       attrs[:formatted_address] = attrs[:address]
     end
 
+    # Ensure formatted_address is never blank (required by model)
+    if attrs[:formatted_address].blank?
+      return render json: {
+        status: 'validation_error',
+        errors: ['Address is required']
+      }, status: :unprocessable_entity
+    end
+
     venue = Venue.new(attrs)
     
     if venue.save
@@ -163,17 +171,38 @@ class Api::V1::VenuesController < Api::V1::BaseController
         data: venue_json(venue)
       }, status: :created
     else
+      Rails.logger.error("[Venue Create] Validation failed: #{venue.errors.full_messages.join(', ')}")
       render json: {
         status: 'validation_error',
         errors: venue.errors.full_messages
       }, status: :unprocessable_entity
     end
+  rescue => e
+    Rails.logger.error("[Venue Create] Exception: #{e.class.name}: #{e.message}\n#{e.backtrace.first(10).join("\n")}")
+    render json: {
+      status: 'error',
+      error: 'Failed to create venue',
+      message: e.message
+    }, status: :internal_server_error
   end
   
   private
   
   def venue_params
-    params.require(:venue).permit(:name, :formatted_address, :address, :city, :state, :zip, :notes)
+    params.require(:venue).permit(
+      :name, 
+      :formatted_address, 
+      :address, 
+      :address_line_1,
+      :address_line_2,
+      :city, 
+      :state, 
+      :zip_code,
+      :zip, 
+      :notes,
+      :phone,
+      :website
+    )
   end
 
   def venue_json(venue)

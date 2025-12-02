@@ -32,8 +32,8 @@ const DayCell = ({ date, isCurrentMonth, isToday, shifts, onClick }: DayCellProp
   // Calculate total assigned workers
   const totalAssigned = shifts.reduce((sum, shift) => sum + (shift.assignments?.length || 0), 0);
   
-  // Check if there are events but NO workers assigned (for X icon)
-  const hasEventButNoWorkers = shifts.length > 0 && totalAssigned === 0;
+  // Check if there are events but NO workers assigned to any of them
+  const hasEventsButNoWorkers = publishedShifts.length > 0 && totalAssigned === 0;
   
   // Create tooltip text
   const tooltipText = shifts.length > 0 
@@ -48,24 +48,17 @@ const DayCell = ({ date, isCurrentMonth, isToday, shifts, onClick }: DayCellProp
         min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-200 
         hover:bg-gray-50 transition-colors flex flex-col items-start relative
         ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white'}
-        ${isToday ? 'ring-2 ring-gray-400 bg-white' : ''}
+        ${isToday ? 'ring-2 ring-gray-400 ring-inset bg-white' : ''}
         ${shifts.length > 0 ? 'hover:border-blue-300' : ''}
       `}
     >
       {/* Day Number */}
       <div className={`
         text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center justify-center
-        ${isToday ? 'bg-gray-700 text-white rounded-full h-5 w-5 sm:h-6 sm:w-6' : ''}
+        ${isToday ? 'border-2 border-gray-500 rounded-full h-5 w-5 sm:h-6 sm:w-6' : ''}
       `}>
         {dayNumber}
       </div>
-      
-      {/* X Icon for events with no workers */}
-      {hasEventButNoWorkers && (
-        <div className="absolute top-1 right-1">
-          <X className="h-4 w-4 text-red-500" strokeWidth={2.5} />
-        </div>
-      )}
       
       {/* Shift Indicators */}
       {shifts.length > 0 && (
@@ -101,6 +94,13 @@ const DayCell = ({ date, isCurrentMonth, isToday, shifts, onClick }: DayCellProp
               +{shifts.length - 2} more
             </div>
           )}
+        </div>
+      )}
+
+      {/* X icon for completely unstaffed events */}
+      {hasEventsButNoWorkers && (
+        <div className="absolute bottom-1 right-1">
+          <X className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 font-bold stroke-[3]" />
         </div>
       )}
 
