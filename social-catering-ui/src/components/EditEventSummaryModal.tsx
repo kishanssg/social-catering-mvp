@@ -34,7 +34,7 @@ interface EventDetail {
   assigned_workers_count: number;
   unfilled_roles_count: number;
   staffing_percentage: number;
-  staffing_summary: string;
+  staffing_summary: string; // kept in type for now but not rendered directly
   check_in_instructions?: string;
   supervisor_name?: string;
   supervisor_phone?: string;
@@ -214,7 +214,7 @@ export function EditEventSummaryModal({ eventId, isOpen, onClose }: EditEventSum
                   <span className="text-sm font-semibold">Staffing</span>
                 </div>
                 <p className="text-gray-900 font-medium text-sm mb-2">
-                  {event.staffing_summary}
+                  {event.assigned_workers_count || 0} of {event.total_workers_needed || 0} workers hired
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                   <div
