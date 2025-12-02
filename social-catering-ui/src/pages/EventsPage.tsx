@@ -1426,20 +1426,6 @@ function ActiveEventsTab({
                 const unfilledCount = event.unfilled_roles_count || 0;
                 
                 // Calculate role counts if shifts_by_role is available
-                const roleCounts = (() => {
-                  if (event.shifts_by_role && event.shifts_by_role.length > 0) {
-                    const totalRoles = event.shifts_by_role.length;
-                    const filledRoles = event.shifts_by_role.filter(role => {
-                      const hasAssignments = role.shifts?.some(shift => 
-                        shift.assignments && shift.assignments.length > 0
-                      );
-                      return hasAssignments;
-                    }).length;
-                    return { totalRoles, filledRoles };
-                  }
-                  return null;
-                })();
-                
                 // Use aggregates from API (SSOT - no lazy calculation)
                 const estimatedCost = (() => {
                   // Prefer lightweight serializer fields, fallback to detailed serializer
@@ -1467,9 +1453,7 @@ function ActiveEventsTab({
                     {/* Progress Bar Row */}
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        {roleCounts 
-                          ? `${roleCounts.filledRoles} of ${roleCounts.totalRoles} roles filled`
-                          : `${assigned} of ${total} workers hired`}
+                        {assigned} of {total} workers hired
                       </span>
                       <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div 

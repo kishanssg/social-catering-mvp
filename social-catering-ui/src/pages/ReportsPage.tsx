@@ -13,7 +13,7 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, parse } from 'date-fns';
 import { safeToFixed } from '../utils/number';
 
 type ReportType = 'timesheet' | 'payroll' | 'worker_hours' | 'event_summary';
@@ -24,11 +24,20 @@ interface DateRange {
   end: string;
 }
 
+function formatLocalDateLabel(dateString: string) {
+  try {
+    const parsed = parse(dateString, 'yyyy-MM-dd', new Date());
+    return format(parsed, 'MMM d, yyyy');
+  } catch {
+    return dateString;
+  }
+}
+
 export function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
-  const [datePreset, setDatePreset] = useState<DatePreset>('last_7_days');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [customDateRange, setCustomDateRange] = useState<DateRange>({
-    start: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+    start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
   });
   const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
@@ -500,7 +509,7 @@ export function ReportsPage() {
                     <div className="flex items-center gap-2 text-sm text-blue-700">
                       <Calendar size={16} />
                       <span className="font-medium">
-                        Selected Range: {format(new Date(getDateRange().start), 'MMM d, yyyy')} - {format(new Date(getDateRange().end), 'MMM d, yyyy')}
+                        Selected Range: {formatLocalDateLabel(getDateRange().start)} - {formatLocalDateLabel(getDateRange().end)}
                       </span>
                     </div>
                   </div>
@@ -713,7 +722,7 @@ function ReportCard({ icon, title, description, color, lastExport, onExport, exp
             <>
               {dateRange && (
                 <div className="text-xs text-gray-500 mb-2 pb-2 border-b border-gray-300">
-                  <span className="font-medium">Date Range:</span> {format(new Date(dateRange.start), 'MMM d, yyyy')} - {format(new Date(dateRange.end), 'MMM d, yyyy')}
+                  <span className="font-medium">Date Range:</span> {formatLocalDateLabel(dateRange.start)} - {formatLocalDateLabel(dateRange.end)}
                 </div>
               )}
               <div className="flex justify-between items-center text-sm">

@@ -2686,8 +2686,7 @@ export default function ApprovalModal({ event, isOpen, onClose, onSuccess }: App
             </div>
           ) : assignments.length === 0 ? (
             <div className="text-center py-12">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No assignments found for this event.</p>
+              <p className="text-gray-400 text-sm">—</p>
             </div>
           ) : isMobile ? (
             // ✅ MOBILE: Card Layout
