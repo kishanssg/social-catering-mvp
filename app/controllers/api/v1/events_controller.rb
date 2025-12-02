@@ -133,6 +133,21 @@ class Api::V1::EventsController < Api::V1::BaseController
 
   # GET /api/v1/events/:id
   def show
+    # ✅ SSOT Safety Guard: Ensure published/active events have all required shift rows
+    # This prevents the UI from showing "1/3 hired" with only 1 shift row
+    if @event.status.in?(['published', 'active'])
+      needs_repair = @event.event_skill_requirements.any? do |req|
+        existing_count = @event.shifts.where(event_skill_requirement_id: req.id).count
+        existing_count < req.needed_workers.to_i
+      end
+      
+      if needs_repair
+        Rails.logger.warn("[SSOT Repair] Event #{@event.id} has fewer shifts than needed_workers. Repairing...")
+        @event.ensure_shifts_for_requirements!
+        @event.reload # Reload to get newly created shifts
+      end
+    end
+    
     render json: {
       status: 'success',
       data: serialize_event_detailed(@event)
@@ -345,9 +360,24 @@ class Api::V1::EventsController < Api::V1::BaseController
           @event.ensure_shifts_for_requirements!
         end
         
+        # ✅ SSOT Safety Guard: Final check before returning
+        @event.reload
+        if @event.status.in?(['published', 'active'])
+          needs_repair = @event.event_skill_requirements.any? do |req|
+            existing_count = @event.shifts.where(event_skill_requirement_id: req.id).count
+            existing_count < req.needed_workers.to_i
+          end
+          
+          if needs_repair
+            Rails.logger.warn("[SSOT Repair] Event #{@event.id} after update has fewer shifts than needed_workers. Repairing...")
+            @event.ensure_shifts_for_requirements!
+            @event.reload
+          end
+        end
+        
         render json: {
           status: 'success',
-          data: serialize_event_detailed(@event.reload) # ✅ Return detailed serializer with skill_requirements
+          data: serialize_event_detailed(@event) # ✅ Return detailed serializer with skill_requirements
         }
       end
     end
@@ -435,12 +465,25 @@ class Api::V1::EventsController < Api::V1::BaseController
       # Set status to published (triggers generation via callback) if still draft
       @event.update!(status: 'published') if @event.status == 'draft'
       @event.ensure_shifts_for_requirements!
+      
+      # ✅ SSOT Safety Guard: Verify all shifts were created
+      @event.reload
+      needs_repair = @event.event_skill_requirements.any? do |req|
+        existing_count = @event.shifts.where(event_skill_requirement_id: req.id).count
+        existing_count < req.needed_workers.to_i
+      end
+      
+      if needs_repair
+        Rails.logger.warn("[SSOT Repair] Event #{@event.id} after publish still has fewer shifts than needed_workers. Repairing...")
+        @event.ensure_shifts_for_requirements!
+        @event.reload
+      end
     end
 
     render json: {
       status: 'success',
       message: "Generated #{@event.shifts.count} shifts",
-      data: serialize_event_detailed(@event.reload)
+      data: serialize_event_detailed(@event)
     }
   rescue ActiveRecord::RecordInvalid => e
     render json: { status: 'validation_error', errors: e.record.errors.full_messages }, status: :unprocessable_entity
@@ -942,6 +985,26 @@ class Api::V1::EventsController < Api::V1::BaseController
     grouped.each do |role_name, role_data|
       Rails.logger.info "  Role: #{role_name}, shifts_count: #{role_data[:shifts].length}, total_shifts: #{role_data[:total_shifts]}"
     end
+    
+    # ✅ SSOT Monitoring: Detect if shifts array is shorter than total_shifts
+    # This should never happen after the safety guard, but we log/raise to catch regressions
+    grouped.each do |role, data|
+      actual_shift_count = data[:shifts].length
+      expected_count = data[:total_shifts]
+      
+      if actual_shift_count < expected_count
+        error_msg = "[SSOT Violation] Event #{event.id}, Role '#{role}': " \
+                    "total_shifts=#{expected_count} but actual shifts=#{actual_shift_count}. " \
+                    "This should have been repaired by the safety guard."
+        Rails.logger.error(error_msg)
+        
+        # In development/staging, raise to catch early
+        if Rails.env.development? || Rails.env.staging?
+          raise StandardError, "SSOT violation detected for Event #{event.id}, Role '#{role}'"
+        end
+      end
+    end
+    
     grouped.values
     rescue => e
       Rails.logger.error "CRITICAL ERROR in group_shifts_by_role: #{e.message}"
