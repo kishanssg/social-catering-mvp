@@ -3,6 +3,8 @@ import { venuesApi } from '../../services/venuesApi';
 import type { Venue, VenueSearchResult } from '../../types/venues';
 import chevronUpDownIcon from '../../assets/icons/chevron-up-down.svg';
 import checkIcon from '../../assets/icons/check.svg';
+import { Plus } from 'lucide-react';
+import { AddVenueModal } from '../events/AddVenueModal';
 
 interface VenueAutocompleteProps {
   selectedVenue: Venue | null;
@@ -25,6 +27,7 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
   const [parkingInfo, setParkingInfo] = useState('');
   const [isSavingInstructions, setIsSavingInstructions] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -177,6 +180,25 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
   const allResults = [...cachedResults, ...googleResults];
   const showDropdown = isOpen && allResults.length > 0;
 
+  const handleVenueCreated = (newVenue: Venue) => {
+    // Add to cached results so it appears immediately in Recent Venues
+    const asSearchResult: VenueSearchResult = {
+      id: newVenue.id,
+      place_id: newVenue.place_id,
+      name: newVenue.name,
+      address: (newVenue as any).full_address || newVenue.formatted_address,
+    };
+
+    setCachedResults((prev) => [asSearchResult, ...prev]);
+
+    // Select the newly created venue
+    handleSelectVenue(asSearchResult);
+
+    // Close modal and clear search
+    setShowCreateModal(false);
+    setQuery('');
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {/* Search Input or Selected Venue Display */}
@@ -259,9 +281,33 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                       ))}
                     </div>
                   )}
+
+                  {/* Create new venue option at the bottom */}
+                  <div className="border-t border-gray-200 mt-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Can't find your venue? Create a new one</span>
+                    </button>
+                  </div>
                 </>
               ) : (
-                <div className="px-4 py-3 text-sm text-font-secondary">No venues found</div>
+                <div>
+                  <div className="px-4 py-3 text-sm text-font-secondary">No venues found</div>
+                  <div className="border-t border-gray-200 mt-1 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Can't find your venue? Create a new one</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -334,6 +380,14 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
           </div>
         </div>
       )}
+
+      {/* Inline Create Venue Modal */}
+      <AddVenueModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onVenueCreated={handleVenueCreated}
+        initialName={query}
+      />
     </div>
   );
 };
