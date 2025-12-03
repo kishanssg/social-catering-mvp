@@ -454,9 +454,10 @@ export function ReportsPage() {
                       setDatePreset(preset.value as DatePreset);
                       // Reset custom date range when switching to a preset
                       if (preset.value !== 'custom') {
+                        const today = format(new Date(), 'yyyy-MM-dd');
                         setCustomDateRange({
-                          start: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
-                          end: format(new Date(), 'yyyy-MM-dd')
+                          start: today,
+                          end: today
                         });
                       }
                     }}
@@ -509,7 +510,10 @@ export function ReportsPage() {
                     <div className="flex items-center gap-2 text-sm text-blue-700">
                       <Calendar size={16} />
                       <span className="font-medium">
-                        Selected Range: {formatLocalDateLabel(getDateRange().start)} - {formatLocalDateLabel(getDateRange().end)}
+                        {getDateRange().start === getDateRange().end
+                          ? `Selected Date: ${formatLocalDateLabel(getDateRange().start)}`
+                          : `Selected Range: ${formatLocalDateLabel(getDateRange().start)} - ${formatLocalDateLabel(getDateRange().end)}`
+                        }
                       </span>
                     </div>
                   </div>
