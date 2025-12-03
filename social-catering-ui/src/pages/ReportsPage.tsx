@@ -266,12 +266,12 @@ export function ReportsPage() {
           {/* Timesheet Report */}
           <ReportCard
             icon={<FileText size={24} />}
-            title="Weekly Timesheet"
+            title="Daily Timesheet"
             description="Detailed time records with clock-in/clock-out times. Use as backup documentation if needed."
             color="teal"
-            lastExport="Last 7 days"
+            lastExport="Today"
             onExport={() => {
-              setDatePreset('last_7_days');
+              setDatePreset('today');
               handleExport('timesheet');
             }}
             exporting={exporting}
@@ -632,7 +632,7 @@ export function ReportsPage() {
               <p className="mt-1">Workers per event and total labor cost. Good for monthly reviews.</p>
             </div>
             <div className="p-3 rounded border border-gray-200">
-              <p className="font-medium text-gray-900">Weekly Timesheet</p>
+              <p className="font-medium text-gray-900">Daily Timesheet</p>
               <p className="mt-1">Clock-in/out detail per shift for audit or disputes.</p>
             </div>
             <div className="p-3 rounded border border-gray-200">

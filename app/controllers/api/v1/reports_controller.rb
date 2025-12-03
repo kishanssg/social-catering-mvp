@@ -85,7 +85,7 @@ module Api
         csv_data = generate_timesheet_csv(assignments)
         
         send_data csv_data,
-                  filename: "weeklytimesheet_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
+                  filename: "dailytimesheet_#{start_date.strftime('%Y-%m-%d')}_to_#{end_date.strftime('%Y-%m-%d')}.csv",
                   type: 'text/csv',
                   disposition: 'attachment'
       rescue => e
