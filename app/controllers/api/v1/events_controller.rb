@@ -259,13 +259,15 @@ class Api::V1::EventsController < Api::V1::BaseController
       }
     })
     
+    # Process roles if present (from EditEventModal or CreateEventWizard)
+    role_result = nil
     if roles_data.present?
       Rails.logger.info "🔥 EventsController#update: Received #{roles_data.length} roles"
       roles_data.each do |role|
         Rails.logger.info "  - #{role[:skill_name]}: needed=#{role[:needed] || role[:needed_workers]}"
       end
       
-      result = Events::ApplyRoleDiff.new(
+      role_result = Events::ApplyRoleDiff.new(
         event: @event,
         roles: roles_data,
         force: params[:force] == 'true',
@@ -273,10 +275,10 @@ class Api::V1::EventsController < Api::V1::BaseController
         apply_time_to_all_shifts: params[:apply_time_to_all_shifts] == 'true'
       ).call
       
-      unless result[:success]
+      unless role_result[:success]
         return render json: {
           status: 'error',
-          errors: result[:errors]
+          errors: role_result[:errors]
         }, status: :unprocessable_entity
       end
       
@@ -294,24 +296,26 @@ class Api::V1::EventsController < Api::V1::BaseController
           cleanup_orphan_shifts(req, needed)
         end
       end
-      
-      render json: {
-        status: 'success',
-        message: "Updated #{result[:summary][:added]} roles added, #{result[:summary][:removed]} removed",
-        data: serialize_event(@event),
-        summary: result[:summary]
-      }
-      return
     end
     
-    # Fallback to standard update for non-role changes
-    # Skip this path if we already handled roles via ApplyRoleDiff above
-    unless roles_data.present?
-      ActiveRecord::Base.transaction do
-        @event.update!(event_params.except(:skill_requirements, :schedule))
-        
-        # Update skill requirements (replace all)
-        if params[:event][:skill_requirements].present?
+    # ALWAYS update other fields (title, venue, check-in, supervisor, schedule) regardless of roles
+    ActiveRecord::Base.transaction do
+      # Update basic event fields (title, venue_id, check_in_instructions, supervisor_name, supervisor_phone)
+      # Skip skill_requirements and schedule as they're handled separately
+      @event.update!(event_params.except(:skill_requirements, :schedule))
+      
+      # Update schedule if provided
+      if params[:event][:schedule].present?
+        if @event.event_schedule
+          @event.event_schedule.update!(schedule_params(params[:event][:schedule]))
+        else
+          @event.create_event_schedule!(schedule_params(params[:event][:schedule]))
+        end
+      end
+      
+      # Only update skill_requirements directly if roles_data was NOT processed (fallback path)
+      # If roles_data was processed, ApplyRoleDiff already handled it
+      if params[:event][:skill_requirements].present? && !roles_data.present?
         existing_requirements = @event.event_skill_requirements.index_by(&:id)
         requirements_by_skill = @event.event_skill_requirements.index_by(&:skill_name)
         processed_ids = []
@@ -345,43 +349,42 @@ class Api::V1::EventsController < Api::V1::BaseController
           req.destroy
         end
       end
-      
-      # Update schedule
-      if params[:event][:schedule].present?
-        if @event.event_schedule
-          @event.event_schedule.update!(schedule_params(params[:event][:schedule]))
-        else
-          @event.create_event_schedule!(schedule_params(params[:event][:schedule]))
-        end
-      end
+    end
 
-        # Only ensure shifts if event is published AND we didn't use ApplyRoleDiff
-        # ApplyRoleDiff already handles shift creation, so we don't want to duplicate
-        if @event.status == 'published' && !params[:event][:roles].present?
-          @event.ensure_shifts_for_requirements!
-        end
-        
-        # ✅ SSOT Safety Guard: Final check before returning
+    # Only ensure shifts if event is published AND we didn't use ApplyRoleDiff
+    # ApplyRoleDiff already handles shift creation, so we don't want to duplicate
+    if @event.status == 'published' && !roles_data.present?
+      @event.ensure_shifts_for_requirements!
+    end
+    
+    # ✅ SSOT Safety Guard: Final check before returning
+    @event.reload
+    if @event.status.in?(['published', 'active'])
+      needs_repair = @event.event_skill_requirements.any? do |req|
+        existing_count = @event.shifts.where(event_skill_requirement_id: req.id).count
+        existing_count < req.needed_workers.to_i
+      end
+      
+      if needs_repair
+        Rails.logger.warn("[SSOT Repair] Event #{@event.id} after update has fewer shifts than needed_workers. Repairing...")
+        @event.ensure_shifts_for_requirements!
         @event.reload
-        if @event.status.in?(['published', 'active'])
-          needs_repair = @event.event_skill_requirements.any? do |req|
-            existing_count = @event.shifts.where(event_skill_requirement_id: req.id).count
-            existing_count < req.needed_workers.to_i
-          end
-          
-          if needs_repair
-            Rails.logger.warn("[SSOT Repair] Event #{@event.id} after update has fewer shifts than needed_workers. Repairing...")
-            @event.ensure_shifts_for_requirements!
-            @event.reload
-          end
-        end
-        
-        render json: {
-          status: 'success',
-          data: serialize_event_detailed(@event) # ✅ Return detailed serializer with skill_requirements
-        }
       end
     end
+    
+    # Return success response
+    response_data = {
+      status: 'success',
+      data: serialize_event_detailed(@event)
+    }
+    
+    # Include role summary if roles were processed
+    if role_result
+      response_data[:message] = "Updated #{role_result[:summary][:added]} roles added, #{role_result[:summary][:removed]} removed"
+      response_data[:summary] = role_result[:summary]
+    end
+    
+    render json: response_data
   rescue ActiveRecord::StaleObjectError => e
     render json: {
       status: 'error',
