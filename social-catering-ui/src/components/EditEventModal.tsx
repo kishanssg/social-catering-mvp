@@ -258,17 +258,30 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     setSaving(true);
     try {
       const eventToUpdate = fullEventData || event;
+      
+      // Build the update payload
+      const updatePayload: any = {
+        roles: roles.map(role => ({
+          skill_name: role.skill_name,
+          needed: role.needed_workers,
+          pay_rate: role.pay_rate,
+          description: role.description,
+          uniform_id: role.uniform_id,
+          cert_id: role.cert_id
+        }))
+      };
+      
+      // Include schedule if it exists (for time/date updates)
+      if (eventToUpdate.schedule) {
+        updatePayload.schedule = {
+          start_time_utc: eventToUpdate.schedule.start_time_utc,
+          end_time_utc: eventToUpdate.schedule.end_time_utc,
+          break_minutes: eventToUpdate.schedule.break_minutes || 0
+        };
+      }
+      
       const response = await apiClient.patch(`/events/${eventToUpdate.id}`, {
-        event: {
-          roles: roles.map(role => ({
-            skill_name: role.skill_name,
-            needed: role.needed_workers,
-            pay_rate: role.pay_rate,
-            description: role.description,
-            uniform_id: role.uniform_id,
-            cert_id: role.cert_id
-          }))
-        }
+        event: updatePayload
       });
 
       if (response.data.status === 'success') {
