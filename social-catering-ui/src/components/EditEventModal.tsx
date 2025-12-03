@@ -60,6 +60,12 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const [loadingEvent, setLoadingEvent] = useState(false);
   const [fullEventData, setFullEventData] = useState<EditableEvent | null>(null);
   const [openSkillDropdown, setOpenSkillDropdown] = useState<number | null>(null);
+  
+  // Schedule editing state
+  const [editedDate, setEditedDate] = useState<string>('');
+  const [editedStartTime, setEditedStartTime] = useState<string>('');
+  const [editedEndTime, setEditedEndTime] = useState<string>('');
+  const [editedBreakMinutes, setEditedBreakMinutes] = useState<number>(0);
   const showErrorToast = (message: string) => {
     setToast({
       isVisible: true,
@@ -125,6 +131,27 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
     });
     return map;
   }, [displayEvent]);
+  
+  // Initialize schedule editing state when event data loads
+  useEffect(() => {
+    if (displayEvent?.schedule) {
+      const schedule = displayEvent.schedule;
+      const startDate = new Date(schedule.start_time_utc);
+      const endDate = new Date(schedule.end_time_utc);
+      
+      // Format date as YYYY-MM-DD for date input
+      const dateStr = startDate.toISOString().split('T')[0];
+      
+      // Format time as HH:MM for time input (24-hour format)
+      const startTimeStr = String(startDate.getHours()).padStart(2, '0') + ':' + String(startDate.getMinutes()).padStart(2, '0');
+      const endTimeStr = String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0');
+      
+      setEditedDate(dateStr);
+      setEditedStartTime(startTimeStr);
+      setEditedEndTime(endTimeStr);
+      setEditedBreakMinutes(schedule.break_minutes || 0);
+    }
+  }, [displayEvent?.schedule]);
   
   useEffect(() => {
     if (!eventData) return;
@@ -271,8 +298,24 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         }))
       };
       
-      // Include schedule if it exists (for time/date updates)
-      if (eventToUpdate.schedule) {
+      // Include schedule if it exists (use edited values if available)
+      if (eventToUpdate.schedule && editedDate && editedStartTime && editedEndTime) {
+        // Combine date and time, then convert to UTC ISO string
+        const startDateTime = new Date(`${editedDate}T${editedStartTime}`);
+        const endDateTime = new Date(`${editedDate}T${editedEndTime}`);
+        
+        // If end time is before start time, assume end is next day
+        if (endDateTime <= startDateTime) {
+          endDateTime.setDate(endDateTime.getDate() + 1);
+        }
+        
+        updatePayload.schedule = {
+          start_time_utc: startDateTime.toISOString(),
+          end_time_utc: endDateTime.toISOString(),
+          break_minutes: editedBreakMinutes || 0
+        };
+      } else if (eventToUpdate.schedule) {
+        // Fallback to original schedule if edited values not available
         updatePayload.schedule = {
           start_time_utc: eventToUpdate.schedule.start_time_utc,
           end_time_utc: eventToUpdate.schedule.end_time_utc,
@@ -377,14 +420,23 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Date</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {displayEvent.schedule && new Date(displayEvent.schedule.start_time_utc).toLocaleDateString('en-US', { 
-                    weekday: 'short', 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                  })}
-                </p>
+                {isEditing && displayEvent.schedule ? (
+                  <input
+                    type="date"
+                    value={editedDate}
+                    onChange={(e) => setEditedDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                  />
+                ) : (
+                  <p className="text-sm font-semibold text-gray-900">
+                    {displayEvent.schedule && new Date(displayEvent.schedule.start_time_utc).toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </p>
+                )}
               </div>
               <div className="space-y-1 md:col-span-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Location</p>
@@ -392,28 +444,57 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Time</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  {displayEvent.schedule && (
-                    <>
-                      {new Date(displayEvent.schedule.start_time_utc).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                      })} - {new Date(displayEvent.schedule.end_time_utc).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </>
-                  )}
-                </p>
+                {isEditing && displayEvent.schedule ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={editedStartTime}
+                      onChange={(e) => setEditedStartTime(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                    />
+                    <span className="text-gray-500">-</span>
+                    <input
+                      type="time"
+                      value={editedEndTime}
+                      onChange={(e) => setEditedEndTime(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-gray-900">
+                    {displayEvent.schedule && (
+                      <>
+                        {new Date(displayEvent.schedule.start_time_utc).toLocaleTimeString('en-US', { 
+                          hour: 'numeric', 
+                          minute: '2-digit',
+                          hour12: true 
+                        })} - {new Date(displayEvent.schedule.end_time_utc).toLocaleTimeString('en-US', { 
+                          hour: 'numeric', 
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
               {displayEvent.schedule && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Break</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {displayEvent.schedule.break_minutes || 0} minutes
-                  </p>
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      min="0"
+                      value={editedBreakMinutes}
+                      onChange={(e) => setEditedBreakMinutes(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                      placeholder="0"
+                    />
+                  ) : (
+                    <p className="text-sm font-semibold text-gray-900">
+                      {displayEvent.schedule.break_minutes || 0} minutes
+                    </p>
+                  )}
                 </div>
               )}
             </div>
