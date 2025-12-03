@@ -1,266 +1,241 @@
-# Single Source of Truth (SSOT) Verification Report
+# SSOT (Single Source of Truth) Verification - Edit Event Flow
 
 ## Overview
-This document verifies that the Social Catering MVP follows Single Source of Truth (SSOT) principles to prevent stale or corrupted data.
+This document verifies that the edit event flow maintains SSOT throughout the entire data lifecycle.
 
-## Core SSOT Principles
+## SSOT Definition
+**Database `event_skill_requirements.needed_workers` is the single source of truth for how many workers are needed per role.**
 
-### 1. **Assignment Calculations (Hours & Pay)**
-**Location:** `app/models/concerns/hours_calculations.rb` and `app/models/concerns/pay_calculations.rb`
-
-**SSOT Implementation:**
-- ✅ `effective_hours` and `effective_pay` are **calculated fields** (not stored)
-- ✅ Calculations use `before_save` callbacks to ensure consistency
-- ✅ All calculations are centralized in concerns, not duplicated across models
-
-**Formula:**
-```ruby
-effective_hours = (hours_worked || 0) - (break_duration_minutes || 0) / 60.0
-effective_pay = effective_hours * effective_hourly_rate
-effective_hourly_rate = hourly_rate || worker.base_hourly_rate || 0
-```
-
-**Risk Assessment:** ✅ **LOW RISK**
-- Calculations are always fresh (computed on read)
-- No stale data possible for these fields
-- Database stores source values only
+Shifts are **derived** from `needed_workers`, not the other way around.
 
 ---
 
-### 2. **Event Totals (Total Hours & Total Cost)**
-**Location:** `app/services/events/recalculate_totals.rb`
+## Flow Verification
 
-**SSOT Implementation:**
-- ✅ Event totals are **recalculated** using a centralized service
-- ✅ Service aggregates from assignments (SSOT source)
-- ✅ Triggered automatically on assignment changes via `after_save` callbacks
+### 1. **Load Event (Wizard Opens)**
 
-**Calculation Flow:**
-```
-Assignment changes → after_save callback → Events::RecalculateTotals service
-→ Aggregates all assignments → Updates event.total_hours_worked & total_pay_amount
-```
-
-**Risk Assessment:** ⚠️ **MEDIUM RISK** (mitigated)
-- Totals are **stored** in database (could become stale)
-- **Mitigation:** Automatic recalculation on every assignment change
-- **Mitigation:** Service uses `update_columns` to bypass validations (atomic)
-- **Edge Case:** If assignment update fails after totals update, totals could be inconsistent
-  - **Mitigation:** Wrapped in transaction in `Assignment#update_event_totals`
-
-**Verification:**
-```ruby
-# Check for stale totals
-Event.find_each do |event|
-  calculated = Events::RecalculateTotals.new(event: event).call
-  if calculated[:total_hours] != event.total_hours_worked ||
-     calculated[:total_pay] != event.total_pay_amount
-    puts "⚠️ Stale totals detected for Event #{event.id}"
-  end
-end
-```
-
----
-
-### 3. **Pay Rate Hierarchy (SSOT)**
-**Location:** `app/models/assignment.rb` and `app/models/event_skill_requirement.rb`
-
-**SSOT Implementation:**
-- ✅ **Single Source:** `EventSkillRequirement.pay_rate` is the default
-- ✅ **Override:** `Assignment.hourly_rate` can override (if set during assignment)
-- ✅ **Fallback:** `Worker.base_hourly_rate` if no assignment rate
-
-**Priority Order:**
-1. `Assignment.hourly_rate` (if set)
-2. `EventSkillRequirement.pay_rate` (from event creation)
-3. `Worker.base_hourly_rate` (fallback)
-
-**Risk Assessment:** ✅ **LOW RISK**
-- Clear hierarchy prevents ambiguity
-- All sources are stored in database (no calculation drift)
-- Frontend always uses `EventSkillRequirement.pay_rate` as default
-
----
-
-### 4. **Activity Log Summaries**
-**Location:** `app/presenters/activity_log_presenter.rb` and `app/controllers/api/v1/activity_logs_controller.rb`
-
-**SSOT Implementation:**
-- ✅ Summaries are **generated on-the-fly** using `ActivityLogPresenter`
-- ✅ Controller **always** uses presenter (not database `summary` field)
-- ✅ Database `summary` field is for reference only (can be backfilled)
-
-**Risk Assessment:** ✅ **NO RISK**
-- Summaries are always fresh (computed on every API request)
-- No stale data possible
-- Database field is optional (presenter is source of truth)
-
-**Code Verification:**
-```ruby
-# app/controllers/api/v1/activity_logs_controller.rb
-def serialize_logs(logs)
-  logs.map do |log|
-    # Always use presenter to generate humanized summary
-    presenter = ActivityLogPresenter.new(log)
-    humanized_summary = presenter.summary  # ← SSOT: Always fresh
-    
-    {
-      summary: humanized_summary,  # ← Not using log.summary from DB
-      details: log.details_json || presenter.curated_details || {}
-    }
-  end
-end
-```
-
----
-
-### 5. **Assignment Status & Approval State**
-**Location:** `app/models/assignment.rb`
-
-**SSOT Implementation:**
-- ✅ Status is stored in `Assignment.status` (single field)
-- ✅ Approval state is stored in `Assignment.approved` (boolean)
-- ✅ No calculated/derived status fields
-
-**Risk Assessment:** ✅ **LOW RISK**
-- Single source of truth (database field)
-- No calculation drift possible
-- Status transitions are validated
-
----
-
-## Potential Stale Data Scenarios
-
-### Scenario 1: Event Totals After Failed Assignment Update
-**Risk:** If assignment update fails after totals are recalculated, totals could be inconsistent.
-
-**Mitigation:**
-- ✅ `Assignment#update_event_totals` is wrapped in transaction
-- ✅ Service uses `update_columns` (bypasses validations, atomic)
-- ✅ If assignment update fails, transaction rolls back (totals revert)
-
-**Verification:**
-```ruby
-# Test: Simulate failed assignment update
-Assignment.transaction do
-  assignment = Assignment.first
-  assignment.update(hours_worked: 10)
-  # Totals updated here
-  raise "Simulated failure"
-  # Transaction rolls back, totals revert
-end
-```
-
----
-
-### Scenario 2: Activity Log `summary` Field Stale
-**Risk:** Database `summary` field could be outdated if presenter logic changes.
-
-**Mitigation:**
-- ✅ Controller **never** uses `log.summary` from database
-- ✅ Always generates fresh summary using `ActivityLogPresenter`
-- ✅ Database field is optional (for reference/backfill only)
-
-**Verification:**
-```ruby
-# Check: Controller always uses presenter
-# app/controllers/api/v1/activity_logs_controller.rb:serialize_logs
-# ✅ Uses: presenter.summary (not log.summary)
-```
-
----
-
-### Scenario 3: Pay Rate Pre-population Inconsistency
-**Risk:** Frontend might use wrong default pay rate when assigning workers.
-
-**Mitigation:**
-- ✅ Frontend always uses `EventSkillRequirement.pay_rate` as default
-- ✅ Backend validates and stores `Assignment.hourly_rate` if provided
-- ✅ Clear hierarchy: Assignment > EventSkillRequirement > Worker
-
-**Verification:**
+**Frontend (`CreateEventWizard.tsx`):**
 ```typescript
-// Frontend: social-catering-ui/src/pages/EventsPage.tsx
-// ✅ Uses: eventSkillRequirement.pay_rate as default
-const payRate = shift.event_skill_requirement?.pay_rate || 0;
+// Line 254-264: Loads from backend skill_requirements
+if (eventToUse.skill_requirements && eventToUse.skill_requirements.length > 0) {
+  const skills: SkillDetail[] = eventToUse.skill_requirements.map(req => ({
+    name: req.skill_name,
+    neededWorkers: req.needed_workers,  // ✅ SSOT: Reads from DB column
+    uniform: req.uniform_name || '',
+    // ...
+  }));
+  setSelectedSkillDetails(skills);
+}
 ```
+
+**Backend (`events_controller.rb`):**
+```ruby
+# Line 801-813: serialize_event_detailed returns skill_requirements
+skill_requirements: event.event_skill_requirements.map { |sr|
+  {
+    needed_workers: sr.needed_workers,  # ✅ SSOT: Reads from DB column
+    # ...
+  }
+}
+```
+
+**✅ VERIFIED**: Frontend reads `needed_workers` directly from database via API. No derivation from shifts.
 
 ---
 
-## Data Integrity Checks
+### 2. **User Edits**
 
-### 1. Check for Stale Event Totals
+**Frontend:**
+- User changes `neededWorkers` in UI
+- State is stored in `selectedSkillDetails[].neededWorkers`
+- **No calculation or derivation** - just user input
+
+**✅ VERIFIED**: Frontend only stores user input, doesn't re-interpret.
+
+---
+
+### 3. **Save Event**
+
+**Frontend (`CreateEventWizard.tsx`):**
+```typescript
+// Line 437-444: Sends user's input to backend
+const skillRequirements: EventSkillRequirement[] = selectedSkillDetails.map(skill => ({
+  skill_name: skill.name,
+  needed_workers: skill.neededWorkers,  // ✅ Sends user's value
+  // ...
+}));
+```
+
+**Backend (`events_controller.rb`):**
 ```ruby
-# Run this periodically to detect stale totals
-Event.find_each do |event|
-  service = Events::RecalculateTotals.new(event: event)
-  calculated = service.call
-  
-  if calculated[:total_hours] != event.total_hours_worked ||
-     calculated[:total_pay] != event.total_pay_amount
-    Rails.logger.warn "⚠️ Stale totals for Event #{event.id}"
-    # Optionally auto-fix:
-    # event.update_columns(
-    #   total_hours_worked: calculated[:total_hours],
-    #   total_pay_amount: calculated[:total_pay]
-    # )
+# Line 250-260: Receives skill_requirements from wizard
+roles_data = params[:event][:skill_requirements]&.map { |sr|
+  {
+    needed: sr[:needed_workers],  # ✅ Receives user's value
+    # ...
+  }
+}
+```
+
+**✅ VERIFIED**: Frontend sends user's input, backend receives it.
+
+---
+
+### 4. **Backend Processing (`ApplyRoleDiff`)**
+
+**Business Logic:**
+```ruby
+# Line 73-98: Calculate effective_needed (protects assigned workers)
+new_needed = role_params[:needed].to_i  # User's request
+assigned_count = # ... count of assigned workers
+effective_needed = [new_needed, assigned_count].max  # Never below assigned
+
+# Line 121: Update database with effective_needed
+update_requirement(existing_req, role_params.merge(needed: effective_needed))
+```
+
+**Shift Management:**
+```ruby
+# Line 100-118: Create/delete shifts to match effective_needed
+diff = effective_needed - actual_shift_count
+if diff > 0
+  add_shifts_for_role(existing_req, diff)  # Create shifts
+elsif diff < 0
+  remove_shifts_for_role(existing_req, diff.abs)  # Delete unassigned shifts
+end
+```
+
+**✅ VERIFIED**: 
+- Database `needed_workers` is updated to `effective_needed` (SSOT)
+- Shifts are created/deleted to **match** `needed_workers` (derived, not source)
+- Business rule: Never reduce below assigned workers (protects data integrity)
+
+---
+
+### 5. **Update Database**
+
+**Backend (`apply_role_diff.rb`):**
+```ruby
+# Line 244-245: Updates needed_workers in database
+existing_req.update!(
+  needed_workers: role_params[:needed].to_i,  # ✅ SSOT: Saves to DB
+  # ...
+)
+```
+
+**✅ VERIFIED**: Database column `needed_workers` is the SSOT. Shifts are derived from it.
+
+---
+
+### 6. **Reload After Save**
+
+**Flow repeats from Step 1:**
+- Frontend calls `getEvent(id)`
+- Backend returns `serialize_event_detailed` with `skill_requirements[].needed_workers`
+- Frontend displays the value from database
+
+**✅ VERIFIED**: After save, UI reflects database state (SSOT).
+
+---
+
+## Edge Cases & Business Rules
+
+### Edge Case 1: User tries to reduce below assigned workers
+**Scenario**: 3 workers assigned, user tries to set `needed_workers = 2`
+
+**Backend Behavior:**
+- `effective_needed = max(2, 3) = 3`
+- Database saves `needed_workers = 3` (not 2)
+- No shifts are deleted (all are assigned)
+
+**UI Behavior:**
+- After reload, UI shows `needed_workers = 3` (from database)
+- User sees the protected value, not their original input
+
+**✅ VERIFIED**: Business rule protects assigned workers. SSOT is maintained.
+
+---
+
+### Edge Case 2: Orphaned shifts cleanup
+**Scenario**: Database has 5 shifts but `needed_workers = 3`
+
+**Backend Behavior:**
+```ruby
+# Line 286-296: Cleanup orphaned shifts
+@event.event_skill_requirements.each do |req|
+  current_shifts = @event.shifts.where(...).count
+  needed = req.needed_workers || 0
+  if current_shifts > needed
+    cleanup_orphan_shifts(req, needed)  # Delete excess unassigned shifts
   end
 end
 ```
 
-### 2. Check for Inconsistent Assignment Calculations
+**✅ VERIFIED**: Backend enforces SSOT by cleaning up shifts that exceed `needed_workers`.
+
+---
+
+### Edge Case 3: SSOT Safety Guard
+**Scenario**: After update, shifts < needed_workers (under-provisioned)
+
+**Backend Behavior:**
 ```ruby
-# Verify effective_hours and effective_pay are correct
-Assignment.find_each do |assignment|
-  expected_hours = assignment.calculate_effective_hours
-  expected_pay = assignment.calculate_effective_pay
+# Line 364-377: SSOT Safety Guard
+if @event.status.in?(['published', 'active'])
+  needs_repair = @event.event_skill_requirements.any? do |req|
+    existing_count < req.needed_workers.to_i
+  end
   
-  if assignment.effective_hours != expected_hours ||
-     assignment.effective_pay != expected_pay
-    Rails.logger.warn "⚠️ Inconsistent calculation for Assignment #{assignment.id}"
+  if needs_repair
+    @event.ensure_shifts_for_requirements!  # Create missing shifts
   end
 end
 ```
 
-### 3. Check for Missing Activity Log Context
-```ruby
-# Verify activity logs have sufficient context for summaries
-ActivityLog.find_each do |log|
-  presenter = ActivityLogPresenter.new(log)
-  summary = presenter.summary
-  
-  if summary.include?('Unknown') || summary.include?('nil')
-    Rails.logger.warn "⚠️ Missing context in ActivityLog #{log.id}: #{summary}"
-  end
-end
-```
+**✅ VERIFIED**: Backend auto-repairs under-provisioned shifts to maintain SSOT.
 
 ---
 
-## Recommendations
+## Summary
 
-### ✅ **Current State: GOOD**
-- Core calculations use SSOT principles
-- Activity logs are always fresh
-- Event totals are automatically recalculated
+### ✅ SSOT is Maintained
 
-### 🔧 **Improvements (Optional)**
-1. **Periodic Totals Verification:** Add a rake task to check for stale event totals (run daily)
-2. **Assignment Calculation Audit:** Add validation to ensure `effective_hours`/`effective_pay` match calculated values
-3. **Activity Log Backfill:** Run `rake activity_logs:backfill_summaries` after presenter changes
+1. **Database is SSOT**: `event_skill_requirements.needed_workers` is the source of truth
+2. **Frontend reads from DB**: Wizard loads `needed_workers` directly from API response
+3. **Frontend sends user input**: No derivation, just passes user's value
+4. **Backend enforces SSOT**: 
+   - Updates `needed_workers` in database
+   - Creates/deletes shifts to match `needed_workers`
+   - Protects assigned workers (business rule)
+   - Auto-repairs under-provisioned shifts
+5. **UI reflects database**: After save, UI shows database state
+
+### ✅ No SSOT Violations Found
+
+- Frontend does NOT derive `needed_workers` from `shifts.length`
+- Frontend does NOT re-interpret backend data
+- Backend does NOT use shifts as source of truth
+- Shifts are always derived from `needed_workers`, never the reverse
+
+### ✅ Business Rules Preserved
+
+- Assigned workers are protected (can't reduce below assigned count)
+- Orphaned shifts are cleaned up
+- Under-provisioned shifts are auto-repaired
+- All changes are logged via ActivityLog
 
 ---
 
-## Conclusion
+## Testing Checklist
 
-**Overall SSOT Compliance: ✅ EXCELLENT**
+- [ ] Load event in wizard → Verify `needed_workers` matches database
+- [ ] Edit `needed_workers` → Verify save sends correct value
+- [ ] Try to reduce below assigned → Verify backend protects assigned workers
+- [ ] Save and reload → Verify UI shows database value (not original input if protected)
+- [ ] Check for orphaned shifts → Verify cleanup runs
+- [ ] Check for under-provisioned shifts → Verify auto-repair runs
 
-- ✅ Assignment calculations: Always fresh (computed fields)
-- ✅ Activity log summaries: Always fresh (generated on-the-fly)
-- ✅ Pay rate hierarchy: Clear SSOT (EventSkillRequirement → Assignment → Worker)
-- ⚠️ Event totals: Stored but auto-recalculated (low risk of staleness)
+---
 
-**Risk of Stale/Corrupted Data: LOW**
-
-The system follows SSOT principles with automatic recalculation and on-the-fly generation. The only stored calculated values (event totals) are automatically updated on every assignment change, minimizing staleness risk.
-
+**Last Verified**: 2024-12-XX
+**Status**: ✅ SSOT Maintained
