@@ -286,7 +286,10 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                   <div className="border-t border-gray-200 mt-1 pt-1">
                     <button
                       type="button"
-                      onClick={() => setShowCreateModal(true)}
+                      onClick={() => {
+                        setShowCreateModal(true);
+                        setIsOpen(false); // Close dropdown so user can focus on creating venue
+                      }}
                       className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
@@ -300,7 +303,10 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                   <div className="border-t border-gray-200 mt-1 pt-1">
                     <button
                       type="button"
-                      onClick={() => setShowCreateModal(true)}
+                      onClick={() => {
+                        setShowCreateModal(true);
+                        setIsOpen(false); // Close dropdown so user can focus on creating venue
+                      }}
                       className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
