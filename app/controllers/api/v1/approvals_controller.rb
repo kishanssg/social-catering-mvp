@@ -1,7 +1,7 @@
 class Api::V1::ApprovalsController < Api::V1::BaseController
   before_action :authenticate_user!
-  before_action :set_event, only: [:show, :approve_event, :approve_selected]
-  before_action :set_assignment, only: [:update_hours, :mark_no_show, :remove]
+  before_action :set_event, only: [ :show, :approve_event, :approve_selected ]
+  before_action :set_assignment, only: [ :update_hours, :mark_no_show, :remove ]
 
   # GET /api/v1/events/:event_id/approvals
   def show
@@ -10,17 +10,17 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     assignments = @event.shifts
       .includes(assignments: :worker)
       .flat_map(&:assignments)
-      # Include all statuses - don't filter out no-shows or cancelled
-      # This provides complete audit trail in the approval modal
-    
+    # Include all statuses - don't filter out no-shows or cancelled
+    # This provides complete audit trail in the approval modal
+
     # Deduplicate: Keep only the most recent assignment for each worker+shift combo
     # This prevents showing duplicate assignments even if they exist in the database
-    assignments = assignments.group_by { |a| [a.shift_id, a.worker_id] }
+    assignments = assignments.group_by { |a| [ a.shift_id, a.worker_id ] }
                             .values
                             .map { |group| group.max_by(&:created_at) }
 
     render json: {
-      status: 'success',
+      status: "success",
       data: {
         event: serialize_event_for_approval(@event),
         assignments: assignments.map { |a| serialize_assignment_for_approval(a) },
@@ -33,30 +33,30 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
   def update_hours
     # CRITICAL: Allow editing hours for no-show/cancelled workers even if shift hasn't ended
     # This is needed to restore and correct hours for workers who were marked no-show
-    can_edit = @assignment.can_edit_hours? || @assignment.status.in?(['no_show', 'cancelled', 'removed'])
-    
+    can_edit = @assignment.can_edit_hours? || @assignment.status.in?([ "no_show", "cancelled", "removed" ])
+
     unless can_edit
       return render json: {
-        status: 'error',
-        message: 'Cannot edit hours for this assignment. Shift must be completed.'
+        status: "error",
+        message: "Cannot edit hours for this assignment. Shift must be completed."
       }, status: :unprocessable_entity
     end
 
     provided_lock_version = approval_params[:lock_version]
     if provided_lock_version.present? && provided_lock_version.to_i != @assignment.lock_version
-      raise ActiveRecord::StaleObjectError.new(@assignment, 'Assignment')
+      raise ActiveRecord::StaleObjectError.new(@assignment, "Assignment")
     end
 
     was_approved = @assignment.approved?
     previous_approver = was_approved ? @assignment.approved_by&.email : nil
     previous_approval_time = was_approved ? @assignment.approved_at_utc : nil
-    
+
     ActiveRecord::Base.transaction do
       # Capture before state for activity log
       worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
       event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
       role = @assignment.shift&.role_needed || nil
-      
+
       before_state = {
         worker_name: worker_name,
         event_name: event_name,
@@ -66,33 +66,33 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         effective_hourly_rate: @assignment.effective_hourly_rate,
         hours_worked: @assignment.hours_worked
       }
-      
+
       # If assignment was cancelled/removed/no_show, restore it to 'assigned' status when editing hours
-      was_cancelled_or_no_show = @assignment.status.in?(['cancelled', 'removed', 'no_show'])
+      was_cancelled_or_no_show = @assignment.status.in?([ "cancelled", "removed", "no_show" ])
       if was_cancelled_or_no_show
         previous_status = @assignment.status
         # Ensure assigned_by_id is set (required for update validation)
         assigned_by_id = @assignment.assigned_by_id || Current.user&.id
-        
+
         @assignment.update_columns(
-          status: 'assigned',
+          status: "assigned",
           assigned_by_id: assigned_by_id,
           updated_at: Time.current
         )
-        
+
         ActivityLog.create!(
           actor_user_id: Current.user&.id,
-          entity_type: 'Assignment',
+          entity_type: "Assignment",
           entity_id: @assignment.id,
-          action: 'restored_from_cancelled',
-          before_json: { 
+          action: "restored_from_cancelled",
+          before_json: {
             status: previous_status,
             worker_name: worker_name,
             event_name: event_name,
             role: role
           },
           after_json: {
-            status: 'assigned',
+            status: "assigned",
             worker_name: worker_name,
             event_name: event_name,
             role: role,
@@ -101,7 +101,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           created_at_utc: Time.current
         )
       end
-      
+
       # If re-editing approved hours, un-approve and log it
       if was_approved
         @assignment.update_columns(
@@ -109,13 +109,13 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           approved_by_id: nil,
           approved_at_utc: nil
         )
-        
+
         ActivityLog.create!(
           actor_user_id: Current.user&.id,
-          entity_type: 'Assignment',
+          entity_type: "Assignment",
           entity_id: @assignment.id,
-          action: 'hours_reopened_for_editing',
-          after_json: { 
+          action: "hours_reopened_for_editing",
+          after_json: {
             worker_name: worker_name,
             event_name: event_name,
             role: role,
@@ -126,32 +126,32 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           created_at_utc: Time.current
         )
       end
-      
+
       # Skip validations that might fail when editing hours for a completed shift
       # These checks are not relevant when just correcting hours (not reassigning workers)
       # CRITICAL: Set skip flags for ALL hour edits, not just cancelled/no-show
       # This prevents validation errors when editing approved assignments
       @assignment.skip_capacity_check = true
       @assignment.skip_availability_and_skill_checks = true
-      
+
       # Reload to get the updated status before running validations
       @assignment.reload
-      
+
       # Ensure assigned_by_id is set if it's missing (required for update validation)
       if @assignment.assigned_by_id.blank?
         @assignment.assigned_by_id = Current.user&.id
       end
-      
+
       update_attrs = {
         hours_worked: approval_params[:hours_worked],
         hourly_rate: approval_params[:hourly_rate].presence || @assignment.hourly_rate,
         edited_by: Current.user,
         edited_at_utc: Time.current
       }
-      
+
       # Log what we received
       Rails.logger.info("ApprovalController#update_hours received params for assignment #{@assignment.id}: #{approval_params.inspect}")
-      
+
       # Update actual times if provided (convert from ISO string to Time if needed)
       if approval_params[:actual_start_time_utc].present?
         start_time = approval_params[:actual_start_time_utc]
@@ -160,7 +160,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       else
         Rails.logger.info("No actual_start_time_utc provided for assignment #{@assignment.id}")
       end
-      
+
       if approval_params[:actual_end_time_utc].present?
         end_time = approval_params[:actual_end_time_utc]
         update_attrs[:actual_end_time_utc] = end_time.is_a?(String) ? Time.parse(end_time) : end_time
@@ -168,7 +168,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       else
         Rails.logger.info("No actual_end_time_utc provided for assignment #{@assignment.id}")
       end
-      
+
       # Update break duration if provided (use key? to allow 0 as valid value)
       if approval_params.key?(:break_duration_minutes)
         # Convert to integer to ensure proper type (handles string "50" -> 50)
@@ -178,18 +178,18 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       else
         Rails.logger.info("No break_duration_minutes provided for assignment #{@assignment.id}")
       end
-      
+
       # Update notes if provided
       if approval_params[:notes].present?
         update_attrs[:approval_notes] = approval_params[:notes]
       end
-      
+
       Rails.logger.info("Updating assignment #{@assignment.id} with: #{update_attrs.inspect}")
       @assignment.update!(update_attrs)
 
       # Capture after state for activity log
       @assignment.reload
-      
+
       # Verify break_duration_minutes was saved
       if update_attrs.key?(:break_duration_minutes)
         Rails.logger.info("After update, assignment #{@assignment.id} break_duration_minutes = #{@assignment.break_duration_minutes.inspect}")
@@ -206,25 +206,25 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Assignment',
+        entity_type: "Assignment",
         entity_id: @assignment.id,
-        action: was_approved ? 'hours_re_edited' : 'hours_updated',
+        action: was_approved ? "hours_re_edited" : "hours_updated",
         before_json: before_state,
         after_json: after_state,
         created_at_utc: Time.current
       )
     end
 
-    render json: { 
-      status: 'success', 
-      message: was_approved ? 'Hours re-edited and un-approved. Please re-approve after review.' : 'Hours updated successfully',
-      data: serialize_assignment_for_approval(@assignment.reload) 
+    render json: {
+      status: "success",
+      message: was_approved ? "Hours re-edited and un-approved. Please re-approve after review." : "Hours updated successfully",
+      data: serialize_assignment_for_approval(@assignment.reload)
     }
   rescue ActiveRecord::StaleObjectError
     raise
   rescue => e
     Rails.logger.error "ApprovalsController#approve_selected failed: #{e.class} - #{e.message}\n#{e.backtrace.first(5).join("\n")}"
-    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+    render json: { status: "error", message: e.message }, status: :unprocessable_entity
   end
 
   # POST /api/v1/approvals/:id/mark_no_show
@@ -234,19 +234,19 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       before_pay = @assignment.effective_pay
       before_hours = @assignment.effective_hours
       before_status = @assignment.status
-      
+
       # Get worker and event names for activity log (before marking no-show)
       worker_name = @assignment.worker ? "#{@assignment.worker.first_name} #{@assignment.worker.last_name}" : nil
       event_name = @assignment.shift&.event&.title || @assignment.shift&.client_name || nil
       role = @assignment.shift&.role_needed || nil
-      
+
       @assignment.mark_no_show!(Current.user, notes: approval_params[:notes])
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Assignment',
+        entity_type: "Assignment",
         entity_id: @assignment.id,
-        action: 'marked_no_show',
+        action: "marked_no_show",
         before_json: {
           worker_name: worker_name,
           event_name: event_name,
@@ -255,8 +255,8 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
           effective_hours: before_hours,
           status: before_status
         },
-        after_json: { 
-          status: 'no_show', 
+        after_json: {
+          status: "no_show",
           notes: params[:notes],
           worker_name: worker_name,
           event_name: event_name,
@@ -268,9 +268,9 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       )
     end
 
-    render json: { status: 'success', data: serialize_assignment_for_approval(@assignment.reload) }
+    render json: { status: "success", data: serialize_assignment_for_approval(@assignment.reload) }
   rescue => e
-    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+    render json: { status: "error", message: e.message }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/approvals/:id/remove
@@ -285,11 +285,11 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Assignment',
+        entity_type: "Assignment",
         entity_id: @assignment.id,
-        action: 'removed_from_job',
-        after_json: { 
-          status: 'cancelled', 
+        action: "removed_from_job",
+        after_json: {
+          status: "cancelled",
           notes: params[:notes],
           worker_name: worker_name,
           event_name: event_name,
@@ -299,15 +299,15 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       )
     end
 
-    render json: { status: 'success', message: 'Assignment removed' }
+    render json: { status: "success", message: "Assignment removed" }
   rescue => e
-    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+    render json: { status: "error", message: e.message }, status: :unprocessable_entity
   end
 
   # POST /api/v1/events/:event_id/approve_selected
   def approve_selected
     ids = approve_selected_params[:assignment_ids].presence || []
-    return render json: { status: 'error', message: 'No assignments selected' }, status: :bad_request if ids.empty?
+    return render json: { status: "error", message: "No assignments selected" }, status: :bad_request if ids.empty?
 
     changed_count = 0
     changed_ids = []
@@ -319,18 +319,18 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         .joins(:shift)
         .where(shifts: { event_id: @event.id })
         .where(approved: false)
-        .where(status: ['assigned', 'confirmed', 'completed'])
+        .where(status: [ "assigned", "confirmed", "completed" ])
         .pluck(:id)
 
       # Lock assignments first (without joins to avoid PG::FeatureNotSupported)
       locked_assignments = Assignment.where(id: eligible_ids)
-        .lock('FOR UPDATE OF assignments')
+        .lock("FOR UPDATE OF assignments")
         .to_a
 
       # Preload associations separately after locking
       ActiveRecord::Associations::Preloader.new(
         records: locked_assignments,
-        associations: [:shift, :worker]
+        associations: [ :shift, :worker ]
       ).call
 
       locked_assignments.each do |assignment|
@@ -362,7 +362,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         approved_assignments = Assignment.where(id: changed_ids).includes(:worker)
       worker_names = approved_assignments.map do |assignment|
         worker = assignment.worker
-        next 'Unknown Worker' unless worker
+        next "Unknown Worker" unless worker
 
         first = worker.first_name.presence
         last = worker.last_name.presence
@@ -374,16 +374,16 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         when last
           last
         else
-          'Unknown Worker'
+          "Unknown Worker"
         end
       end.compact
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Event',
+        entity_type: "Event",
         entity_id: @event.id,
-        action: 'bulk_approve_assignments',
-        after_json: { 
+        action: "bulk_approve_assignments",
+        after_json: {
           event_name: @event.title,
           event_id: @event.id,
           approved_count: changed_count,
@@ -396,16 +396,16 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     end
 
     render json: {
-      status: 'success',
+      status: "success",
       message: changed_count > 0 ? "Approved #{changed_count} assignment#{changed_count != 1 ? 's' : ''}#{failed_count > 0 ? ". #{failed_count} failed." : ''}" : "No changes (assignments already approved or invalid)",
-      data: { 
+      data: {
         approved_count: changed_count,
         failed_count: failed_count,
         errors: errors
       }
     }
   rescue => e
-    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+    render json: { status: "error", message: e.message }, status: :unprocessable_entity
   end
 
   # POST /api/v1/events/:event_id/approve_all
@@ -417,7 +417,7 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
       assignments = @event.shifts
         .includes(assignments: :worker)
         .flat_map(&:assignments)
-        .select { |a| a.status.in?(['assigned', 'confirmed', 'completed']) && !a.approved? }
+        .select { |a| a.status.in?([ "assigned", "confirmed", "completed" ]) && !a.approved? }
 
       assignments.each do |assignment|
         if assignment.can_approve?
@@ -432,16 +432,16 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
         if a.worker
           "#{a.worker.first_name} #{a.worker.last_name[0]}."
         else
-          'Unknown Worker'
+          "Unknown Worker"
         end
       end.compact
 
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Event',
+        entity_type: "Event",
         entity_id: @event.id,
-        action: 'event_hours_approved',
-        after_json: { 
+        action: "event_hours_approved",
+        after_json: {
           event_name: @event.title,
           event_id: @event.id,
           approved_count: approved_count,
@@ -453,12 +453,12 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     end
 
     render json: {
-      status: 'success',
+      status: "success",
       message: "Approved #{approved_count} assignments",
       data: { approved_count: approved_count }
     }
   rescue => e
-    render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+    render json: { status: "error", message: e.message }, status: :unprocessable_entity
   end
 
   private
@@ -499,50 +499,47 @@ class Api::V1::ApprovalsController < Api::V1::BaseController
     {
       id: a.id,
       worker_id: a.worker_id,
-      worker_name: [a.worker&.first_name, a.worker&.last_name].compact.join(' '),
+      worker_name: [ a.worker&.first_name, a.worker&.last_name ].compact.join(" "),
       worker_profile_photo_url: a.worker&.profile_photo_url,
       shift_id: a.shift_id,
       shift_role: a.shift&.role_needed,
       shift_date: a.shift&.start_time_utc&.to_date,
-      
+
       # Scheduled times
       scheduled_start: a.shift&.start_time_utc,
       scheduled_end: a.shift&.end_time_utc,
       scheduled_hours: a.scheduled_hours,
-      
+
       # Actual times
       actual_start: a.actual_start_time_utc,
       actual_end: a.actual_end_time_utc,
-      
+
       # Break duration (SSOT: per-assignment break time)
       break_duration_minutes: a.break_duration_minutes,
-      
+
       # Hours and pay
       hours_worked: a.hours_worked,
       effective_hours: a.effective_hours,
       hourly_rate: a.hourly_rate,
       effective_hourly_rate: a.effective_hourly_rate,
       effective_pay: a.effective_pay,
-      
+
       # Status and approval
       status: a.status,
       approved: a.approved,
       approved_by_name: a.approved_by&.email,
       approved_at: a.approved_at_utc&.iso8601,
-      
+
       # Audit trail
       original_hours_worked: a.original_hours_worked,
       # omit edited_at fields if schema not present to avoid 500s
       edited_at: a.respond_to?(:edited_at_utc) ? a.edited_at_utc : nil,
       edited_by_name: a.edited_by&.email,
       approval_notes: a.approval_notes,
-      
+
       # Permissions
       can_edit_hours: a.respond_to?(:can_edit_hours?) ? a.can_edit_hours? : true,
       can_approve: a.respond_to?(:can_approve?) ? a.can_approve? : true
     }
   end
 end
-
-
-

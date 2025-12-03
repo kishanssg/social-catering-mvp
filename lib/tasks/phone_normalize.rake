@@ -7,7 +7,7 @@ namespace :phones do
     invalid = 0
     Worker.find_each do |w|
       next if w.phone.blank?
-      normalized = w.phone.to_s.gsub(/\D/, '')
+      normalized = w.phone.to_s.gsub(/\D/, "")
       if normalized != w.phone
         w.update_columns(phone: normalized)
         count += 1

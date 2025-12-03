@@ -25,17 +25,17 @@ class Events::ApplyRoleDiff
     ActiveRecord::Base.transaction(isolation: :serializable) do
       # Lock the event row to prevent concurrent edits
       event.lock!
-      
+
       # Process each role
       @roles.each do |role_params|
         process_role_diff(role_params)
       end
-      
+
       # Update event schedule if provided
       update_event_schedule if params_include_schedule?
-      
+
       build_summary
-      
+
       success_response
     end
   rescue ActiveRecord::RecordInvalid => e
@@ -55,15 +55,15 @@ class Events::ApplyRoleDiff
   def validate_prerequisites
     # Can edit events that haven't started yet (published, draft, or partial status)
     # Cannot edit completed or deleted events
-    if event.status.in?(['completed', 'deleted'])
+    if event.status.in?([ "completed", "deleted" ])
       @errors << "Cannot edit #{event.status} events. Current status: #{event.status}"
     end
-    
+
     # Cannot edit if event has started
     if event.event_schedule && event.event_schedule.start_time_utc < Time.current
       @errors << "Cannot edit event that has already started at #{event.event_schedule.start_time_utc.strftime('%I:%M %p')}"
     end
-    
+
     # lock_version is handled automatically by ActiveRecord's optimistic locking
     # No need to manually check it
   end
@@ -72,10 +72,10 @@ class Events::ApplyRoleDiff
     skill_name = role_params[:skill_name]
     new_needed = role_params[:needed].to_i
     existing_req = event.event_skill_requirements.find_by(skill_name: skill_name)
-    
+
     Rails.logger.info "=== ApplyRoleDiff: Processing #{skill_name} ==="
     Rails.logger.info "  new_needed: #{new_needed}"
-    
+
     if existing_req.nil?
       # New role - create shifts
       create_role_and_shifts(role_params, new_needed)
@@ -86,21 +86,21 @@ class Events::ApplyRoleDiff
       actual_shift_count = Shift.where(event_id: event.id, event_skill_requirement_id: existing_req.id).count
       assigned_count = Shift.where(event_id: event.id, event_skill_requirement_id: existing_req.id)
                           .joins(:assignments)
-                          .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                          .where.not(assignments: { status: [ "cancelled", "no_show" ] })
                           .distinct
                           .count
-      
+
       Rails.logger.info "  actual_shift_count: #{actual_shift_count}"
       Rails.logger.info "  assigned_count: #{assigned_count}"
-      
+
       # Don't allow reducing below assigned workers (protects assigned people)
-      effective_needed = [new_needed, assigned_count].max
+      effective_needed = [ new_needed, assigned_count ].max
       Rails.logger.info "  effective_needed: #{effective_needed} (max of #{new_needed}, #{assigned_count})"
-      
+
       # Calculate diff based on actual shifts vs. effective needed
       diff = effective_needed - actual_shift_count
       Rails.logger.info "  diff: #{diff} (#{effective_needed} - #{actual_shift_count})"
-      
+
       if diff == 0
         # No change needed (but still update other fields like pay_rate)
         @unchanged += effective_needed
@@ -116,7 +116,7 @@ class Events::ApplyRoleDiff
         remove_shifts_for_role(existing_req, diff.abs)
         @removed += diff.abs
       end
-      
+
       # Update the requirement with new details (use effective_needed, not user's request if too low)
       update_requirement(existing_req, role_params.merge(needed: effective_needed))
       Rails.logger.info "  Updated needed_workers to: #{effective_needed}"
@@ -126,7 +126,7 @@ class Events::ApplyRoleDiff
   def create_role_and_shifts(role_params, count)
     # Use uniform_name if provided (from wizard), otherwise try to get from uniform_id (from EditEventModal)
     uniform_name_value = role_params[:uniform_name] || (role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil)
-    
+
     req = event.event_skill_requirements.create!(
       skill_name: role_params[:skill_name],
       needed_workers: count,
@@ -136,7 +136,7 @@ class Events::ApplyRoleDiff
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
       required_certification_id: role_params[:cert_id]
     )
-    
+
     create_shifts_for_requirement(req, count)
   end
 
@@ -150,16 +150,16 @@ class Events::ApplyRoleDiff
     # ✅ SIMPLIFIED: Only delete unassigned shifts, never touch assigned ones
     # The caller (process_role_diff) already ensures we never try to go below assigned count
     Rails.logger.info "=== remove_shifts_for_role: #{requirement.skill_name}, count_to_remove: #{count_to_remove} ==="
-    
+
     unfilled_shifts = event.shifts
       .where(event_skill_requirement_id: requirement.id)
       .left_joins(:assignments)
       .where(assignments: { id: nil })
       .order(id: :desc) # Delete newest first
       .limit(count_to_remove)
-    
+
     Rails.logger.info "  Found #{unfilled_shifts.count} unassigned shifts (shift IDs: #{unfilled_shifts.pluck(:id).join(', ')})"
-    
+
     # Delete unfilled shifts (will be 0 to count_to_remove shifts)
     removed_count = 0
     unfilled_shifts.each do |shift|
@@ -169,29 +169,29 @@ class Events::ApplyRoleDiff
       removed_count += 1
       Rails.logger.info "  ✓ Deleted shift #{shift.id}"
     end
-    
+
     Rails.logger.info "Removed #{removed_count} orphaned shifts for #{requirement.skill_name}"
   end
 
   def unassign_workers_and_delete_shift(shift)
-    assignments = shift.assignments.where.not(status: ['cancelled', 'no_show'])
-    
+    assignments = shift.assignments.where.not(status: [ "cancelled", "no_show" ])
+
     worker_ids = assignments.pluck(:worker_id)
-    
+
     # Log unassignments
     assignments.each do |assignment|
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'Assignment',
+        entity_type: "Assignment",
         entity_id: assignment.id,
-        action: 'unassigned',
+        action: "unassigned",
         before_json: assignment.attributes,
-        after_json: { status: 'cancelled', reason: @reason },
+        after_json: { status: "cancelled", reason: @reason },
         created_at_utc: Time.current
       )
-      assignment.update!(status: 'cancelled')
+      assignment.update!(status: "cancelled")
     end
-    
+
     # Log shift deletion
     log_shift_deletion(shift, worker_ids)
     shift.destroy!
@@ -200,11 +200,11 @@ class Events::ApplyRoleDiff
   def log_shift_deletion(shift, affected_worker_ids)
     ActivityLog.create!(
       actor_user_id: Current.user&.id,
-      entity_type: 'Shift',
+      entity_type: "Shift",
       entity_id: shift.id,
-      action: 'deleted',
+      action: "deleted",
       before_json: shift.attributes,
-      after_json: { 
+      after_json: {
         reason: @reason,
         affected_worker_ids: affected_worker_ids || []
       },
@@ -227,10 +227,10 @@ class Events::ApplyRoleDiff
         required_skill: requirement.skill_name,
         required_cert_id: requirement.required_certification_id,
         uniform_name: requirement.uniform_name,
-        status: 'published',
+        status: "published",
         created_by: Current.user
       )
-      
+
       # Shift creation is logged by Auditable concern
     end
   end
@@ -240,7 +240,7 @@ class Events::ApplyRoleDiff
     # The shift creation/deletion logic already handled making the actual shifts match
     # Use uniform_name if provided (from wizard), otherwise try to get from uniform_id (from EditEventModal)
     uniform_name_value = role_params[:uniform_name] || (role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil)
-    
+
     existing_req.update!(
       needed_workers: role_params[:needed].to_i, # Use the requested count from role_params
       pay_rate: role_params[:pay_rate],
@@ -253,25 +253,25 @@ class Events::ApplyRoleDiff
 
   def update_event_schedule
     return unless params_include_schedule?
-    
+
     schedule_params = extract_schedule_params
     return if schedule_params.empty?
-    
+
     if event.event_schedule
       old_schedule = event.event_schedule.attributes.dup
       event.event_schedule.update!(schedule_params)
-      
+
       if @apply_time_to_all_shifts
         # Update all child shift times
         update_all_child_shift_times(schedule_params)
       end
-      
+
       # Log schedule update
       ActivityLog.create!(
         actor_user_id: Current.user&.id,
-        entity_type: 'EventSchedule',
+        entity_type: "EventSchedule",
         entity_id: event.event_schedule.id,
-        action: 'updated',
+        action: "updated",
         before_json: old_schedule,
         after_json: event.event_schedule.attributes,
         created_at_utc: Time.current
@@ -326,4 +326,3 @@ class Events::ApplyRoleDiff
     { success: false, errors: @errors }
   end
 end
-

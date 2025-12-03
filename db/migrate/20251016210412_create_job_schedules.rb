@@ -9,6 +9,6 @@ class CreateJobSchedules < ActiveRecord::Migration[7.2]
       t.timestamptz :updated_at_utc, null: false
     end
 
-    add_index :job_schedules, [:start_time_utc, :end_time_utc]
+    add_index :job_schedules, [ :start_time_utc, :end_time_utc ]
   end
 end

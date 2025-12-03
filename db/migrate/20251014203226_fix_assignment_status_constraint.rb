@@ -11,13 +11,13 @@ class FixAssignmentStatusConstraint < ActiveRecord::Migration[7.2]
         execute "UPDATE assignments SET status = 'no_show' WHERE status = 'cancelled'"
       end
     end
-    
+
     # Remove old constraint
     remove_check_constraint :assignments, name: "assignments_valid_status"
-    
+
     # Add new constraint with correct status values
-    add_check_constraint :assignments, 
-      "status IN ('assigned', 'confirmed', 'completed', 'cancelled')", 
+    add_check_constraint :assignments,
+      "status IN ('assigned', 'confirmed', 'completed', 'cancelled')",
       name: "assignments_valid_status"
   end
 end

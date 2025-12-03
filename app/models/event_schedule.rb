@@ -13,7 +13,7 @@ class EventSchedule < ApplicationRecord
   # Callbacks for custom timestamp columns
   before_create :set_created_at_utc
   before_save :set_updated_at_utc
-  
+
   # Sync shift times when schedule changes (Single Source of Truth)
   after_update :sync_shift_times, if: :times_changed?
 
@@ -39,7 +39,7 @@ class EventSchedule < ApplicationRecord
 
   def formatted_time_range
     return "No schedule set" if start_time_utc.nil? || end_time_utc.nil?
-    
+
     start_str = start_time_utc.strftime("%a, %b %d, %Y at %I:%M %p")
     end_str = end_time_utc.strftime("%I:%M %p")
     "#{start_str} - #{end_str}"
@@ -66,14 +66,14 @@ class EventSchedule < ApplicationRecord
 
   def sync_shift_times
     return unless event.present?
-    
+
     # Use centralized service for shift time synchronization (Single Source of Truth)
     result = Events::SyncShiftTimes.new(
       event: event,
       start_time_utc: start_time_utc,
       end_time_utc: end_time_utc
     ).call
-    
+
     unless result[:success]
       Rails.logger.error "EventSchedule #{id}: Failed to sync shift times: #{result[:error]}"
     end

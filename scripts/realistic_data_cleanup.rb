@@ -12,7 +12,7 @@ ActiveRecord::Base.transaction do
   # STEP 1: Rename Events to Realistic Social Catering Names
   # ============================================================================
   puts "📝 STEP 1: Renaming events to realistic names..."
-  
+
   event_updates = {
     'Papa jones celebration' => {
       title: 'Corporate Team Building Event - TechCorp',
@@ -63,7 +63,7 @@ ActiveRecord::Base.transaction do
       description: 'Intimate birthday party with plated dinner and dessert service for 30 guests.'
     }
   }
-  
+
   updated_count = 0
   event_updates.each do |old_title, new_data|
     event = Event.find_by(title: old_title)
@@ -73,15 +73,15 @@ ActiveRecord::Base.transaction do
       puts "  ✓ #{old_title} → #{new_data[:title]}"
     end
   end
-  
+
   puts "  ✓ Updated #{updated_count} event titles"
   puts ""
-  
+
   # ============================================================================
   # STEP 2: Fix Halloween Event (98 unfilled roles - unrealistic)
   # ============================================================================
   puts "🎃 STEP 2: Fixing Halloween event (98 unfilled roles)..."
-  
+
   halloween = Event.find_by("title LIKE ?", "%Halloween%")
   if halloween && halloween.status == 'published'
     # Mark as completed (since Halloween 2024 is past)
@@ -89,7 +89,7 @@ ActiveRecord::Base.transaction do
       status: 'completed',
       completed_at_utc: Time.zone.parse('2024-10-31 23:00:00')
     )
-    
+
     # Update schedule to Oct 31, 2024
     if halloween.event_schedule
       halloween.event_schedule.update!(
@@ -97,40 +97,40 @@ ActiveRecord::Base.transaction do
         end_time_utc: Time.zone.parse('2024-10-31 23:00:00')
       )
     end
-    
+
     # Update shifts
     halloween.shifts.update_all(
       start_time_utc: Time.zone.parse('2024-10-31 18:00:00'),
       end_time_utc: Time.zone.parse('2024-10-31 23:00:00')
     )
-    
+
     puts "  ✓ Halloween event marked as completed (Oct 31, 2024)"
   end
   puts ""
-  
+
   # ============================================================================
   # STEP 3: Reduce Unfilled Roles to Realistic Numbers
   # ============================================================================
   puts "📊 STEP 3: Checking unfilled roles..."
-  
+
   # Count current unfilled roles
   active_events = Event.published.joins(:event_schedule).where('event_schedules.end_time_utc > ?', Time.current)
   total_unfilled = active_events.sum { |e| e.unfilled_roles_count }
-  
+
   puts "  Current unfilled roles: #{total_unfilled}"
   puts "  Target: 20-30 unfilled roles"
-  
+
   # Note: We can't easily reduce unfilled roles without creating assignments
   # This would require creating fake assignments, which might not be desired
   # For now, we'll just note the current state
   puts "  ℹ️  Unfilled roles reflect actual staffing needs"
   puts ""
-  
+
   # ============================================================================
   # STEP 4: Clean Up Test Admin Accounts
   # ============================================================================
   puts "👤 STEP 4: Cleaning up test admin accounts..."
-  
+
   # Keep only: Natalie, Madison, Sarah, gravyadmin
   users_to_keep = [
     'natalie@socialcatering.com',
@@ -138,11 +138,11 @@ ActiveRecord::Base.transaction do
     'sarah@socialcatering.com',
     'gravyadmin@socialcatering.com'
   ]
-  
+
   # Find test users to delete
   test_users = User.where('email LIKE ?', '%@socialcatering.com')
                    .where.not(email: users_to_keep)
-  
+
   deleted_count = test_users.count
   if deleted_count > 0
     # Check if they have any activity logs or created shifts
@@ -150,7 +150,7 @@ ActiveRecord::Base.transaction do
       has_data = ActivityLog.where(actor_user_id: user.id).exists? ||
                  Shift.where(created_by_id: user.id).exists? ||
                  Event.where(created_by_id: user.id).exists?
-      
+
       if has_data
         puts "  ⚠️  Skipping #{user.email} (has historical data)"
       else
@@ -162,12 +162,12 @@ ActiveRecord::Base.transaction do
     puts "  ✓ No test users to delete"
   end
   puts ""
-  
+
   # ============================================================================
   # STEP 5: Verify Date Ranges
   # ============================================================================
   puts "📅 STEP 5: Verifying date ranges..."
-  
+
   # Check completed events (should be Sept 1 - Nov 4, 2024)
   completed = Event.where(status: 'completed').joins(:event_schedule)
   if completed.any?
@@ -175,7 +175,7 @@ ActiveRecord::Base.transaction do
     latest = completed.maximum('event_schedules.start_time_utc')
     puts "  Completed events: #{earliest&.strftime('%Y-%m-%d')} to #{latest&.strftime('%Y-%m-%d')}"
   end
-  
+
   # Check published events (should be Nov 5-30, 2025)
   published = Event.where(status: 'published').joins(:event_schedule)
                    .where('event_schedules.end_time_utc > ?', Time.current)
@@ -185,7 +185,7 @@ ActiveRecord::Base.transaction do
     puts "  Published events: #{earliest&.strftime('%Y-%m-%d')} to #{latest&.strftime('%Y-%m-%d')}"
   end
   puts ""
-  
+
   # ============================================================================
   # SUMMARY
   # ============================================================================
@@ -208,4 +208,3 @@ ActiveRecord::Base.transaction do
   puts ""
   puts "✅ All changes committed!"
 end
-

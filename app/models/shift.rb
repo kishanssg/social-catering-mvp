@@ -9,15 +9,15 @@ class Shift < ApplicationRecord
   belongs_to :event, optional: true
   belongs_to :skill_requirement,
              optional: true,
-             class_name: 'EventSkillRequirement',
-             foreign_key: 'event_skill_requirement_id'
+             class_name: "EventSkillRequirement",
+             foreign_key: "event_skill_requirement_id"
 
   has_many :assignments, dependent: :destroy
   has_many :workers, through: :assignments
 
   # Recalculate event totals when shift pay_rate changes (affects assignment effective_pay)
   after_update :recalculate_event_totals_if_pay_rate_changed, if: :saved_change_to_pay_rate?
-  
+
   # Cascade shift time changes to assignments (for worker profile display)
   after_update :cascade_time_changes, if: :saved_change_to_start_time_utc_or_end_time_utc?
 
@@ -31,10 +31,10 @@ class Shift < ApplicationRecord
   scope :upcoming, -> { where("start_time_utc > ?", Time.current).order(:start_time_utc) }
   scope :past, -> { where("end_time_utc < ?", Time.current).order(start_time_utc: :desc) }
   scope :today, -> { where("DATE(start_time_utc) = ?", Time.current.to_date) }
-  scope :published, -> { where(status: 'published') }
-  scope :draft, -> { where(status: 'draft') }
-  scope :archived, -> { where(status: 'archived') }
-  scope :active, -> { where.not(status: 'archived') }
+  scope :published, -> { where(status: "published") }
+  scope :draft, -> { where(status: "draft") }
+  scope :archived, -> { where(status: "archived") }
+  scope :active, -> { where.not(status: "archived") }
 
   # Event-aware scopes
   scope :for_event, ->(event_id) { where(event_id: event_id) }
@@ -53,13 +53,13 @@ class Shift < ApplicationRecord
   end
 
   def assigned_count
-    assignments.where.not(status: 'cancelled').count
+    assignments.where.not(status: "cancelled").count
   end
 
   def available_slots
     capacity - assigned_count
   end
-  
+
   def duration_hours
     ((end_time_utc - start_time_utc) / 1.hour).round(2)
   end
@@ -68,10 +68,10 @@ class Shift < ApplicationRecord
   def current_status
     now = Time.current
 
-    return 'completed' if end_time_utc && now >= end_time_utc
-    return 'in_progress' if start_time_utc && end_time_utc && now >= start_time_utc && now < end_time_utc
+    return "completed" if end_time_utc && now >= end_time_utc
+    return "in_progress" if start_time_utc && end_time_utc && now >= start_time_utc && now < end_time_utc
 
-    fully_staffed? ? 'fully_staffed' : 'needs_workers'
+    fully_staffed? ? "fully_staffed" : "needs_workers"
   end
 
   def fully_staffed?
@@ -121,7 +121,7 @@ class Shift < ApplicationRecord
     conflicting = worker.assignments
                         .joins(:shift)
                         .where.not(shifts: { id: id })
-                        .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                        .where.not(assignments: { status: [ "cancelled", "no_show" ] })
                         .where(
                           "shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
                           end_time_utc,   # This shift's end time
@@ -133,10 +133,10 @@ class Shift < ApplicationRecord
     if skill_requirement&.skill_name.present?
       required_skill = skill_requirement.skill_name
       worker_skills = case worker.skills_json
-                      when String then JSON.parse(worker.skills_json) rescue []
-                      when Array then worker.skills_json
-                      else []
-                      end
+      when String then JSON.parse(worker.skills_json) rescue []
+      when Array then worker.skills_json
+      else []
+      end
       return false unless worker_skills.include?(required_skill)
     end
 
@@ -144,7 +144,7 @@ class Shift < ApplicationRecord
     if required_cert_id.present?
       has_valid = worker.worker_certifications
                         .where(certification_id: required_cert_id)
-                        .where('expires_at_utc IS NULL OR expires_at_utc >= ?', end_time_utc)
+                        .where("expires_at_utc IS NULL OR expires_at_utc >= ?", end_time_utc)
                         .exists?
       return false unless has_valid
     end
@@ -160,7 +160,7 @@ class Shift < ApplicationRecord
     conflicting_assignment = worker.assignments
                                  .joins(:shift)
                                  .where.not(shifts: { id: id })
-                                 .where.not(assignments: { status: ['cancelled', 'no_show'] })
+                                 .where.not(assignments: { status: [ "cancelled", "no_show" ] })
                                  .where(
                                    "shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
                                    end_time_utc,
@@ -171,18 +171,18 @@ class Shift < ApplicationRecord
 
     if conflicting_assignment
       conflicting_shift = conflicting_assignment.shift
-      start_time = conflicting_shift.start_time_utc.strftime('%I:%M %p')
-      end_time = conflicting_shift.end_time_utc.strftime('%I:%M %p')
+      start_time = conflicting_shift.start_time_utc.strftime("%I:%M %p")
+      end_time = conflicting_shift.end_time_utc.strftime("%I:%M %p")
       return "Worker has conflicting shift '#{conflicting_shift.client_name}' (#{start_time} - #{end_time})"
     end
 
     if skill_requirement&.skill_name.present?
       required_skill = skill_requirement.skill_name
       worker_skills = case worker.skills_json
-                      when String then JSON.parse(worker.skills_json) rescue []
-                      when Array then worker.skills_json
-                      else []
-                      end
+      when String then JSON.parse(worker.skills_json) rescue []
+      when Array then worker.skills_json
+      else []
+      end
       unless worker_skills.include?(required_skill)
         return "Worker does not have required skill: #{required_skill}"
       end
@@ -190,7 +190,7 @@ class Shift < ApplicationRecord
 
     # Certification check (ID-based only)
     if required_cert_id.present?
-      req_name = required_cert&.name || 'required certification'
+      req_name = required_cert&.name || "required certification"
       wc = worker.worker_certifications.find_by(certification_id: required_cert_id)
       return "Worker does not have required certification: #{req_name}" if wc.nil?
       if wc.expires_at_utc && wc.expires_at_utc < end_time_utc
@@ -207,7 +207,7 @@ class Shift < ApplicationRecord
   # This ensures assignments using shift.pay_rate have correct effective_pay
   def recalculate_event_totals_if_pay_rate_changed
     return unless event.present?
-    
+
     # Use centralized recalculation service (SSOT)
     result = Events::RecalculateTotals.new(event: event).call
     unless result[:success]
@@ -224,10 +224,10 @@ class Shift < ApplicationRecord
 
   def same_calendar_day_as_event
     return unless event&.event_schedule
-    
+
     event_date = event.event_schedule.start_time_utc.to_date
     shift_date = start_time_utc.to_date
-    
+
     if event_date != shift_date
       errors.add(:start_time_utc, "must be on the same calendar day as the event (#{event_date}). Shift date is #{shift_date}")
     end
@@ -235,13 +235,13 @@ class Shift < ApplicationRecord
 
   def times_match_event_schedule
     return unless event&.event_schedule
-    
+
     schedule = event.event_schedule
-    
+
     # For event-owned shifts, enforce exact time match
     # This prevents shifts from diverging from event schedule
     unless start_time_utc == schedule.start_time_utc && end_time_utc == schedule.end_time_utc
-      errors.add(:base, 
+      errors.add(:base,
         "Shift times must match event schedule. " \
         "Expected: #{schedule.start_time_utc.strftime('%Y-%m-%d %H:%M')} - #{schedule.end_time_utc.strftime('%Y-%m-%d %H:%M')}, " \
         "Got: #{start_time_utc.strftime('%Y-%m-%d %H:%M')} - #{end_time_utc.strftime('%Y-%m-%d %H:%M')}. " \
@@ -249,12 +249,12 @@ class Shift < ApplicationRecord
       )
     end
   end
-  
+
   # Check if either time field changed
   def saved_change_to_start_time_utc_or_end_time_utc?
     saved_change_to_start_time_utc? || saved_change_to_end_time_utc?
   end
-  
+
   # Cascade shift time changes to assignments
   # Note: Assignments reference shift times directly via belongs_to :shift,
   # so they automatically see updated times. This callback ensures:
@@ -263,22 +263,22 @@ class Shift < ApplicationRecord
   # 3. Worker profiles will show updated times on next load
   def cascade_time_changes
     return unless assignments.any?
-    
+
     # Log the cascade for debugging
     Rails.logger.info("Cascading time changes for Shift #{id}: #{start_time_utc} - #{end_time_utc}")
     Rails.logger.info("Updated #{assignments.count} assignment records will reflect new shift times")
-    
+
     # Create activity log for the cascade
     ActivityLog.create!(
       actor_user_id: Current.user&.id,
-      entity_type: 'Shift',
+      entity_type: "Shift",
       entity_id: id,
-      action: 'cascaded_time_change',
+      action: "cascaded_time_change",
       after_json: {
         start_time_utc: start_time_utc,
         end_time_utc: end_time_utc,
         assignments_count: assignments.count,
-        note: 'Shift times updated - all assigned workers will see new times on their profiles'
+        note: "Shift times updated - all assigned workers will see new times on their profiles"
       },
       created_at_utc: Time.current
     )

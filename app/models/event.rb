@@ -15,47 +15,47 @@ class Event < ApplicationRecord
   # Validations
   validates :title, presence: true
   validates :status, inclusion: { in: %w[draft published assigned completed deleted] }
-  validates :supervisor_phone, format: { 
-    with: /\A\d{3}-\d{3}-\d{4}\z/, 
-    message: "must be in format xxx-xxx-xxxx" 
+  validates :supervisor_phone, format: {
+    with: /\A\d{3}-\d{3}-\d{4}\z/,
+    message: "must be in format xxx-xxx-xxxx"
   }, allow_blank: true
-  
+
   # Optimistic locking
   lock_optimistically
 
   # Scopes
-  scope :draft, -> { where(status: 'draft') }
-  scope :published, -> { where(status: 'published') }
-  scope :assigned, -> { where(status: 'assigned') }
-  scope :completed, -> { where(status: 'completed') }
-  scope :active, -> { where.not(status: 'completed') }
+  scope :draft, -> { where(status: "draft") }
+  scope :published, -> { where(status: "published") }
+  scope :assigned, -> { where(status: "assigned") }
+  scope :completed, -> { where(status: "completed") }
+  scope :active, -> { where.not(status: "completed") }
   scope :recent, -> { order(created_at_utc: :desc) }
   scope :completed_recently, -> { completed.order(completed_at_utc: :desc) }
-  scope :by_completion_date, ->(start_date, end_date) { 
-    completed.where(completed_at_utc: start_date..end_date) 
+  scope :by_completion_date, ->(start_date, end_date) {
+    completed.where(completed_at_utc: start_date..end_date)
   }
-  
+
   # New scopes for unified Events page
-  scope :upcoming, -> { 
+  scope :upcoming, -> {
     joins(:event_schedule)
-      .where('event_schedules.start_time_utc > ?', Time.current)
-      .order('event_schedules.start_time_utc ASC') 
+      .where("event_schedules.start_time_utc > ?", Time.current)
+      .order("event_schedules.start_time_utc ASC")
   }
-  
+
   scope :past_week, -> {
     joins(:event_schedule)
-      .where('event_schedules.end_time_utc BETWEEN ? AND ?', 
+      .where("event_schedules.end_time_utc BETWEEN ? AND ?",
              1.week.ago, Time.current)
   }
-  
+
   scope :past_month, -> {
     joins(:event_schedule)
-      .where('event_schedules.end_time_utc BETWEEN ? AND ?', 
+      .where("event_schedules.end_time_utc BETWEEN ? AND ?",
              1.month.ago, Time.current)
   }
-  
+
   scope :with_assignments, -> {
-    includes(shifts: [:assignments, :workers])
+    includes(shifts: [ :assignments, :workers ])
   }
 
   # Callbacks for custom timestamp columns
@@ -73,7 +73,7 @@ class Event < ApplicationRecord
   end
 
   def skills_list
-    event_skill_requirements.pluck(:skill_name).join(', ')
+    event_skill_requirements.pluck(:skill_name).join(", ")
   end
 
   def duration_hours
@@ -86,23 +86,23 @@ class Event < ApplicationRecord
   end
 
   def can_be_assigned?
-    status == 'published'
+    status == "published"
   end
 
   def can_be_completed?
-    status == 'published' && event_schedule.present? && Time.current > event_schedule.end_time_utc
+    status == "published" && event_schedule.present? && Time.current > event_schedule.end_time_utc
   end
 
   def complete!(notes: nil)
     return false unless can_be_completed?
-    
+
     ActiveRecord::Base.transaction do
       # Use SSOT service to recalculate totals before completing
       # This ensures totals are accurate and persisted
       recalculate_totals!
-      
+
       update!(
-        status: 'completed',
+        status: "completed",
         completed_at_utc: Time.current,
         completion_notes: notes
         # total_hours_worked and total_pay_amount already updated by recalculate_totals!
@@ -113,7 +113,7 @@ class Event < ApplicationRecord
   def calculate_total_hours_worked
     # Use SSOT: sum effective_hours from all valid assignments
     shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+      .reject { |a| a.status.in?([ "cancelled", "no_show" ]) }
       .sum(&:effective_hours)
       .round(2)
   end
@@ -121,7 +121,7 @@ class Event < ApplicationRecord
   def calculate_total_pay_amount
     # Use SSOT: sum effective_pay from all valid assignments
     shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+      .reject { |a| a.status.in?([ "cancelled", "no_show" ]) }
       .sum(&:effective_pay)
       .round(2)
   end
@@ -129,11 +129,11 @@ class Event < ApplicationRecord
   # Cost breakdown for approval workflow
   def cost_summary
     valid_assignments = shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
-    
+      .reject { |a| a.status.in?([ "cancelled", "no_show" ]) }
+
     approved_assignments = valid_assignments.select(&:approved?)
     pending_assignments = valid_assignments.reject(&:approved?)
-    
+
     {
       approved_cost: approved_assignments.sum(&:effective_pay).round(2),
       pending_cost: pending_assignments.sum(&:effective_pay).round(2),
@@ -144,39 +144,39 @@ class Event < ApplicationRecord
       all_approved: pending_assignments.empty? && valid_assignments.any?
     }
   end
-  
+
   # Cost of approved hours only (for payroll processing)
   def approved_labor_cost
     shifts.includes(:assignments).flat_map(&:assignments)
-      .select { |a| a.approved? && !a.status.in?(['cancelled', 'no_show']) }
+      .select { |a| a.approved? && !a.status.in?([ "cancelled", "no_show" ]) }
       .sum(&:effective_pay)
       .round(2)
   end
-  
+
   # Cost of pending (unapproved) hours
   def pending_labor_cost
     shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.approved? || a.status.in?(['cancelled', 'no_show']) }
+      .reject { |a| a.approved? || a.status.in?([ "cancelled", "no_show" ]) }
       .sum(&:effective_pay)
       .round(2)
   end
-  
+
   # Total cost (approved + pending) - use denormalized column (SSOT)
   def total_labor_cost
     total_pay_amount || 0
   end
-  
+
   # Check if all hours are approved
   def all_hours_approved?
     valid_assignments = shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.status.in?(['cancelled', 'no_show']) }
+      .reject { |a| a.status.in?([ "cancelled", "no_show" ]) }
     valid_assignments.any? && valid_assignments.all?(&:approved?)
   end
-  
+
   # Count of assignments needing approval
   def pending_approval_count
     shifts.includes(:assignments).flat_map(&:assignments)
-      .reject { |a| a.approved? || a.status.in?(['cancelled', 'no_show']) }
+      .reject { |a| a.approved? || a.status.in?([ "cancelled", "no_show" ]) }
       .count
   end
 
@@ -188,7 +188,7 @@ class Event < ApplicationRecord
     event_skill_requirements.each do |requirement|
       role_shifts = shifts.where(role_needed: requirement.skill_name).limit(requirement.needed_workers)
       assigned = role_shifts.joins(:assignments).count
-      total += [assigned, requirement.needed_workers].min
+      total += [ assigned, requirement.needed_workers ].min
     end
     total
   end
@@ -208,17 +208,17 @@ class Event < ApplicationRecord
   end
 
   def publish!
-    update!(status: 'published')
+    update!(status: "published")
   end
 
   def staffing_status
-    return 'completed' if status == 'completed'
-    return 'draft' if status == 'draft'
+    return "completed" if status == "completed"
+    return "draft" if status == "draft"
 
     pct = staffing_percentage
-    return 'fully_staffed' if pct >= 100
-    return 'partially_staffed' if pct > 0
-    'needs_workers'
+    return "fully_staffed" if pct >= 100
+    return "partially_staffed" if pct > 0
+    "needs_workers"
   end
 
   def staffing_summary
@@ -232,7 +232,7 @@ class Event < ApplicationRecord
   # Shift generation from requirements
   def generate_shifts!
     return unless can_be_published?
-    
+
     with_lock do
       return shifts if shifts.any?
 
@@ -249,7 +249,7 @@ class Event < ApplicationRecord
   end
 
   def ensure_shifts_for_requirements!
-    return unless status == 'published'
+    return unless status == "published"
     return unless can_be_published?
 
     generated = false
@@ -258,7 +258,7 @@ class Event < ApplicationRecord
       # This prevents counting shifts from deleted requirements or other requirements with same role name
       existing = shifts.where(event_skill_requirement_id: skill_req.id).count
       missing = skill_req.needed_workers.to_i - existing
-      
+
       # Only create shifts if we're actually missing some
       # If needed_workers is 0 or negative, don't create any shifts
       next unless missing.positive?
@@ -296,7 +296,7 @@ class Event < ApplicationRecord
   end
 
   def generate_shifts_if_published
-    return unless status == 'published'
+    return unless status == "published"
     ensure_shifts_for_requirements!
   end
 
@@ -314,7 +314,7 @@ class Event < ApplicationRecord
       required_skill: skill_req.skill_name,
       required_cert_id: skill_req.required_certification_id,
       uniform_name: skill_req.uniform_name,
-      status: 'published',
+      status: "published",
       created_by: Current.user || User.order(:id).first,
       location: venue&.respond_to?(:location) ? venue.location : nil
     )
@@ -337,7 +337,7 @@ class Event < ApplicationRecord
 
   def should_update_completion_metrics?
     # Update metrics for completed events OR when recalculation requested
-    status == 'completed' || @force_recalculate
+    status == "completed" || @force_recalculate
   end
 
   def update_completion_metrics

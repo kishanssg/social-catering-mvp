@@ -19,4 +19,3 @@ class AddRequiredCertificationToEventSkillRequirements < ActiveRecord::Migration
     remove_reference :event_skill_requirements, :required_certification, foreign_key: true
   end
 end
-

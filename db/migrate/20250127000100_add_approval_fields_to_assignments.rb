@@ -28,5 +28,3 @@ class AddApprovalFieldsToAssignments < ActiveRecord::Migration[7.0]
     add_index :assignments, :edited_by_id
   end
 end
-
-

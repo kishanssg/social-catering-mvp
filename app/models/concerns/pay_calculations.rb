@@ -30,13 +30,13 @@ module PayCalculations
   # Get the source of the current rate (for debugging/auditing)
   def rate_source
     if hourly_rate.present?
-      'assignment'
+      "assignment"
     elsif shift.pay_rate.present?
-      'shift'
+      "shift"
     elsif shift.skill_requirement&.pay_rate.present?
-      'requirement'
+      "requirement"
     else
-      'default'
+      "default"
     end
   end
 
@@ -47,4 +47,3 @@ module PayCalculations
     end
   end
 end
-

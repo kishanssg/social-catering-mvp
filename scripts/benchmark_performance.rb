@@ -73,7 +73,7 @@ if shift
     times << time
     puts "  Run #{i+1}: #{(time * 1000).round(2)}ms"
   end
-  
+
   avg = (times.sum / times.size * 1000).round(2)
   puts "  Average: #{avg}ms"
   puts avg < 200 ? "  ✅ GOOD" : "  ⚠️ SLOW (target: <200ms)"
@@ -87,7 +87,7 @@ puts "-" * 70
 
 if shift
   worker = Worker.where(active: true).first
-  
+
   if worker
     times = []
     5.times do |i|
@@ -98,7 +98,7 @@ if shift
       times << time
       puts "  Run #{i+1}: #{(time * 1000).round(2)}ms"
     end
-    
+
     avg = (times.sum / times.size * 1000).round(2)
     puts "  Average: #{avg}ms"
     puts avg < 100 ? "  ✅ GOOD" : "  ⚠️ SLOW (target: <100ms)"
@@ -123,7 +123,7 @@ if shift && worker
       puts "  ⚠️ Assignment already exists, skipping test"
       break
     end
-    
+
     time = Benchmark.realtime do
       assignment = Assignment.create!(
         shift: shift,
@@ -137,7 +137,7 @@ if shift && worker
     times << time
     puts "  Run #{i+1}: #{(time * 1000).round(2)}ms"
   end
-  
+
   if times.any?
     avg = (times.sum / times.size * 1000).round(2)
     puts "  Average: #{avg}ms"
@@ -161,4 +161,3 @@ puts "\n" + "=" * 70
 puts "✅ Benchmark Complete"
 puts "Check log/slow_requests.log for slow request patterns"
 puts "=" * 70
-

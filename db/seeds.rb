@@ -133,7 +133,7 @@ puts "✓ Created #{venues.count} venues"
 puts "\nCreating workers..."
 first_names = %w[Alex Jordan Taylor Morgan Casey Riley Drew Avery Quinn Jamie Sam Dakota Reese Charlie Skylar Payton Rowan Sage River Phoenix Emerson Harper Finley Cameron Parker]
 last_names  = %w[Smith Johnson Williams Brown Jones Garcia Miller Davis Rodriguez Martinez Hernandez Lopez Gonzalez Wilson Anderson Thomas Taylor Moore Jackson Martin Lee Walker Hall Allen Young]
-all_skills  = ["Bartender","Banquet Server/Runner","Captain","Event Helper","Prep Cook"]
+all_skills  = [ "Bartender", "Banquet Server/Runner", "Captain", "Event Helper", "Prep Cook" ]
 
 workers = []
 25.times do |i|
@@ -145,13 +145,13 @@ workers = []
     last_name: last_name,
     email: "#{first_name.downcase}.#{last_name.downcase}#{i}@socialcatering.com",
     phone: format("%03d-%03d-%04d", rand(200..999), rand(200..999), rand(1000..9999)),
-    active: [true, true, true, false].sample,
+    active: [ true, true, true, false ].sample,
     skills_json: worker_skills
   )
 
   # Add 1-2 certifications for some workers via join model
-  if [true, false].sample
-    cert_name = ["Food Handler Certificate","ServSafe","TIPS Certification","Alcohol Service License"].sample
+  if [ true, false ].sample
+    cert_name = [ "Food Handler Certificate", "ServSafe", "TIPS Certification", "Alcohol Service License" ].sample
     cert = Certification.find_or_create_by!(name: cert_name)
     WorkerCertification.create!(worker: worker, certification: cert, expires_at_utc: rand(1..24).months.from_now)
   end
@@ -164,16 +164,16 @@ puts "\n✓ Created #{workers.count} workers"
 # ===== EVENTS =====
 puts "\nCreating events..."
 event_templates = [
-  { title: "Corporate Holiday Gala", venue: venues[0], skills: [{skill: "Event Helper", count: 5},{skill: "Bartender", count: 2},{skill: "Captain", count: 1}], days_from_now: 3, duration_hours: 5, status: "published" },
-  { title: "FSU Alumni Wedding Reception", venue: venues[1], skills: [{skill: "Event Helper", count: 4},{skill: "Bartender", count: 2},{skill: "Banquet Server/Runner", count: 2}], days_from_now: 7, duration_hours: 4, status: "published" },
-  { title: "Private Birthday Party", venue: venues[2], skills: [{skill: "Bartender", count: 1},{skill: "Event Helper", count: 2}], days_from_now: 10, duration_hours: 6, status: "published" },
-  { title: "Business Networking Event", venue: venues[3], skills: [{skill: "Event Helper", count: 3},{skill: "Bartender", count: 1}], days_from_now: 14, duration_hours: 3, status: "published" },
-  { title: "Garden Wedding Ceremony & Reception", venue: venues[4], skills: [{skill: "Event Helper", count: 6},{skill: "Bartender", count: 2},{skill: "Captain", count: 1},{skill: "Banquet Server/Runner", count: 2}], days_from_now: 21, duration_hours: 6, status: "draft" },
-  { title: "UF Homecoming Tailgate", venue: venues[5], skills: [{skill: "Event Helper", count: 4},{skill: "Bartender", count: 2}], days_from_now: 28, duration_hours: 4, status: "draft" },
-  { title: "Museum Fundraiser Gala", venue: venues[6], skills: [{skill: "Event Helper", count: 5},{skill: "Bartender", count: 2},{skill: "Captain", count: 1}], days_from_now: -7, duration_hours: 5, status: "completed" },
-  { title: "Intimate Anniversary Dinner", venue: venues[7], skills: [{skill: "Event Helper", count: 1},{skill: "Prep Cook", count: 1}], days_from_now: -3, duration_hours: 3, status: "completed" },
-  { title: "Country Club Charity Golf Tournament", venue: venues[8], skills: [{skill: "Event Helper", count: 4},{skill: "Bartender", count: 3},{skill: "Banquet Server/Runner", count: 2}], days_from_now: 35, duration_hours: 8, status: "draft" },
-  { title: "Downtown Concert After-Party", venue: venues[9], skills: [{skill: "Bartender", count: 3},{skill: "Banquet Server/Runner", count: 2}], days_from_now: 42, duration_hours: 5, status: "draft" }
+  { title: "Corporate Holiday Gala", venue: venues[0], skills: [ { skill: "Event Helper", count: 5 }, { skill: "Bartender", count: 2 }, { skill: "Captain", count: 1 } ], days_from_now: 3, duration_hours: 5, status: "published" },
+  { title: "FSU Alumni Wedding Reception", venue: venues[1], skills: [ { skill: "Event Helper", count: 4 }, { skill: "Bartender", count: 2 }, { skill: "Banquet Server/Runner", count: 2 } ], days_from_now: 7, duration_hours: 4, status: "published" },
+  { title: "Private Birthday Party", venue: venues[2], skills: [ { skill: "Bartender", count: 1 }, { skill: "Event Helper", count: 2 } ], days_from_now: 10, duration_hours: 6, status: "published" },
+  { title: "Business Networking Event", venue: venues[3], skills: [ { skill: "Event Helper", count: 3 }, { skill: "Bartender", count: 1 } ], days_from_now: 14, duration_hours: 3, status: "published" },
+  { title: "Garden Wedding Ceremony & Reception", venue: venues[4], skills: [ { skill: "Event Helper", count: 6 }, { skill: "Bartender", count: 2 }, { skill: "Captain", count: 1 }, { skill: "Banquet Server/Runner", count: 2 } ], days_from_now: 21, duration_hours: 6, status: "draft" },
+  { title: "UF Homecoming Tailgate", venue: venues[5], skills: [ { skill: "Event Helper", count: 4 }, { skill: "Bartender", count: 2 } ], days_from_now: 28, duration_hours: 4, status: "draft" },
+  { title: "Museum Fundraiser Gala", venue: venues[6], skills: [ { skill: "Event Helper", count: 5 }, { skill: "Bartender", count: 2 }, { skill: "Captain", count: 1 } ], days_from_now: -7, duration_hours: 5, status: "completed" },
+  { title: "Intimate Anniversary Dinner", venue: venues[7], skills: [ { skill: "Event Helper", count: 1 }, { skill: "Prep Cook", count: 1 } ], days_from_now: -3, duration_hours: 3, status: "completed" },
+  { title: "Country Club Charity Golf Tournament", venue: venues[8], skills: [ { skill: "Event Helper", count: 4 }, { skill: "Bartender", count: 3 }, { skill: "Banquet Server/Runner", count: 2 } ], days_from_now: 35, duration_hours: 8, status: "draft" },
+  { title: "Downtown Concert After-Party", venue: venues[9], skills: [ { skill: "Bartender", count: 3 }, { skill: "Banquet Server/Runner", count: 2 } ], days_from_now: 42, duration_hours: 5, status: "draft" }
 ]
 
 supervisors = [
@@ -186,7 +186,7 @@ supervisors = [
 
 events = []
 event_templates.each do |template|
-  start_time = template[:days_from_now].days.from_now.change(hour: [16,17,18,19].sample, min: 0)
+  start_time = template[:days_from_now].days.from_now.change(hour: [ 16, 17, 18, 19 ].sample, min: 0)
   end_time   = start_time + template[:duration_hours].hours
   supervisor = supervisors.sample
 
@@ -194,7 +194,7 @@ event_templates.each do |template|
     title: template[:title],
     status: template[:status],
     venue: template[:venue],
-    check_in_instructions: "Please arrive 15 minutes early. Check in at the main entrance and ask for the event coordinator. Uniform: #{['Black & White','All Black','White Shirt & Black Pants','Provided Uniform'].sample}",
+    check_in_instructions: "Please arrive 15 minutes early. Check in at the main entrance and ask for the event coordinator. Uniform: #{[ 'Black & White', 'All Black', 'White Shirt & Black Pants', 'Provided Uniform' ].sample}",
     supervisor_name: supervisor[:name],
     supervisor_phone: supervisor[:phone]
   )
@@ -203,15 +203,15 @@ event_templates.each do |template|
     event.event_skill_requirements.create!(
       skill_name: skill_data[:skill],
       needed_workers: skill_data[:count],
-      uniform_name: ['Black & White','All Black','The Bistro','Formal Attire'].sample,
-      certification_name: ['Bartender','Event Helper','Banquet Server/Runner'].include?(skill_data[:skill]) ? ['TIPS','ServSafe',nil].sample : nil
+      uniform_name: [ 'Black & White', 'All Black', 'The Bistro', 'Formal Attire' ].sample,
+      certification_name: [ 'Bartender', 'Event Helper', 'Banquet Server/Runner' ].include?(skill_data[:skill]) ? [ 'TIPS', 'ServSafe', nil ].sample : nil
     )
   end
 
   event.create_event_schedule!(
     start_time_utc: start_time,
     end_time_utc: end_time,
-    break_minutes: [0,15,30].sample
+    break_minutes: [ 0, 15, 30 ].sample
   )
 
   # Generate shifts if published
@@ -241,7 +241,7 @@ published_events.each do |event|
     hours = if event.status == 'completed'
       ((shift.end_time_utc - shift.start_time_utc) / 1.hour).round(1)
     else
-      [true, false].sample ? rand(3.0..8.0).round(1) : nil
+      [ true, false ].sample ? rand(3.0..8.0).round(1) : nil
     end
 
     Assignment.create!(
@@ -296,4 +296,3 @@ if sample_event
     puts "    - #{shift.role_needed}: #{shift.staffing_summary} [#{shift.current_status}]"
   end
 end
-

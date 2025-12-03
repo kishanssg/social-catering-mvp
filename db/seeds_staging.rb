@@ -167,40 +167,40 @@ puts "👥 Creating Social Catering workers..."
 
 workers_data = [
   # Active Workers (20)
-  { first_name: "Emma", last_name: "Johnson", email: "emma.johnson@socialcatering.com", phone: "850-555-0101", skills: ["Server", "Captain"], certifications: ["ServSafe Manager", "TIPS Certification"] },
-  { first_name: "Liam", last_name: "Williams", email: "liam.williams@socialcatering.com", phone: "850-555-0102", skills: ["Bartender", "Server"], certifications: ["TIPS Certification", "Alcohol Service License"] },
-  { first_name: "Olivia", last_name: "Brown", email: "olivia.brown@socialcatering.com", phone: "850-555-0103", skills: ["Chef", "Sous Chef"], certifications: ["ServSafe Manager", "CPR Certified"] },
-  { first_name: "Noah", last_name: "Jones", email: "noah.jones@socialcatering.com", phone: "850-555-0104", skills: ["Line Cook", "Prep Cook"], certifications: ["Food Handler Certificate"] },
-  { first_name: "Ava", last_name: "Garcia", email: "ava.garcia@socialcatering.com", phone: "850-555-0105", skills: ["Server", "Host/Hostess"], certifications: ["ServSafe Manager"] },
-  { first_name: "Sophia", last_name: "Miller", email: "sophia.miller@socialcatering.com", phone: "850-555-0106", skills: ["Bartender", "Captain"], certifications: ["TIPS Certification", "Alcohol Service License"] },
-  { first_name: "Jackson", last_name: "Davis", email: "jackson.davis@socialcatering.com", phone: "850-555-0107", skills: ["Chef", "Line Cook"], certifications: ["ServSafe Manager", "CPR Certified"] },
-  { first_name: "Isabella", last_name: "Rodriguez", email: "isabella.rodriguez@socialcatering.com", phone: "850-555-0108", skills: ["Server", "Busser"], certifications: ["Food Handler Certificate"] },
-  { first_name: "Aiden", last_name: "Martinez", email: "aiden.martinez@socialcatering.com", phone: "850-555-0109", skills: ["Bartender", "Event Helper"], certifications: ["TIPS Certification"] },
-  { first_name: "Mia", last_name: "Hernandez", email: "mia.hernandez@socialcatering.com", phone: "850-555-0110", skills: ["Server", "Banquet Server/Runner"], certifications: ["ServSafe Manager"] },
-  { first_name: "Lucas", last_name: "Lopez", email: "lucas.lopez@socialcatering.com", phone: "850-555-0111", skills: ["Chef", "Prep Cook"], certifications: ["ServSafe Manager", "First Aid Certified"] },
-  { first_name: "Charlotte", last_name: "Gonzalez", email: "charlotte.gonzalez@socialcatering.com", phone: "850-555-0112", skills: ["Server", "Host/Hostess"], certifications: ["Food Handler Certificate"] },
-  { first_name: "Mason", last_name: "Wilson", email: "mason.wilson@socialcatering.com", phone: "850-555-0113", skills: ["Bartender", "Captain"], certifications: ["TIPS Certification", "Alcohol Service License"] },
-  { first_name: "Amelia", last_name: "Anderson", email: "amelia.anderson@socialcatering.com", phone: "850-555-0114", skills: ["Line Cook", "Dishwasher"], certifications: ["Food Handler Certificate"] },
-  { first_name: "Ethan", last_name: "Thomas", email: "ethan.thomas@socialcatering.com", phone: "850-555-0115", skills: ["Server", "Event Helper"], certifications: ["ServSafe Manager"] },
-  { first_name: "Harper", last_name: "Taylor", email: "harper.taylor@socialcatering.com", phone: "850-555-0116", skills: ["Bartender", "Banquet Server/Runner"], certifications: ["TIPS Certification"] },
-  { first_name: "Logan", last_name: "Moore", email: "logan.moore@socialcatering.com", phone: "850-555-0117", skills: ["Chef", "Sous Chef"], certifications: ["ServSafe Manager", "CPR Certified"] },
-  { first_name: "Evelyn", last_name: "Jackson", email: "evelyn.jackson@socialcatering.com", phone: "850-555-0118", skills: ["Server", "Busser"], certifications: ["Food Handler Certificate"] },
-  { first_name: "Sebastian", last_name: "Martin", email: "sebastian.martin@socialcatering.com", phone: "850-555-0119", skills: ["Bartender", "Event Helper"], certifications: ["TIPS Certification", "Alcohol Service License"] },
-  { first_name: "Abigail", last_name: "Lee", email: "abigail.lee@socialcatering.com", phone: "850-555-0120", skills: ["Server", "Host/Hostess"], certifications: ["ServSafe Manager"] },
-  
+  { first_name: "Emma", last_name: "Johnson", email: "emma.johnson@socialcatering.com", phone: "850-555-0101", skills: [ "Server", "Captain" ], certifications: [ "ServSafe Manager", "TIPS Certification" ] },
+  { first_name: "Liam", last_name: "Williams", email: "liam.williams@socialcatering.com", phone: "850-555-0102", skills: [ "Bartender", "Server" ], certifications: [ "TIPS Certification", "Alcohol Service License" ] },
+  { first_name: "Olivia", last_name: "Brown", email: "olivia.brown@socialcatering.com", phone: "850-555-0103", skills: [ "Chef", "Sous Chef" ], certifications: [ "ServSafe Manager", "CPR Certified" ] },
+  { first_name: "Noah", last_name: "Jones", email: "noah.jones@socialcatering.com", phone: "850-555-0104", skills: [ "Line Cook", "Prep Cook" ], certifications: [ "Food Handler Certificate" ] },
+  { first_name: "Ava", last_name: "Garcia", email: "ava.garcia@socialcatering.com", phone: "850-555-0105", skills: [ "Server", "Host/Hostess" ], certifications: [ "ServSafe Manager" ] },
+  { first_name: "Sophia", last_name: "Miller", email: "sophia.miller@socialcatering.com", phone: "850-555-0106", skills: [ "Bartender", "Captain" ], certifications: [ "TIPS Certification", "Alcohol Service License" ] },
+  { first_name: "Jackson", last_name: "Davis", email: "jackson.davis@socialcatering.com", phone: "850-555-0107", skills: [ "Chef", "Line Cook" ], certifications: [ "ServSafe Manager", "CPR Certified" ] },
+  { first_name: "Isabella", last_name: "Rodriguez", email: "isabella.rodriguez@socialcatering.com", phone: "850-555-0108", skills: [ "Server", "Busser" ], certifications: [ "Food Handler Certificate" ] },
+  { first_name: "Aiden", last_name: "Martinez", email: "aiden.martinez@socialcatering.com", phone: "850-555-0109", skills: [ "Bartender", "Event Helper" ], certifications: [ "TIPS Certification" ] },
+  { first_name: "Mia", last_name: "Hernandez", email: "mia.hernandez@socialcatering.com", phone: "850-555-0110", skills: [ "Server", "Banquet Server/Runner" ], certifications: [ "ServSafe Manager" ] },
+  { first_name: "Lucas", last_name: "Lopez", email: "lucas.lopez@socialcatering.com", phone: "850-555-0111", skills: [ "Chef", "Prep Cook" ], certifications: [ "ServSafe Manager", "First Aid Certified" ] },
+  { first_name: "Charlotte", last_name: "Gonzalez", email: "charlotte.gonzalez@socialcatering.com", phone: "850-555-0112", skills: [ "Server", "Host/Hostess" ], certifications: [ "Food Handler Certificate" ] },
+  { first_name: "Mason", last_name: "Wilson", email: "mason.wilson@socialcatering.com", phone: "850-555-0113", skills: [ "Bartender", "Captain" ], certifications: [ "TIPS Certification", "Alcohol Service License" ] },
+  { first_name: "Amelia", last_name: "Anderson", email: "amelia.anderson@socialcatering.com", phone: "850-555-0114", skills: [ "Line Cook", "Dishwasher" ], certifications: [ "Food Handler Certificate" ] },
+  { first_name: "Ethan", last_name: "Thomas", email: "ethan.thomas@socialcatering.com", phone: "850-555-0115", skills: [ "Server", "Event Helper" ], certifications: [ "ServSafe Manager" ] },
+  { first_name: "Harper", last_name: "Taylor", email: "harper.taylor@socialcatering.com", phone: "850-555-0116", skills: [ "Bartender", "Banquet Server/Runner" ], certifications: [ "TIPS Certification" ] },
+  { first_name: "Logan", last_name: "Moore", email: "logan.moore@socialcatering.com", phone: "850-555-0117", skills: [ "Chef", "Sous Chef" ], certifications: [ "ServSafe Manager", "CPR Certified" ] },
+  { first_name: "Evelyn", last_name: "Jackson", email: "evelyn.jackson@socialcatering.com", phone: "850-555-0118", skills: [ "Server", "Busser" ], certifications: [ "Food Handler Certificate" ] },
+  { first_name: "Sebastian", last_name: "Martin", email: "sebastian.martin@socialcatering.com", phone: "850-555-0119", skills: [ "Bartender", "Event Helper" ], certifications: [ "TIPS Certification", "Alcohol Service License" ] },
+  { first_name: "Abigail", last_name: "Lee", email: "abigail.lee@socialcatering.com", phone: "850-555-0120", skills: [ "Server", "Host/Hostess" ], certifications: [ "ServSafe Manager" ] },
+
   # Inactive Workers (5)
-  { first_name: "Alexander", last_name: "Perez", email: "alexander.perez@socialcatering.com", phone: "850-555-0121", skills: ["Line Cook", "Prep Cook"], certifications: ["Food Handler Certificate"], active: false },
-  { first_name: "Emily", last_name: "Thompson", email: "emily.thompson@socialcatering.com", phone: "850-555-0122", skills: ["Server", "Captain"], certifications: ["ServSafe Manager"], active: false },
-  { first_name: "Michael", last_name: "White", email: "michael.white@socialcatering.com", phone: "850-555-0123", skills: ["Bartender", "Event Helper"], certifications: ["TIPS Certification"], active: false },
-  { first_name: "Elizabeth", last_name: "Harris", email: "elizabeth.harris@socialcatering.com", phone: "850-555-0124", skills: ["Chef", "Line Cook"], certifications: ["ServSafe Manager"], active: false },
-  { first_name: "William", last_name: "Sanchez", email: "william.sanchez@socialcatering.com", phone: "850-555-0125", skills: ["Server", "Banquet Server/Runner"], certifications: ["Food Handler Certificate"], active: false }
+  { first_name: "Alexander", last_name: "Perez", email: "alexander.perez@socialcatering.com", phone: "850-555-0121", skills: [ "Line Cook", "Prep Cook" ], certifications: [ "Food Handler Certificate" ], active: false },
+  { first_name: "Emily", last_name: "Thompson", email: "emily.thompson@socialcatering.com", phone: "850-555-0122", skills: [ "Server", "Captain" ], certifications: [ "ServSafe Manager" ], active: false },
+  { first_name: "Michael", last_name: "White", email: "michael.white@socialcatering.com", phone: "850-555-0123", skills: [ "Bartender", "Event Helper" ], certifications: [ "TIPS Certification" ], active: false },
+  { first_name: "Elizabeth", last_name: "Harris", email: "elizabeth.harris@socialcatering.com", phone: "850-555-0124", skills: [ "Chef", "Line Cook" ], certifications: [ "ServSafe Manager" ], active: false },
+  { first_name: "William", last_name: "Sanchez", email: "william.sanchez@socialcatering.com", phone: "850-555-0125", skills: [ "Server", "Banquet Server/Runner" ], certifications: [ "Food Handler Certificate" ], active: false }
 ]
 
 workers = workers_data.map do |worker_data|
   skills_list = worker_data[:skills]
   certs_list = worker_data[:certifications] || []
   active_status = worker_data[:active] != false # Default to true unless explicitly false
-  
+
   worker = Worker.create!(
     first_name: worker_data[:first_name],
     last_name: worker_data[:last_name],
@@ -211,7 +211,7 @@ workers = workers_data.map do |worker_data|
     skills_tsvector: skills_list.join(" "),
     active: active_status
   )
-  
+
   # Add certifications
   certs_list.each do |cert_name|
     cert = Certification.find_by(name: cert_name)
@@ -223,7 +223,7 @@ workers = workers_data.map do |worker_data|
       )
     end
   end
-  
+
   worker
 end
 
@@ -275,7 +275,7 @@ events_data = [
     supervisor_name: "Lisa Rodriguez",
     supervisor_phone: "850-555-0103"
   },
-  
+
   # Published Events (4)
   {
     title: "Business Networking Luncheon",
@@ -331,7 +331,7 @@ events_data = [
     supervisor_name: "Jessica Martinez",
     supervisor_phone: "850-555-0107"
   },
-  
+
   # Completed Events (3)
   {
     title: "Museum Fundraiser Gala",
@@ -384,7 +384,7 @@ events = events_data.map do |event_data|
     supervisor_phone: event_data[:supervisor_phone],
     check_in_instructions: "Please arrive 15 minutes early. Check in at the main entrance with your supervisor. Wear black pants and white shirt. Bring your ID and any required certifications."
   )
-  
+
   # Create event schedule
   schedule_data = event_data[:schedule]
   EventSchedule.create!(
@@ -393,7 +393,7 @@ events = events_data.map do |event_data|
     end_time_utc: Time.zone.parse(schedule_data[:end_time]).utc,
     break_minutes: schedule_data[:break_minutes]
   )
-  
+
   # Create skill requirements
   event_data[:skill_requirements].each do |req_data|
     EventSkillRequirement.create!(
@@ -404,13 +404,13 @@ events = events_data.map do |event_data|
       description: "Professional #{req_data[:skill_name].downcase} for #{event.title}"
     )
   end
-  
+
   # Generate shifts for published events
   if event.status == "published"
     event.generate_shifts!
     event.update!(published_at_utc: Time.current)
   end
-  
+
   event
 end
 
@@ -426,7 +426,7 @@ active_workers = workers.select(&:active?)
 published_events.each_with_index do |event, event_index|
   event.shifts.limit(3).each_with_index do |shift, shift_index|
     worker = active_workers[(event_index * 3 + shift_index) % active_workers.length]
-    
+
     Assignment.create!(
       shift: shift,
       worker: worker,

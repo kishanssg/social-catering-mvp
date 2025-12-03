@@ -15,11 +15,11 @@ class ShiftAssignmentService
         worker: @worker,
         assigned_by: @assigned_by,
         assigned_at_utc: Time.current,
-        status: 'assigned'
+        status: "assigned"
       )
       { success: true, assignment: assignment }
     else
-      { success: false, error: @validation_error || 'Unable to assign worker' }
+      { success: false, error: @validation_error || "Unable to assign worker" }
     end
   rescue => e
     { success: false, error: e.message }
@@ -38,21 +38,21 @@ class ShiftAssignmentService
   def ensure_skill!
     return true if worker_has_skill?
 
-    @validation_error = 'Worker does not have required skill'
+    @validation_error = "Worker does not have required skill"
     false
   end
 
   def ensure_capacity!
     return true if shift_has_capacity?
 
-    @validation_error = 'Shift is at capacity'
+    @validation_error = "Shift is at capacity"
     false
   end
 
   def ensure_availability!
     return true if worker_available?
 
-    @validation_error = 'Worker has overlapping assignment'
+    @validation_error = "Worker has overlapping assignment"
     false
   end
 
@@ -63,12 +63,12 @@ class ShiftAssignmentService
     certification_record = @worker.worker_certifications.find_by(certification_id: cert_id)
 
     if certification_record.nil?
-      @validation_error = 'Worker lacks required certification'
+      @validation_error = "Worker lacks required certification"
       return false
     end
 
     if certification_record.expires_at_utc && certification_record.expires_at_utc < @shift.end_time_utc
-      @validation_error = 'Worker certification has expired'
+      @validation_error = "Worker certification has expired"
       return false
     end
 

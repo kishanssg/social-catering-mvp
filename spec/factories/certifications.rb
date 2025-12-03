@@ -3,4 +3,3 @@ FactoryBot.define do
     sequence(:name) { |n| "Certification #{n}" }
   end
 end
-

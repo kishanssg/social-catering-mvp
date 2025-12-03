@@ -2,7 +2,7 @@ module Api
   module V1
     class SessionsController < ApplicationController
       skip_before_action :verify_authenticity_token
-      skip_before_action :authenticate_user!, only: [:create]
+      skip_before_action :authenticate_user!, only: [ :create ]
       respond_to :json
 
       def create
@@ -10,10 +10,10 @@ module Api
         Rails.logger.info "Params: #{params.inspect}"
         Rails.logger.info "Email: #{params[:user][:email]}"
         Rails.logger.info "Password received: #{params[:user][:password].present?}"
-        
+
         user = User.find_by(email: params[:user][:email])
         Rails.logger.info "User found: #{user.present?}"
-        
+
         if user
           Rails.logger.info "User ID: #{user.id}"
           Rails.logger.info "Encrypted password present: #{user.encrypted_password.present?}"

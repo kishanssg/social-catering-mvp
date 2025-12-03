@@ -51,5 +51,3 @@ if assignment.valid?
 else
   puts "✗ Assignment failed: #{assignment.errors.full_messages.join(', ')}"
 end
-
-

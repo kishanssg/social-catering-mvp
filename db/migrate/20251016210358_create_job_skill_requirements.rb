@@ -11,6 +11,6 @@ class CreateJobSkillRequirements < ActiveRecord::Migration[7.2]
       t.timestamptz :updated_at_utc, null: false
     end
 
-    add_index :job_skill_requirements, [:job_id, :skill_name], unique: true
+    add_index :job_skill_requirements, [ :job_id, :skill_name ], unique: true
   end
 end

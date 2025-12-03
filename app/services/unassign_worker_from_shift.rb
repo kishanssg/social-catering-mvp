@@ -20,7 +20,7 @@ class UnassignWorkerFromShift < ApplicationService
         end
 
         # Log the unassignment before destroying
-        event_name = @assignment.shift.event&.title || @assignment.shift.client_name || 'Unknown Event'
+        event_name = @assignment.shift.event&.title || @assignment.shift.client_name || "Unknown Event"
         ActivityLog.create!(
           actor_user_id: @unassigned_by.id,
           entity_type: "Assignment",

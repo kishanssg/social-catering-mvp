@@ -13,7 +13,7 @@ module HoursCalculations
     return 0.0 unless shift.present?
 
     # ✅ CRITICAL: No-show and cancelled assignments always return 0 hours
-    if respond_to?(:status) && status.in?(['no_show', 'cancelled'])
+    if respond_to?(:status) && status.in?([ "no_show", "cancelled" ])
       return 0.0
     end
 
@@ -24,7 +24,7 @@ module HoursCalculations
     elsif shift.start_time_utc.present? && shift.end_time_utc.present?
       duration_seconds = shift.end_time_utc - shift.start_time_utc
       hours = duration_seconds / 3600.0
-      [hours, 0.0].max.round(2) # Ensure non-negative
+      [ hours, 0.0 ].max.round(2) # Ensure non-negative
     else
       0.0
     end
@@ -54,4 +54,3 @@ module HoursCalculations
     end
   end
 end
-

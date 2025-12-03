@@ -6,7 +6,7 @@ FactoryBot.define do
     uniform_name { 'Black pants, white shirt' }
     certification_name { nil }
     needed_workers { 2 }
-    
+
     association :event
   end
 end

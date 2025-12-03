@@ -11,38 +11,38 @@ skipped_count = 0
 Event.where(status: 'published').find_each do |event|
   next unless event.event_schedule.present?
   next unless event.event_skill_requirements.any?
-  
+
   needs_fixing = false
-  
+
   # Check if event has missing shifts
   event.event_skill_requirements.each do |req|
     skill_name = req.skill_name
     next unless skill_name
-    
+
     needed = req.needed_workers
     existing = event.shifts.where(role_needed: skill_name).count
-    
+
     if existing < needed
       needs_fixing = true
       break
     end
   end
-  
+
   if needs_fixing
     puts "\n📋 Fixing: #{event.title} (ID: #{event.id})"
-    
+
     event.event_skill_requirements.each do |req|
       skill_name = req.skill_name
       next unless skill_name
-      
+
       needed = req.needed_workers
       existing_shifts = event.shifts.where(role_needed: skill_name)
       existing_count = existing_shifts.count
-      
+
       if existing_count < needed
         missing = needed - existing_count
         puts "  #{skill_name}: creating #{missing} shifts (has #{existing_count}, needs #{needed})"
-        
+
         missing.times do
           event.shifts.create!(
             role_needed: skill_name,
@@ -57,7 +57,7 @@ Event.where(status: 'published').find_each do |event|
         end
       end
     end
-    
+
     puts "  ✅ Now has #{event.shifts.reload.count} total shifts"
     fixed_count += 1
   else
@@ -70,4 +70,3 @@ puts "✅ MIGRATION COMPLETE"
 puts "Fixed: #{fixed_count} events"
 puts "Skipped (already complete): #{skipped_count} events"
 puts "="*50
-

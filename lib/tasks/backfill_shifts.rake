@@ -1,13 +1,13 @@
 namespace :shifts do
   desc "Backfill missing Shift records for all published/active events using ensure_shifts_for_requirements!"
   task backfill_missing: :environment do
-    dry_run = ENV['DRY_RUN'].to_s.downcase == 'true'
-    
+    dry_run = ENV["DRY_RUN"].to_s.downcase == "true"
+
     # Check if we're on production Heroku (not staging)
-    is_production_heroku = ENV['HEROKU_APP_NAME']&.include?('production')
+    is_production_heroku = ENV["HEROKU_APP_NAME"]&.include?("production")
 
     if is_production_heroku && !dry_run
-      unless ENV['CONFIRM'].to_s.downcase == 'true'
+      unless ENV["CONFIRM"].to_s.downcase == "true"
         puts "🚫 Refusing to run in production without explicit confirmation."
         puts "   Re-run with: CONFIRM=true rake shifts:backfill_missing"
         puts "   (Optional) DRY_RUN=true to see what would happen without writing."
@@ -86,5 +86,3 @@ namespace :shifts do
     puts "Done."
   end
 end
-
-

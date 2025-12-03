@@ -21,7 +21,7 @@ class ActivityLog < ApplicationRecord
     presenter = ActivityLogPresenter.new(self)
     summary_text = presenter.summary
     curated = presenter.curated_details
-    
+
     update_columns(
       summary: summary_text,
       details_json: curated

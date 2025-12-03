@@ -18,20 +18,20 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
-  
+
   # Include FactoryBot methods
   config.include FactoryBot::Syntax::Methods
   config.include ActiveSupport::Testing::Assertions
-  
+
   # Include Devise test helpers
   config.include Devise::Test::IntegrationHelpers, type: :request
   config.include Devise::Test::ControllerHelpers, type: :controller
-  
+
   # Database cleaner + seed data
   config.before(:suite) do
     DatabaseCleaner.strategy = :transaction
     DatabaseCleaner.clean_with(:truncation)
-    
+
     @seed_user = FactoryBot.create(
       :user,
       email: 'system_spec_user@example.com',
@@ -39,18 +39,17 @@ RSpec.configure do |config|
     )
     puts "✅ Created seed user: #{@seed_user.email} (ID: #{@seed_user.id})"
   end
-  
+
   config.before(:each) do |example|
     DatabaseCleaner.strategy = example.metadata[:type] == :system ? :truncation : :transaction
     DatabaseCleaner.start
     Current.user = User.first || FactoryBot.create(:user)
   end
-  
+
   config.after(:each) do
     DatabaseCleaner.clean
     Current.user = nil
   end
-  
 end
 
 # Shoulda matchers configuration

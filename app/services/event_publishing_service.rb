@@ -6,9 +6,9 @@ class EventPublishingService
   end
 
   def call
-    return { success: false, error: 'Event is already published' } if @event.status == 'published'
-    return { success: false, error: 'Event must have skill requirements' } unless @event.event_skill_requirements.any?
-    return { success: false, error: 'Event must have schedule' } unless @event.event_schedule.present?
+    return { success: false, error: "Event is already published" } if @event.status == "published"
+    return { success: false, error: "Event must have skill requirements" } unless @event.event_skill_requirements.any?
+    return { success: false, error: "Event must have schedule" } unless @event.event_schedule.present?
 
     @event.publish!
     @event.generate_shifts!
@@ -34,7 +34,7 @@ class EventPublishingService
         capacity: 1,
         start_time_utc: schedule.start_time_utc,
         end_time_utc: schedule.end_time_utc,
-        status: 'published',
+        status: "published",
         client_name: @event.title,
         location: @event.venue&.formatted_address
       )

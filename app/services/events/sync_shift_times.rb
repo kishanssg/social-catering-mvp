@@ -11,25 +11,25 @@ class Events::SyncShiftTimes
 
   def call
     return success(0) unless @event.present?
-    
+
     event_shifts = @event.shifts.where.not(event_id: nil)
     return success(0) if event_shifts.empty?
-    
+
     # Use nested transaction to allow rollback if called from within another transaction
     # This ensures atomicity with parent operations
     ActiveRecord::Base.transaction(requires_new: true) do
       # Find all event-owned shifts
       # Note: Validation prevents shifts from having different times than schedule,
       # so all shifts should sync. If validation is bypassed, we still sync them.
-      
+
       updated_count = event_shifts.update_all(
         start_time_utc: @start_time_utc,
         end_time_utc: @end_time_utc,
         updated_at: Time.current
       )
-      
+
       Rails.logger.info "Events::SyncShiftTimes: Synced times to #{updated_count} shifts for event #{@event.id}"
-      
+
       # Trigger event totals recalculation (hours may have changed)
       # This is atomic within the transaction
       # Note: Continue even if recalculation fails (it's not critical for sync)
@@ -44,15 +44,15 @@ class Events::SyncShiftTimes
           # Don't raise - sync should succeed even if recalculation fails
         end
       end
-      
+
       # Log activity (inside transaction) when we have a valid actor
       if (user_id = Current.user&.id)
         ActivityLog.create!(
           actor_user_id: user_id,
-          entity_type: 'EventSchedule',
+          entity_type: "EventSchedule",
           entity_id: @event.event_schedule&.id,
-          action: 'shift_times_synced',
-          after_json: { 
+          action: "shift_times_synced",
+          after_json: {
             updated_shifts_count: updated_count,
             start_time_utc: @start_time_utc,
             end_time_utc: @end_time_utc
@@ -60,7 +60,7 @@ class Events::SyncShiftTimes
           created_at_utc: Time.current
         )
       end
-      
+
       success(updated_count)
     end
   rescue => e
@@ -78,4 +78,3 @@ class Events::SyncShiftTimes
     { success: false, error: message }
   end
 end
-

@@ -1,7 +1,7 @@
 namespace :events do
   desc "Remove orphaned unassigned shifts beyond needed_workers (use EVENT_ID to target a specific event)"
   task fix_orphaned_shifts: :environment do
-    event_id = ENV['EVENT_ID']
+    event_id = ENV["EVENT_ID"]
     scope = event_id.present? ? Event.where(id: event_id) : Event.all
 
     scope.find_each do |event|
@@ -34,4 +34,3 @@ namespace :events do
     puts "=== Cleanup complete ==="
   end
 end
-

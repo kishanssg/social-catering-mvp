@@ -39,7 +39,7 @@ Rails.application.routes.draw do
       resources :activity_logs, only: [ :index ]
       resources :skills, only: [ :index, :create ]
       resources :locations, only: [ :index, :create ]
-      
+
       # Venues with Google Places integration
       resources :venues, only: [ :index, :show, :create, :update ] do
         collection do
@@ -47,13 +47,13 @@ Rails.application.routes.draw do
           post :select
         end
       end
-      
+
       # Legacy exports (keep for backward compatibility)
       get "exports/timesheet", to: "exports#timesheet"
-      
+
       # Dashboard
       get "dashboard", to: "dashboard#index"
-      
+
       # Events
       resources :events do
         member do
@@ -62,30 +62,30 @@ Rails.application.routes.draw do
           post :complete
           post :restore
           # Approvals
-          get :approvals, to: 'approvals#show'
-          post :approve_all, to: 'approvals#approve_event'
-          post :approve_selected, to: 'approvals#approve_selected'
+          get :approvals, to: "approvals#show"
+          post :approve_all, to: "approvals#approve_event"
+          post :approve_selected, to: "approvals#approve_selected"
         end
-        resources :event_skill_requirements, only: [:create, :update, :destroy] do
+        resources :event_skill_requirements, only: [ :create, :update, :destroy ] do
           member do
             get :eligible_workers
           end
         end
       end
-      
+
       # Keep jobs as alias for backward compatibility
-      resources :jobs, controller: 'events'
-      
+      resources :jobs, controller: "events"
+
       # Staffing endpoints (keep for modal operations only)
-      resources :staffing, only: [:create, :update, :destroy] do
+      resources :staffing, only: [ :create, :update, :destroy ] do
         collection do
           post :bulk_create
           post :validate_bulk
         end
       end
-      
+
       # Keep assignments as alias for backward compatibility
-      resources :assignments, controller: 'staffing', only: [:create, :update, :destroy] do
+      resources :assignments, controller: "staffing", only: [ :create, :update, :destroy ] do
         collection do
           post :bulk_create
           get :export
@@ -96,11 +96,11 @@ Rails.application.routes.draw do
           patch :update_break
         end
       end
-      
+
       # Reports
       # Preview endpoint (outside namespace to avoid routing conflicts)
-      get 'reports/timesheet/preview', to: 'reports#timesheet_preview'
-      
+      get "reports/timesheet/preview", to: "reports#timesheet_preview"
+
       namespace :reports do
         get :timesheet
         get :payroll
@@ -111,9 +111,9 @@ Rails.application.routes.draw do
       # Approval actions on assignments
       resources :approvals, only: [] do
         collection do
-          patch ':id/update_hours', to: 'approvals#update_hours', as: :update_hours
-          post ':id/mark_no_show', to: 'approvals#mark_no_show', as: :mark_no_show
-          delete ':id/remove', to: 'approvals#remove', as: :remove_assignment
+          patch ":id/update_hours", to: "approvals#update_hours", as: :update_hours
+          post ":id/mark_no_show", to: "approvals#mark_no_show", as: :mark_no_show
+          delete ":id/remove", to: "approvals#remove", as: :remove_assignment
         end
       end
     end
@@ -124,11 +124,11 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   # Serve SPA for HTML paths only, never for real files
-  get '*path', to: 'home#index',
+  get "*path", to: "home#index",
     constraints: ->(req) {
       req.format.html? &&
       !req.path.match?(/\.(?:js|css|map|png|jpe?g|gif|svg|ico|json|txt|woff2?|ttf)$/) &&
-      !req.path.start_with?('/assets/')
+      !req.path.start_with?("/assets/")
     }
 
   # Defines the root path route ("/")

@@ -33,23 +33,23 @@ updated_count = 0
 published_events.each_with_index do |event, index|
   next unless event.event_schedule
   next if index >= future_dates.length
-  
+
   future_date = future_dates[index]
   new_start = future_date.beginning_of_day + 18.hours  # 6 PM
   new_end = future_date.beginning_of_day + 23.hours    # 11 PM
-  
+
   # Update event schedule
   event.event_schedule.update!(
     start_time_utc: new_start,
     end_time_utc: new_end
   )
-  
+
   # Update all shifts for this event
   event.shifts.update_all(
     start_time_utc: new_start,
     end_time_utc: new_end
   )
-  
+
   puts "  ✓ #{event.title} → #{future_date.strftime('%B %d, %Y')}"
   updated_count += 1
 end
@@ -62,4 +62,3 @@ puts ""
 puts "📊 VERIFICATION:"
 puts "  Active events (end_time_utc > now): #{Event.published.joins(:event_schedule).where('event_schedules.end_time_utc > ?', Time.current).count}"
 puts "  Completed events (end_time_utc <= now): #{Event.published.joins(:event_schedule).where('event_schedules.end_time_utc <= ?', Time.current).count}"
-

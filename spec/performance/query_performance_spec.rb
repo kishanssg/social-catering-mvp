@@ -31,16 +31,16 @@ RSpec.describe 'Query Performance', type: :model do
     let(:event) { create(:event, status: 'published') }
     let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 10) }
     let!(:schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
-    
+
     before do
       event.generate_shifts!
-      
+
       # Create assignments for some shifts
       event.shifts.limit(5).each do |shift|
         create(:assignment, shift: shift, status: 'confirmed')
       end
     end
-    
+
     context 'Event#shifts with assignments' do
       it 'uses includes to prevent N+1 queries' do
         expect {
@@ -49,7 +49,7 @@ RSpec.describe 'Query Performance', type: :model do
           end
         }.to make_database_queries(count: 1..15) # Updated: includes now triggers additional queries for SSOT validation
       end
-      
+
       it 'detects N+1 queries without includes' do
         expect {
           Event.find(event.id).shifts.each do |shift|
@@ -58,30 +58,30 @@ RSpec.describe 'Query Performance', type: :model do
         }.to make_database_queries(count: 11..15) # Updated: 1 for event + 10 for shifts + 10 for assignments + SSOT checks
       end
     end
-    
+
     context 'Event#staffing_progress calculation' do
       it 'uses includes to prevent N+1 queries' do
         expect {
           Event.includes(shifts: :assignments).find(event.id).staffing_progress
         }.to make_database_queries(count: 1..10) # Updated: includes now triggers additional queries for SSOT validation
       end
-      
+
       it 'detects N+1 queries without includes' do
         expect {
           Event.find(event.id).staffing_progress
         }.to make_database_queries(count: 5..12) # Updated: 1 for event + 10 for shifts + 10 for assignments + SSOT checks
       end
     end
-    
+
     context 'Shift#staffing_progress calculation' do
       let(:shift) { event.shifts.first }
-      
+
       it 'uses includes to prevent N+1 queries' do
         expect {
           Shift.includes(:assignments).find(shift.id).staffing_progress
         }.to make_database_queries(count: 1..5) # Updated: includes now triggers additional queries for SSOT validation
       end
-      
+
       it 'detects N+1 queries without includes' do
         expect {
           Shift.find(shift.id).staffing_progress
@@ -89,37 +89,37 @@ RSpec.describe 'Query Performance', type: :model do
       end
     end
   end
-  
+
   describe 'Database indexing performance' do
     let(:event) { create(:event, status: 'published') }
     let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 100) }
     let!(:schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
-    
+
     before do
       event.generate_shifts!
     end
-    
+
     context 'Shift queries by time range' do
       it 'uses index on start_time_utc and end_time_utc' do
         start_time = Time.current + 1.day
         end_time = Time.current + 1.day + 4.hours
-        
+
         expect {
           Shift.where('start_time_utc >= ? AND end_time_utc <= ?', start_time, end_time).count
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Assignment queries by worker and time' do
-      let(:workers) { create_list(:worker, 50, skills_json: ['Server']) }
-      
+      let(:workers) { create_list(:worker, 50, skills_json: [ 'Server' ]) }
+
       before do
         # Create assignments for some shifts, using different workers to avoid conflicts
         event.shifts.limit(50).each_with_index do |shift, idx|
           create(:assignment, shift: shift, worker: workers[idx], status: 'confirmed')
         end
       end
-      
+
       it 'uses index on worker_id and shift_id' do
         expect {
           Assignment.joins(:shift)
@@ -129,48 +129,48 @@ RSpec.describe 'Query Performance', type: :model do
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Event queries by status' do
       before do
         create_list(:event, 50, status: 'published')
         create_list(:event, 50, status: 'draft')
         create_list(:event, 50, status: 'completed')
       end
-      
+
       it 'uses index on status' do
         expect {
           Event.where(status: 'published').count
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Worker queries by skill' do
       before do
-        create_list(:worker, 100, skills_json: ['Server'])
-        create_list(:worker, 100, skills_json: ['Bartender'])
-        create_list(:worker, 100, skills_json: ['Chef'])
+        create_list(:worker, 100, skills_json: [ 'Server' ])
+        create_list(:worker, 100, skills_json: [ 'Bartender' ])
+        create_list(:worker, 100, skills_json: [ 'Chef' ])
       end
-      
+
       it 'uses GIN index on skills_json' do
         expect {
-          Worker.where("skills_json @> ?", ['Server'].to_json).count
+          Worker.where("skills_json @> ?", [ 'Server' ].to_json).count
         }.to make_database_queries(count: 1)
       end
     end
   end
-  
+
   describe 'Bulk operations performance' do
     let(:event) { create(:event, status: 'published') }
     let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 100) }
     let!(:schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
-    
+
     before do
       event.generate_shifts!
     end
-    
+
     context 'Bulk assignment creation' do
-      let(:workers) { create_list(:worker, 50, skills_json: ['Server']) }
-      
+      let(:workers) { create_list(:worker, 50, skills_json: [ 'Server' ]) }
+
       it 'creates multiple assignments efficiently' do
         assignments_data = event.shifts.limit(50).map do |shift|
           {
@@ -181,13 +181,13 @@ RSpec.describe 'Query Performance', type: :model do
             status: 'confirmed'
           }
         end
-        
+
         expect {
           Assignment.insert_all(assignments_data)
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Bulk shift generation' do
       it 'generates shifts efficiently' do
         expect {
@@ -196,24 +196,24 @@ RSpec.describe 'Query Performance', type: :model do
       end
     end
   end
-  
+
   describe 'Search performance' do
     before do
       # Create workers with various skills
-      create_list(:worker, 100, skills_json: ['Server'])
-      create_list(:worker, 100, skills_json: ['Bartender'])
-      create_list(:worker, 100, skills_json: ['Chef'])
-      create_list(:worker, 100, skills_json: ['Server', 'Bartender'])
+      create_list(:worker, 100, skills_json: [ 'Server' ])
+      create_list(:worker, 100, skills_json: [ 'Bartender' ])
+      create_list(:worker, 100, skills_json: [ 'Chef' ])
+      create_list(:worker, 100, skills_json: [ 'Server', 'Bartender' ])
     end
-    
+
     context 'Worker search by skill' do
       it 'uses GIN index for efficient skill search' do
         expect {
-          Worker.where("skills_json @> ?", ['Server'].to_json).count
+          Worker.where("skills_json @> ?", [ 'Server' ].to_json).count
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Worker search by name' do
       it 'uses text search index' do
         expect {
@@ -221,11 +221,11 @@ RSpec.describe 'Query Performance', type: :model do
         }.to make_database_queries(count: 1)
       end
     end
-    
+
     context 'Complex worker search' do
       it 'combines multiple conditions efficiently' do
         expect {
-          Worker.where("skills_json @> ?", ['Server'].to_json)
+          Worker.where("skills_json @> ?", [ 'Server' ].to_json)
             .where(active: true)
             .where("first_name ILIKE ?", "%John%")
             .count
@@ -233,16 +233,16 @@ RSpec.describe 'Query Performance', type: :model do
       end
     end
   end
-  
+
   describe 'Memory usage optimization' do
     let(:event) { create(:event, status: 'published') }
     let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 1000) }
     let!(:schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
-    
+
     before do
       event.generate_shifts!
     end
-    
+
     context 'Large dataset processing' do
       it 'uses find_each for memory efficiency' do
         expect {
@@ -251,7 +251,7 @@ RSpec.describe 'Query Performance', type: :model do
           end
         }.to make_database_queries(count: 11..1002) # Updated: 10 batches of 100 + 1 initial query + SSOT checks per shift
       end
-      
+
       it 'avoids loading all records at once' do
         expect {
           Shift.all.each do |shift|
@@ -260,7 +260,7 @@ RSpec.describe 'Query Performance', type: :model do
         }.to make_database_queries(count: 1001..2000) # Updated: 1 for all shifts + 1000 for assignments + SSOT checks
       end
     end
-    
+
     context 'Selective field loading' do
       it 'loads only necessary fields' do
         expect {
@@ -271,52 +271,51 @@ RSpec.describe 'Query Performance', type: :model do
       end
     end
   end
-  
+
   describe 'Caching performance' do
     let(:event) { create(:event, status: 'published') }
     let!(:skill_req) { create(:event_skill_requirement, event: event, skill_name: 'Server', needed_workers: 10) }
     let!(:schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
-    
+
     before do
       event.generate_shifts!
     end
-    
+
     context 'Repeated staffing calculations' do
       it 'benefits from memoization' do
         loaded_event = Event.includes(shifts: :assignments).find(event.id)
-        
+
         # First calculation
         expect {
           loaded_event.staffing_progress
         }.to make_database_queries(count: 1..5) # Updated: includes now triggers additional queries for SSOT validation
-        
+
         # Second calculation should use cached result
         expect {
           loaded_event.staffing_progress
         }.to make_database_queries(count: 0..4) # Updated: may still trigger some queries for SSOT checks
       end
     end
-    
+
     context 'Assignment count efficiency' do
       let(:shift) do
         s = event.shifts.first
         s.update!(capacity: 10) # Increase capacity to allow multiple assignments
         s
       end
-      
+
       before do
         create_list(:assignment, 3, shift: shift, status: 'confirmed')
       end
-      
+
       it 'efficiently counts assignments' do
         expect {
           # Use standard count instead of counter cache (counter cache not currently implemented)
           shift.assignments.count
         }.to make_database_queries(count: 1)
-        
+
         expect(shift.assignments.count).to eq(3)
       end
     end
   end
 end
-

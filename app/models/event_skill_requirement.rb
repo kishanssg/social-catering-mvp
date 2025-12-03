@@ -3,7 +3,7 @@ class EventSkillRequirement < ApplicationRecord
 
   # Associations
   belongs_to :event
-  belongs_to :required_certification, class_name: 'Certification', optional: true
+  belongs_to :required_certification, class_name: "Certification", optional: true
 
   # Validations
   validates :skill_name, presence: true
@@ -14,7 +14,7 @@ class EventSkillRequirement < ApplicationRecord
   # Callbacks for custom timestamp columns
   before_create :set_created_at_utc
   before_save :set_updated_at_utc
-  
+
   # Cascade pay rate changes to existing shifts (Single Source of Truth)
   after_update :cascade_pay_rate_to_shifts, if: :saved_change_to_pay_rate?
 
@@ -37,7 +37,7 @@ class EventSkillRequirement < ApplicationRecord
     elsif certification_name.present?
       requirements << "Certification: #{certification_name}"
     end
-    requirements.join(', ')
+    requirements.join(", ")
   end
 
   def total_pay_for_requirement
@@ -57,9 +57,9 @@ class EventSkillRequirement < ApplicationRecord
 
   def cascade_pay_rate_to_shifts
     return unless event.present? && pay_rate.present?
-    
+
     old_rate = saved_change_to_pay_rate[0]
-    
+
     # This callback runs within the same transaction as the parent update
     # If we raise here, the parent update will rollback
     # Find shifts that should be updated:
@@ -68,20 +68,20 @@ class EventSkillRequirement < ApplicationRecord
     # 3. Exclude shifts with different rates (manually overridden)
     # 4. Exclude shifts that are auto_generated=false AND have pay_rate != old_rate (explicitly overridden)
     matching_shifts = event.shifts.where(role_needed: skill_name)
-      .where(pay_rate: [nil, old_rate]) # Only nil or old requirement rate
+      .where(pay_rate: [ nil, old_rate ]) # Only nil or old requirement rate
       .where(
         # Include auto-generated shifts OR shifts that match old rate (following requirement)
         "(auto_generated = true) OR (pay_rate = ?)",
         old_rate
       )
-    
+
     updated_count = matching_shifts.update_all(
       pay_rate: pay_rate,
       updated_at: Time.current
     )
-    
+
     Rails.logger.info "EventSkillRequirement #{id}: Cascaded pay_rate #{pay_rate} to #{updated_count} shifts for role '#{skill_name}'"
-    
+
     # Recalculate event totals (atomic within same transaction)
     if event.respond_to?(:recalculate_totals!)
       recalc_result = event.recalculate_totals!
@@ -89,15 +89,15 @@ class EventSkillRequirement < ApplicationRecord
         raise "Failed to recalculate event totals after pay_rate cascade"
       end
     end
-    
+
     # Log activity (within same transaction)
     ActivityLog.create!(
       actor_user_id: Current.user&.id,
-      entity_type: 'EventSkillRequirement',
+      entity_type: "EventSkillRequirement",
       entity_id: id,
-      action: 'requirement_pay_rate_cascade',
+      action: "requirement_pay_rate_cascade",
       before_json: { pay_rate: old_rate },
-      after_json: { 
+      after_json: {
         pay_rate: pay_rate,
         updated_shifts_count: updated_count,
         role: skill_name

@@ -3,7 +3,7 @@ class UpdateEventStatusConstraints < ActiveRecord::Migration[7.2]
     # Drop old constraints that don't include 'deleted'
     execute "ALTER TABLE events DROP CONSTRAINT IF EXISTS check_event_status;"
     execute "ALTER TABLE events DROP CONSTRAINT IF EXISTS valid_job_status;"
-    
+
     # Add new constraint that includes 'deleted' status
     execute %{
       ALTER TABLE events
@@ -15,7 +15,7 @@ class UpdateEventStatusConstraints < ActiveRecord::Migration[7.2]
   def down
     execute "ALTER TABLE events DROP CONSTRAINT IF EXISTS check_event_status;"
     execute "ALTER TABLE events DROP CONSTRAINT IF EXISTS valid_job_status;"
-    
+
     # Restore original constraints
     execute %{
       ALTER TABLE events

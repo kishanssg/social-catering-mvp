@@ -27,20 +27,20 @@ RSpec.describe 'Eligible workers endpoint', type: :request do
   end
 
   let!(:eligible_worker) do
-    create(:worker, skills_json: ['Prep Cook']).tap do |worker|
+    create(:worker, skills_json: [ 'Prep Cook' ]).tap do |worker|
       create(:worker_certification, worker: worker, certification: certification, expires_at_utc: schedule.end_time_utc + 1.day)
     end
   end
 
-  let!(:worker_without_cert) { create(:worker, skills_json: ['Prep Cook']) }
+  let!(:worker_without_cert) { create(:worker, skills_json: [ 'Prep Cook' ]) }
   let!(:worker_with_expired_cert) do
-    create(:worker, skills_json: ['Prep Cook']).tap do |worker|
+    create(:worker, skills_json: [ 'Prep Cook' ]).tap do |worker|
       create(:worker_certification, worker: worker, certification: certification, expires_at_utc: schedule.start_time_utc - 1.day)
     end
   end
 
   let!(:conflicting_worker) do
-    create(:worker, skills_json: ['Prep Cook']).tap do |worker|
+    create(:worker, skills_json: [ 'Prep Cook' ]).tap do |worker|
       create(:worker_certification, worker: worker, certification: certification, expires_at_utc: schedule.end_time_utc + 2.days)
       conflicting_shift = create(
         :shift,
@@ -77,4 +77,3 @@ RSpec.describe 'Eligible workers endpoint', type: :request do
     JSON.parse(response.body)
   end
 end
-

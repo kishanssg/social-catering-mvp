@@ -5,4 +5,3 @@ FactoryBot.define do
     expires_at_utc { 1.year.from_now }
   end
 end
-

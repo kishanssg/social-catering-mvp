@@ -8,9 +8,9 @@ class CreateLocations < ActiveRecord::Migration[7.2]
       t.boolean :active, default: true
       t.timestamps
     end
-    
+
     add_index :locations, :name, unique: true
     add_index :locations, :active
-    add_index :locations, [:city, :state]
+    add_index :locations, [ :city, :state ]
   end
 end

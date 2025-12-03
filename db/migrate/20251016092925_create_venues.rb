@@ -16,7 +16,7 @@ class CreateVenues < ActiveRecord::Migration[7.2]
       t.timestamptz :created_at_utc, null: false
       t.timestamptz :updated_at_utc, null: false
     end
-    
+
     add_index :venues, :place_id, unique: true
     add_index :venues, :name
     add_index :venues, :last_synced_at_utc

@@ -35,12 +35,12 @@ RSpec::Matchers.define :make_database_queries do |expected|
 
     @expected_count = expected.is_a?(Hash) ? expected[:count] : expected
     range = case @expected_count
-            when Range then @expected_count
-            when Integer then @expected_count..@expected_count
-            when nil then 0..Float::INFINITY
-            else
+    when Range then @expected_count
+    when Integer then @expected_count..@expected_count
+    when nil then 0..Float::INFINITY
+    else
               raise ArgumentError, "Unsupported expected value: #{expected.inspect}"
-            end
+    end
 
     @actual_count = DatabaseQueryMatchers.count_queries { actual.call }
     range.cover?(@actual_count)
@@ -50,4 +50,3 @@ RSpec::Matchers.define :make_database_queries do |expected|
     "expected block to make #{@expected_count.inspect} database queries, but made #{@actual_count}"
   end
 end
-

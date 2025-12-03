@@ -9,21 +9,21 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     # Allow specific origins for development
     origins(
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:5175',
-      'http://localhost:5176',
-      'http://localhost:5177',  # Current frontend port
-      'http://localhost:3000',
-      'https://your-frontend-name.netlify.app',  # Update with actual URL
-      'https://your-custom-domain.com',  # If you have custom domain
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+      "http://localhost:5176",
+      "http://localhost:5177",  # Current frontend port
+      "http://localhost:3000",
+      "https://your-frontend-name.netlify.app",  # Update with actual URL
+      "https://your-custom-domain.com",  # If you have custom domain
       /https:\/\/.*\.herokuapp\.com$/  # Allow all Heroku subdomains
     )
-    
-    resource '*',
+
+    resource "*",
       headers: :any,
-      methods: [:get, :post, :put, :patch, :delete, :options, :head],
+      methods: [ :get, :post, :put, :patch, :delete, :options, :head ],
       credentials: true,
-      expose: ['Authorization']
+      expose: [ "Authorization" ]
   end
 end

@@ -1,7 +1,7 @@
 module Api
   module V1
     class ShiftsController < BaseController
-      before_action :set_shift, only: [:show, :update, :destroy]
+      before_action :set_shift, only: [ :show, :update, :destroy ]
 
       # GET /api/v1/shifts
       def index
@@ -13,17 +13,17 @@ module Api
 
         # Filter by status (computed/status scopes)
         case params[:status]
-        when 'needs_workers'
+        when "needs_workers"
           shifts = shifts.needing_workers
-        when 'fully_staffed'
+        when "fully_staffed"
           shifts = shifts.fully_staffed
-        when 'in_progress'
+        when "in_progress"
           shifts = shifts.in_progress
-        when 'completed'
+        when "completed"
           shifts = shifts.completed
-        when 'upcoming'
+        when "upcoming"
           shifts = shifts.upcoming
-        when 'active'
+        when "active"
           shifts = shifts.active
         end
 
@@ -36,12 +36,12 @@ module Api
 
         # Group by event if requested
         # OPTIMIZED: Eager load events to prevent N+1 queries
-        if params[:group_by] == 'event'
+        if params[:group_by] == "event"
           # Get all unique event_ids from shifts
           event_ids = shifts.pluck(:event_id).compact.uniq
           # Eager load all events in one query
           events_by_id = Event.where(id: event_ids).index_by(&:id)
-          
+
           grouped_data = shifts.group_by(&:event_id).map do |event_id, event_shifts|
             event = events_by_id[event_id]
             {
@@ -50,15 +50,15 @@ module Api
             }
           end
 
-          render json: { status: 'success', data: grouped_data }
+          render json: { status: "success", data: grouped_data }
         else
-          render json: { status: 'success', data: shifts.map { |shift| serialize_shift(shift) } }
+          render json: { status: "success", data: shifts.map { |shift| serialize_shift(shift) } }
         end
       end
 
       # GET /api/v1/shifts/:id
       def show
-        render json: { status: 'success', data: serialize_shift_detailed(@shift) }
+        render json: { status: "success", data: serialize_shift_detailed(@shift) }
       end
 
       # POST /api/v1/shifts (standalone shifts only)
@@ -67,25 +67,25 @@ module Api
         @shift.created_by = current_user
 
         if @shift.save
-          render json: { status: 'success', data: serialize_shift(@shift) }, status: :created
+          render json: { status: "success", data: serialize_shift(@shift) }, status: :created
         else
-          render json: { status: 'error', errors: @shift.errors.full_messages }, status: :unprocessable_entity
+          render json: { status: "error", errors: @shift.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
       # PATCH /api/v1/shifts/:id
       def update
         if @shift.update(shift_params)
-          render json: { status: 'success', data: serialize_shift(@shift) }
+          render json: { status: "success", data: serialize_shift(@shift) }
         else
-          render json: { status: 'error', errors: @shift.errors.full_messages }, status: :unprocessable_entity
+          render json: { status: "error", errors: @shift.errors.full_messages }, status: :unprocessable_entity
         end
       end
 
       # DELETE /api/v1/shifts/:id
       def destroy
         if @shift.event_id.present?
-          return render json: { status: 'error', message: 'Cannot delete shifts that belong to an event. Delete the event instead.' }, status: :forbidden
+          return render json: { status: "error", message: "Cannot delete shifts that belong to an event. Delete the event instead." }, status: :forbidden
         end
         @shift.destroy
         head :no_content
@@ -101,7 +101,7 @@ module Api
         permitted = params.require(:shift).permit(
           :client_name, :role_needed, :capacity, :location_id, :pay_rate, :notes
         )
-        
+
         # For event-owned shifts, do NOT allow time updates
         # (times must be updated via event schedule to maintain Single Source of Truth)
         if @shift.event_id.present?

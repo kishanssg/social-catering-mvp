@@ -58,7 +58,7 @@ RSpec.describe EventSkillRequirement, type: :model do
 
       it 'rolls back requirement update if cascade fails' do
         allow_any_instance_of(Shift).to receive(:update_all).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
-        
+
         expect {
           begin
             requirement.update!(pay_rate: 18.0)
@@ -79,8 +79,8 @@ RSpec.describe EventSkillRequirement, type: :model do
         it 'updates all matching shifts efficiently' do
           expect {
             requirement.update!(pay_rate: 18.0)
-          }.to change { 
-            Shift.where(event: event, role_needed: 'Server', pay_rate: 18.0).count 
+          }.to change {
+            Shift.where(event: event, role_needed: 'Server', pay_rate: 18.0).count
           }.from(0).to(100)
         end
 
@@ -89,7 +89,7 @@ RSpec.describe EventSkillRequirement, type: :model do
           expect {
             requirement.update!(pay_rate: 18.0)
           }.not_to raise_error
-          
+
           # Verify update completed efficiently
           expect(requirement.reload.pay_rate).to eq(18.0)
         end
@@ -122,7 +122,7 @@ RSpec.describe EventSkillRequirement, type: :model do
         req2 = EventSkillRequirement.find(requirement.id)
 
         req1.update!(pay_rate: 18.0)
-        
+
         expect {
           req2.update!(pay_rate: 20.0)
         }.to raise_error(ActiveRecord::StaleObjectError)
@@ -139,4 +139,3 @@ RSpec.describe EventSkillRequirement, type: :model do
     end
   end
 end
-

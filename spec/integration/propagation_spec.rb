@@ -18,7 +18,7 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
   describe 'EventSchedule → Shift time sync' do
     it 'syncs all shifts when schedule times change' do
       shifts = event.shifts.to_a
-      original_times = shifts.map { |s| [s.start_time_utc, s.end_time_utc] }
+      original_times = shifts.map { |s| [ s.start_time_utc, s.end_time_utc ] }
 
       new_start = Time.current + 2.days
       new_end = Time.current + 2.days + 5.hours
@@ -37,12 +37,12 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
 
     it 'recalculates event totals after time sync' do
       assignment = create(:assignment, shift: event.shifts.first, worker: create(:worker), hours_worked: 8.0)
-      
+
       original_total = event.total_hours_worked
-      
+
       new_start = Time.current + 2.days
       new_end = Time.current + 2.days + 6.hours # Different duration
-      
+
       event_schedule.update!(
         start_time_utc: new_start,
         end_time_utc: new_end
@@ -56,9 +56,9 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
 
     it 'rolls back if sync fails' do
       allow_any_instance_of(Events::SyncShiftTimes).to receive(:call).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
-      
+
       original_times = event.shifts.first.start_time_utc
-      
+
       expect {
         begin
           event_schedule.update!(start_time_utc: Time.current + 2.days)
@@ -82,9 +82,9 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
     end
 
     it 'recalculates event totals after pay_rate cascade' do
-      assignment = create(:assignment, 
-        shift: event.shifts.first, 
-        worker: create(:worker), 
+      assignment = create(:assignment,
+        shift: event.shifts.first,
+        worker: create(:worker),
         hours_worked: 8.0,
         hourly_rate: nil # Will use shift.pay_rate
       )
@@ -179,7 +179,7 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
       # Change schedule times
       new_start = Time.current + 3.days
       new_end = Time.current + 3.days + 6.hours # Different duration
-      
+
       ActiveRecord::Base.transaction do
         event_schedule.update!(
           start_time_utc: new_start,
@@ -211,7 +211,7 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
       second_update = Time.current + 3.days
 
       schedule1.update!(start_time_utc: first_update, end_time_utc: first_update + 4.hours)
-      
+
       expect {
         schedule2.update!(start_time_utc: second_update, end_time_utc: second_update + 4.hours)
       }.not_to raise_error
@@ -224,7 +224,7 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
       req2 = EventSkillRequirement.find(requirement.id)
 
       req1.update!(pay_rate: 18.0)
-      
+
       expect {
         req2.update!(pay_rate: 20.0)
       }.not_to raise_error
@@ -251,4 +251,3 @@ RSpec.describe 'SSOT Propagation Integration', type: :integration do
     end
   end
 end
-

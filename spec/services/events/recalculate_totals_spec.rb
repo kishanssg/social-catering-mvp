@@ -25,7 +25,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
 
         expect(result[:success]).to be true
         event.reload
-        
+
         # Should include assignment1 (8h * $15 = $120) and assignment4 (6h * $18 = $108)
         # assignment2 has nil hours, should use scheduled hours
         # assignment3 is cancelled, should be excluded
@@ -36,7 +36,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       it 'excludes cancelled and no_show assignments' do
         # Create a no_show assignment
         no_show_assignment = create(:assignment, shift: shift, worker: create(:worker), status: 'no_show', hours_worked: 5.0, hourly_rate: 15.0)
-        
+
         result = described_class.new(event: event).call
         event.reload
 
@@ -48,7 +48,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       it 'uses effective_hours for assignments with nil hours_worked' do
         # assignment2 has nil hours_worked, should use scheduled duration
         scheduled_hours = shift.duration_hours
-        
+
         result = described_class.new(event: event).call
         event.reload
 
@@ -62,10 +62,10 @@ RSpec.describe Events::RecalculateTotals, type: :service do
         # Create 1000 assignments
         other_workers = create_list(:worker, 1000)
         other_workers.each do |w|
-          create(:assignment, 
-            shift: shift, 
-            worker: w, 
-            status: 'completed', 
+          create(:assignment,
+            shift: shift,
+            worker: w,
+            status: 'completed',
             hours_worked: rand(4.0..12.0).round(2),
             hourly_rate: rand(12.0..25.0).round(2)
           )
@@ -76,7 +76,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
         start_time = Time.current
         result = described_class.new(event: event).call
         elapsed = Time.current - start_time
-        
+
         expect(result[:success]).to be true
         expect(elapsed).to be < 5
       end
@@ -84,15 +84,15 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       it 'does not cause N+1 queries' do
         # Verify calculation completed efficiently
         result = described_class.new(event: event).call
-        
+
         expect(result[:success]).to be true
         expect(event.reload.total_hours_worked).to be > 0
       end
 
       it 'calculates correct totals' do
-        expected_hours = Assignment.where(shift: event.shifts, status: ['assigned', 'confirmed', 'completed'])
+        expected_hours = Assignment.where(shift: event.shifts, status: [ 'assigned', 'confirmed', 'completed' ])
           .sum { |a| a.effective_hours }
-        expected_pay = Assignment.where(shift: event.shifts, status: ['assigned', 'confirmed', 'completed'])
+        expected_pay = Assignment.where(shift: event.shifts, status: [ 'assigned', 'confirmed', 'completed' ])
           .sum { |a| a.effective_pay }
 
         result = described_class.new(event: event).call
@@ -126,9 +126,9 @@ RSpec.describe Events::RecalculateTotals, type: :service do
     context 'transaction handling' do
       it 'wraps update in transaction' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 8.0)
-        
+
         allow(event).to receive(:update_columns).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
-        
+
         result = described_class.new(event: event).call
 
         expect(result[:success]).to be false
@@ -137,7 +137,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
 
       it 'updates all fields atomically' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 8.0, hourly_rate: 15.0)
-        
+
         result = described_class.new(event: event).call
         event.reload
 
@@ -152,7 +152,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
       it 'handles assignments with nil hourly_rate (uses fallback)' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 8.0, hourly_rate: nil)
         shift.update!(pay_rate: 12.0) # Fallback rate
-        
+
         result = described_class.new(event: event).call
         event.reload
 
@@ -162,7 +162,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
 
       it 'handles assignments with zero hours' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 0.0, hourly_rate: 15.0)
-        
+
         described_class.new(event: event).call
         event.reload
 
@@ -173,7 +173,7 @@ RSpec.describe Events::RecalculateTotals, type: :service do
 
       it 'rounds totals to 2 decimal places' do
         create(:assignment, shift: shift, worker: worker, status: 'completed', hours_worked: 8.333333, hourly_rate: 15.777777)
-        
+
         result = described_class.new(event: event).call
         event.reload
 
@@ -183,4 +183,3 @@ RSpec.describe Events::RecalculateTotals, type: :service do
     end
   end
 end
-

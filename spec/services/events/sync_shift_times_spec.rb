@@ -6,7 +6,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
   let(:event) { create(:event) }
   let(:event_schedule) { create(:event_schedule, event: event, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours) }
   let(:user) { create(:user) }
-  
+
   before do
     Current.user = user
   end
@@ -27,7 +27,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
 
         expect(result[:success]).to be true
         expect(result[:updated_count]).to eq(2)
-        
+
         expect(shift1.reload.start_time_utc).to be_within(1.second).of(new_start)
         expect(shift1.reload.end_time_utc).to be_within(1.second).of(new_end)
         expect(shift2.reload.start_time_utc).to be_within(1.second).of(new_start)
@@ -36,7 +36,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
 
       it 'does not sync standalone shifts' do
         standalone_shift = create(:shift, event: nil, start_time_utc: Time.current + 1.day, end_time_utc: Time.current + 1.day + 4.hours)
-        
+
         result = described_class.new(
           event: event,
           start_time_utc: new_start,
@@ -48,7 +48,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
 
       it 'triggers event totals recalculation' do
         expect(event).to receive(:recalculate_totals!).and_return(true)
-        
+
         described_class.new(
           event: event,
           start_time_utc: new_start,
@@ -84,7 +84,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
 
       it 'wraps operations in transaction' do
         allow_any_instance_of(ActiveRecord::Relation).to receive(:update_all).and_raise(ActiveRecord::StatementInvalid.new("Database error"))
-        
+
         result = described_class.new(
           event: event,
           start_time_utc: new_start,
@@ -148,7 +148,7 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
           start_time_utc: Time.current + 2.days,
           end_time_utc: Time.current + 2.days + 5.hours
         ).call
-        
+
         expect(result[:success]).to be true
         expect(result[:updated_count]).to eq(1000)
       end
@@ -158,9 +158,9 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
       it 'uses UTC consistently' do
         new_start = Time.zone.parse('2025-01-27 10:00:00 UTC')
         new_end = Time.zone.parse('2025-01-27 14:00:00 UTC')
-        
+
         create(:shift, event: event)
-        
+
         result = described_class.new(
           event: event,
           start_time_utc: new_start,
@@ -174,4 +174,3 @@ RSpec.describe Events::SyncShiftTimes, type: :service do
     end
   end
 end
-

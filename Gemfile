@@ -28,7 +28,7 @@ gem "solid_cable"
 gem "bootsnap", require: false
 
 # Load environment variables from .env file
-gem "dotenv-rails", groups: [:development, :test]
+gem "dotenv-rails", groups: [ :development, :test ]
 
 # Deploy this application anywhere as a Docker container [https://kamal-deploy.org]
 gem "kamal", require: false
@@ -70,7 +70,7 @@ group :development, :test do
 
   # Enhanced debugging with pry [https://github.com/pry/pry-rails]
   gem "pry-rails"
-  
+
   # Faker for generating realistic test data
   gem "faker"
 end
@@ -84,25 +84,25 @@ group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
-  
+
   # RSpec testing framework
   gem "rspec-rails"
   gem "rspec-core"
   gem "rspec-expectations"
   gem "rspec-mocks"
-  
+
   # FactoryBot for test data generation
   gem "factory_bot_rails"
-  
+
   # Shoulda matchers for Rails
   gem "shoulda-matchers"
-  
+
   # Database cleaner for test isolation
   gem "database_cleaner-active_record"
-  
+
   # Query performance testing
   gem "rspec-benchmark"
-  
+
   # VCR for API testing
   gem "vcr"
   gem "webmock"

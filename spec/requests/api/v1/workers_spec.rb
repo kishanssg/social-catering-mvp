@@ -121,4 +121,3 @@ RSpec.describe 'Api::V1::Workers', type: :request do
     JSON.parse(response.body)
   end
 end
-

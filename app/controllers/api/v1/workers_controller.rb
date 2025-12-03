@@ -22,25 +22,25 @@
           }
         end
       end
-require 'set'
+require "set"
 
 module Api
   module V1
     class WorkersController < BaseController
-      before_action :set_worker, only: [:show, :update, :destroy]
-      before_action :normalize_cert_params!, only: [:create, :update]
+      before_action :set_worker, only: [ :show, :update, :destroy ]
+      before_action :normalize_cert_params!, only: [ :create, :update ]
 
       def index
         # Check if we can use cached active workers list (no filters applied AND explicitly requesting active only)
-        use_cache = params[:search].blank? && 
-                   params[:skills].blank? && 
+        use_cache = params[:search].blank? &&
+                   params[:skills].blank? &&
                    params[:certification_id].blank? &&
-                   params[:active] == 'true' &&
-                   (params[:status].blank? || params[:status].downcase == 'active')
-        
+                   params[:active] == "true" &&
+                   (params[:status].blank? || params[:status].downcase == "active")
+
         if use_cache
           # Cache active workers list for 5 minutes (changes infrequently)
-          workers = Rails.cache.fetch('active_workers_list', expires_in: 5.minutes) do
+          workers = Rails.cache.fetch("active_workers_list", expires_in: 5.minutes) do
             # NOTE: Worker does not have a separate :skills association; skills are in skills_json.
             # Including a non-existent association raises and caused 500s in staging.
             Worker.where(active: true)
@@ -51,7 +51,7 @@ module Api
         else
           # Start with all workers (no cache for filtered queries or when showing all workers)
           workers = Worker.includes(worker_certifications: :certification)
-          
+
           # Apply search filter (name, email, phone)
           if params[:search].present?
             search_term = "%#{params[:search].downcase}%"
@@ -60,31 +60,31 @@ module Api
               search_term, search_term, search_term, search_term
             )
           end
-          
+
           # Apply skills filter (must have ALL selected skills)
           if params[:skills].present?
-            skills = params[:skills].is_a?(Array) ? params[:skills] : [params[:skills]]
+            skills = params[:skills].is_a?(Array) ? params[:skills] : [ params[:skills] ]
             skills.each do |skill|
-              workers = workers.where("skills_json @> ?", [skill].to_json)
+              workers = workers.where("skills_json @> ?", [ skill ].to_json)
             end
           end
-          
+
           # Apply explicit active boolean filter (supports ?active=true|false)
           if params.key?(:active)
             active_bool = ActiveModel::Type::Boolean.new.cast(params[:active])
             workers = workers.where(active: active_bool)
           end
-          
+
           # Apply status filter (legacy: accepts status=active|inactive)
           if params[:status].present?
             case params[:status].downcase
-            when 'active'
+            when "active"
               workers = workers.where(active: true)
-            when 'inactive'
+            when "inactive"
               workers = workers.where(active: false)
             end
           end
-          
+
           # Apply certification filter
           if params[:certification_id].present?
             certified_worker_ids = WorkerCertification
@@ -93,13 +93,13 @@ module Api
               .pluck(:worker_id)
             workers = workers.where(id: certified_worker_ids)
           end
-          
+
           # Order by name
           workers = workers.order(active: :desc).order(:last_name, :first_name).to_a
         end
-        
-        render json: { 
-          status: 'success', 
+
+        render json: {
+          status: "success",
           data: workers.map { |w| serialize_worker(w) },
           meta: {
             total: workers.size,
@@ -113,7 +113,7 @@ module Api
 
       def show
         render json: {
-          status: 'success',
+          status: "success",
           data: {
             worker: serialize_worker(@worker)
           }
@@ -127,59 +127,59 @@ module Api
           return render_duplicate_cert_errors if duplicate_cert_errors.present?
           if @worker.save
             render json: {
-              status: 'success',
+              status: "success",
               data: {
                 worker: serialize_worker(@worker)
               }
             }, status: :created
           else
-            render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+            render json: { status: "validation_error", errors: @worker.errors.full_messages }, status: :unprocessable_entity
           end
         rescue ActiveRecord::RecordInvalid => e
-          render json: { status: 'validation_error', errors: [e.message] }, status: :unprocessable_entity
+          render json: { status: "validation_error", errors: [ e.message ] }, status: :unprocessable_entity
         rescue PG::UniqueViolation => e
-          render json: { status: 'error', errors: ["Duplicate certification detected for this worker"], message: e.message }, status: :unprocessable_entity
+          render json: { status: "error", errors: [ "Duplicate certification detected for this worker" ], message: e.message }, status: :unprocessable_entity
         rescue => e
           Rails.logger.error "Workers#create failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
-          render json: { status: 'error', message: 'Unable to save worker', errors: [e.message] }, status: :unprocessable_entity
+          render json: { status: "error", message: "Unable to save worker", errors: [ e.message ] }, status: :unprocessable_entity
         end
       end
 
       def update
         begin
           attach_photo(@worker)
-          
+
           # Reload worker to ensure we have fresh associations before update
           @worker.reload
-          
+
           # Only check for duplicate cert errors if we're actually updating certifications
           if params[:worker][:worker_certifications_attributes].present?
             return render_duplicate_cert_errors if duplicate_cert_errors.present?
           end
-          
+
           if @worker.update(worker_params)
             render json: {
-              status: 'success',
+              status: "success",
               data: {
                 worker: serialize_worker(@worker.reload)
               }
             }
           else
-            render json: { status: 'validation_error', errors: @worker.errors.full_messages }, status: :unprocessable_entity
+            render json: { status: "validation_error", errors: @worker.errors.full_messages }, status: :unprocessable_entity
           end
         rescue ActiveRecord::RecordInvalid => e
-          render json: { status: 'validation_error', errors: [e.message] }, status: :unprocessable_entity
+          render json: { status: "validation_error", errors: [ e.message ] }, status: :unprocessable_entity
         rescue PG::UniqueViolation => e
           # Try to provide a more helpful error message
-          error_msg = if e.message.include?('worker_certifications')
+          error_msg = if e.message.include?("worker_certifications")
             "This worker already has one of the certifications you're trying to add. Please remove duplicates and try again."
           else
             "Duplicate entry detected: #{e.message}"
           end
-          render json: { status: 'error', errors: [error_msg], message: e.message }, status: :unprocessable_entity
+          render json: { status: "error", errors: [ error_msg ], message: e.message }, status: :unprocessable_entity
         rescue => e
           Rails.logger.error "Workers#update failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(10)&.join("\n")}"
-          render json: { status: 'error', message: 'Unable to update worker', errors: [e.message] }, status: :unprocessable_entity
+          render json: { status: "error", message: "Unable to update worker", errors: [ e.message ] }, status: :unprocessable_entity
         end
       end
 
@@ -193,11 +193,11 @@ module Api
               status: :unprocessable_entity
             )
           end
-          
+
           @worker.destroy!
           render_success
         rescue ActiveRecord::RecordNotDestroyed => e
-          render_error(e.record.errors.full_messages.join(', '), status: :unprocessable_entity)
+          render_error(e.record.errors.full_messages.join(", "), status: :unprocessable_entity)
         rescue => e
           Rails.logger.error "Failed to delete worker #{params[:id]}: #{e.message}"
           render_error("Cannot delete worker: #{e.message}", status: :unprocessable_entity)
@@ -223,7 +223,7 @@ module Api
         else
           1.year.from_now
         end
-        
+
         worker_certification = worker.worker_certifications.build(
           certification: certification,
           expires_at_utc: expires_at
@@ -258,7 +258,7 @@ module Api
       private
 
       def set_worker
-        includes = [:certifications, { worker_certifications: :certification }]
+        includes = [ :certifications, { worker_certifications: :certification } ]
         includes << :worker_skills if Worker.reflect_on_association(:worker_skills)
         @worker = Worker.includes(*includes).find(params[:id])
       end
@@ -276,7 +276,7 @@ module Api
           :hourly_rate,
           skills_json: [],
           certification_ids: [],
-          worker_certifications_attributes: [:id, :certification_id, :expires_at_utc, :_destroy]
+          worker_certifications_attributes: [ :id, :certification_id, :expires_at_utc, :_destroy ]
         )
       end
 
@@ -293,16 +293,16 @@ module Api
 
         existing_by_cert = if defined?(@worker) && @worker.present?
                              @worker.worker_certifications.index_by(&:certification_id)
-                           else
+        else
                              {}
-                           end
+        end
 
         deduped = {}
 
         normalized_attrs.each do |_key, cert|
           next unless cert
 
-          cert_id = cert[:certification_id] || cert['certification_id']
+          cert_id = cert[:certification_id] || cert["certification_id"]
           if cert_id.blank?
             cert[:_destroy] = true
             next
@@ -320,7 +320,7 @@ module Api
           normalize_expiration!(cert)
 
           boolean_destroy = ActiveModel::Type::Boolean.new.cast(cert[:_destroy])
-          cert[:_destroy] = boolean_destroy ? 'true' : nil
+          cert[:_destroy] = boolean_destroy ? "true" : nil
           cert.delete(:_destroy) unless cert[:_destroy]
 
           next unless @worker&.persisted?
@@ -358,7 +358,7 @@ module Api
       end
 
       def normalize_expiration!(cert)
-        val = cert[:expires_at_utc] || cert['expires_at_utc']
+        val = cert[:expires_at_utc] || cert["expires_at_utc"]
         return if val.blank?
 
         if val.is_a?(String) && val.match?(/^\d{4}-\d{2}-\d{2}$/)
@@ -383,8 +383,8 @@ module Api
 
       def render_duplicate_cert_errors
         render json: {
-          status: 'validation_error',
-          errors: duplicate_cert_errors.presence || ['Duplicate certification detected for this worker']
+          status: "validation_error",
+          errors: duplicate_cert_errors.presence || [ "Duplicate certification detected for this worker" ]
         }, status: :unprocessable_entity
       end
 

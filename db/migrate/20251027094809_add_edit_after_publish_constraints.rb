@@ -34,24 +34,24 @@ class AddEditAfterPublishConstraints < ActiveRecord::Migration[7.2]
     end
 
     # Add indexes for diff queries
-    unless index_exists?(:shifts, [:event_id, :role_needed])
-      add_index :shifts, [:event_id, :role_needed], name: 'index_shifts_on_event_id_and_role_needed'
+    unless index_exists?(:shifts, [ :event_id, :role_needed ])
+      add_index :shifts, [ :event_id, :role_needed ], name: 'index_shifts_on_event_id_and_role_needed'
     end
-    
-    unless index_exists?(:assignments, [:shift_id, :status])
-      add_index :assignments, [:shift_id, :status], name: 'index_assignments_on_shift_id_and_status'
+
+    unless index_exists?(:assignments, [ :shift_id, :status ])
+      add_index :assignments, [ :shift_id, :status ], name: 'index_assignments_on_shift_id_and_status'
     end
   end
 
   def down
-    remove_index :assignments, name: 'index_assignments_on_shift_id_and_status' if index_exists?(:assignments, [:shift_id, :status])
-    remove_index :shifts, name: 'index_shifts_on_event_id_and_role_needed' if index_exists?(:shifts, [:event_id, :role_needed])
-    
+    remove_index :assignments, name: 'index_assignments_on_shift_id_and_status' if index_exists?(:assignments, [ :shift_id, :status ])
+    remove_index :shifts, name: 'index_shifts_on_event_id_and_role_needed' if index_exists?(:shifts, [ :event_id, :role_needed ])
+
     remove_foreign_key :assignments, :shifts if foreign_key_exists?(:assignments, :shifts)
-    
+
     execute "ALTER TABLE shifts DROP CONSTRAINT IF EXISTS check_shift_times;"
     execute "ALTER TABLE events DROP CONSTRAINT IF EXISTS check_event_status;"
-    
+
     remove_column :events, :lock_version, if_exists: true
   end
 end

@@ -2,11 +2,11 @@ namespace :certs do
   desc "Normalize certifications on staging: ensure global list and map shift requirements by name to certification_id"
   task normalize: :environment do
     wanted = [
-      'Food Handler Certificate',
-      'Alcohol Server License',
-      'ServSafe',
-      'TIPS Certification',
-      'Food Safety Manager'
+      "Food Handler Certificate",
+      "Alcohol Server License",
+      "ServSafe",
+      "TIPS Certification",
+      "Food Safety Manager"
     ]
 
     puts "Ensuring global certifications exist..."
@@ -15,7 +15,7 @@ namespace :certs do
       cert = Certification.find_or_create_by!(name: name)
       name_to_id[name] = cert.id
     end
-    puts "Catalog: #{name_to_id}" 
+    puts "Catalog: #{name_to_id}"
 
     puts "Mapping shift requirements to certification_id where possible..."
     Shift.find_each do |s|
@@ -29,4 +29,3 @@ namespace :certs do
     puts "Done."
   end
 end
-

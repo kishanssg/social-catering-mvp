@@ -20,5 +20,3 @@ duplicates = WorkerCertification
   .having('COUNT(*) > 1')
   .count
 puts duplicates.any? ? "Found duplicates: #{duplicates}" : "No duplicates found ✓"
-
-

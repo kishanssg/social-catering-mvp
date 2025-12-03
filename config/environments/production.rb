@@ -16,7 +16,7 @@ Rails.application.configure do
   config.action_controller.perform_caching = true
 
   # Enable serving of static files from the public directory
-  config.public_file_server.enabled = ENV['RAILS_SERVE_STATIC_FILES'].present? || true
+  config.public_file_server.enabled = ENV["RAILS_SERVE_STATIC_FILES"].present? || true
   config.assets.compile = false  # we are NOT using Sprockets for the SPA bundle
 
   # Cache assets for far-future expiry since they are all digest stamped.
@@ -86,7 +86,7 @@ Rails.application.configure do
 
   # Bullet configuration for N+1 detection (staging/production)
   # Enable in staging via ENV, disable in production by default
-  if ENV['ENABLE_BULLET'] == 'true'
+  if ENV["ENABLE_BULLET"] == "true"
     config.after_initialize do
       Bullet.enable = true
       Bullet.bullet_logger = true

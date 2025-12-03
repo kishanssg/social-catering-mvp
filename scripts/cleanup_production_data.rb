@@ -75,7 +75,7 @@ published_future.each do |event|
       break
     end
   end
-  
+
   if has_assignments
     events_with_assignments << event.id
     break if events_with_assignments.count >= 12
@@ -90,34 +90,34 @@ events_to_complete = Event.where(status: 'published').where.not(id: events_with_
 completed_count = 0
 events_to_complete.find_each do |event|
   next unless event.event_schedule # Skip if no schedule
-  
+
   # Backdate to Sept 1 - Nov 4 range
   start_backdate = Date.new(2024, 9, 1)
   end_backdate = Date.new(2024, 11, 4)
   random_date = start_backdate + rand((end_backdate - start_backdate).to_i).days
-  
+
   new_start = random_date.beginning_of_day + 18.hours
   new_end = random_date.beginning_of_day + 23.hours
-  
+
   # Update event status and schedule
   event.update!(
     status: 'completed',
     completed_at_utc: random_date.end_of_day,
     created_at_utc: random_date - 7.days
   )
-  
+
   # Update event_schedule
   event.event_schedule.update!(
     start_time_utc: new_start,
     end_time_utc: new_end
   )
-  
+
   # Update all shifts for this event
   event.shifts.update_all(
     start_time_utc: new_start,
     end_time_utc: new_end
   )
-  
+
   completed_count += 1
 end
 

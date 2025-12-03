@@ -70,5 +70,3 @@ else
 end
 
 puts "=" * 70
-
-

@@ -1,7 +1,7 @@
 class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
   before_action :authenticate_user!
   before_action :set_event
-  before_action :set_event_skill_requirement, only: [:update, :destroy, :eligible_workers]
+  before_action :set_event_skill_requirement, only: [ :update, :destroy, :eligible_workers ]
 
   # POST /api/v1/events/:event_id/event_skill_requirements
   def create
@@ -9,12 +9,12 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
 
     if @event_skill_requirement.save
       render json: {
-        status: 'success',
+        status: "success",
         data: serialize_event_skill_requirement(@event_skill_requirement)
       }, status: :created
     else
       render json: {
-        status: 'validation_error',
+        status: "validation_error",
         errors: @event_skill_requirement.errors.full_messages
       }, status: :unprocessable_entity
     end
@@ -27,36 +27,36 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
       if @event_skill_requirement.update!(event_skill_requirement_params)
         # Callback will cascade pay_rate to shifts and recalculate totals
         render json: {
-          status: 'success',
+          status: "success",
           data: serialize_event_skill_requirement(@event_skill_requirement)
         }
       end
     end
   rescue ActiveRecord::RecordInvalid => e
     render json: {
-      status: 'validation_error',
+      status: "validation_error",
       errors: e.record.errors.full_messages
     }, status: :unprocessable_entity
   rescue => e
     Rails.logger.error "EventSkillRequirement#update failed: #{e.message}"
     render json: {
-      status: 'error',
-      errors: [e.message]
+      status: "error",
+      errors: [ e.message ]
     }, status: :unprocessable_entity
   end
 
   # DELETE /api/v1/events/:event_id/event_skill_requirements/:id
   def destroy
     @event_skill_requirement.destroy
-    render json: { status: 'success' }
+    render json: { status: "success" }
   end
 
   def eligible_workers
     shift = if params[:shift_id].present?
               @event.shifts.find_by(id: params[:shift_id])
-            else
+    else
               @event.shifts.where(role_needed: @event_skill_requirement.skill_name).order(:start_time_utc).first
-            end
+    end
 
     service = Events::EligibleWorkersForRole.new(event: @event, requirement: @event_skill_requirement, shift: shift)
     result = service.call
@@ -64,7 +64,7 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
     window_end = result[:shift][:end_time_utc]
 
     render json: {
-      status: 'success',
+      status: "success",
       data: {
         role: result[:role],
         shift: result[:shift],
@@ -78,13 +78,13 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
   def set_event
     @event = Event.find(params[:event_id])
   rescue ActiveRecord::RecordNotFound
-    render json: { status: 'error', error: 'Event not found' }, status: :not_found
+    render json: { status: "error", error: "Event not found" }, status: :not_found
   end
 
   def set_event_skill_requirement
     @event_skill_requirement = @event.event_skill_requirements.find(params[:id])
   rescue ActiveRecord::RecordNotFound
-    render json: { status: 'error', error: 'Event skill requirement not found' }, status: :not_found
+    render json: { status: "error", error: "Event skill requirement not found" }, status: :not_found
   end
 
   def event_skill_requirement_params
@@ -118,9 +118,9 @@ class Api::V1::EventSkillRequirementsController < Api::V1::BaseController
   def serialize_worker(worker, requirement, shift_end_time)
     has_required = if requirement.required_certification_id.present?
                      worker.has_valid_certification?(requirement.required_certification_id, shift_end_time)
-                   else
+    else
                      true
-                   end
+    end
 
     {
       id: worker.id,

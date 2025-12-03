@@ -1,7 +1,7 @@
 class Assignment < ApplicationRecord
   # Optimistic locking to prevent concurrent edits
   lock_optimistically
-  
+
   # Allows certain state transitions to bypass capacity validation
   attr_accessor :skip_capacity_check
   # Skip availability and skill validations when editing hours for restored assignments
@@ -15,8 +15,8 @@ class Assignment < ApplicationRecord
   belongs_to :worker
   belongs_to :assigned_by, class_name: "User", optional: true
   # Approval tracking
-  belongs_to :approved_by, class_name: 'User', optional: true
-  belongs_to :edited_by, class_name: 'User', optional: true
+  belongs_to :approved_by, class_name: "User", optional: true
+  belongs_to :edited_by, class_name: "User", optional: true
 
   validates :assigned_at_utc, :status, presence: true
   validates :assigned_by_id, presence: true, on: :update
@@ -28,15 +28,15 @@ class Assignment < ApplicationRecord
   validates :performance_rating, inclusion: { in: 1..5 }, allow_nil: true
   # CRITICAL FIX: Prevent duplicate active assignments
   # This validation ensures worker+shift combo is unique, but allows duplicates if one is cancelled
-  validates :worker_id, uniqueness: { 
-    scope: :shift_id, 
-    conditions: -> { where.not(status: ['cancelled', 'no_show']) },
-    message: "is already assigned to this shift" 
+  validates :worker_id, uniqueness: {
+    scope: :shift_id,
+    conditions: -> { where.not(status: [ "cancelled", "no_show" ]) },
+    message: "is already assigned to this shift"
   }
-  
+
   # Additional safety check before create to prevent duplicates
   before_create :check_for_existing_active_assignment
-  
+
   validate :worker_available_for_shift
   validate :shift_not_at_capacity, unless: :skip_capacity_check
   validate :worker_has_required_skills
@@ -44,7 +44,7 @@ class Assignment < ApplicationRecord
 
   scope :active, -> { where(status: "assigned") }
   scope :completed, -> { where(status: "completed") }
-  
+
   # Filter out orphaned assignments (where shift or event is deleted/nil)
   # Only include assignments where:
   # 1. Shift exists and is not archived
@@ -52,31 +52,31 @@ class Assignment < ApplicationRecord
   scope :valid, -> {
     joins(:shift)
       .left_joins(shift: :event)
-      .where.not(shifts: { status: 'archived' })
+      .where.not(shifts: { status: "archived" })
       .where("shifts.event_id IS NULL OR (events.id IS NOT NULL AND events.status != 'deleted')")
   }
-  
+
   # New scopes for reporting
   scope :with_hours, -> { where.not(hours_worked: nil) }
   scope :for_date_range, ->(start_date, end_date) {
     # Convert Date objects to datetime ranges (start of day to end of day)
     start_datetime = start_date.is_a?(Date) ? start_date.beginning_of_day.utc : start_date
     end_datetime = end_date.is_a?(Date) ? end_date.end_of_day.utc : end_date
-    
+
     joins(:shift)
-      .where('shifts.start_time_utc >= ? AND shifts.start_time_utc <= ?', start_datetime, end_datetime)
+      .where("shifts.start_time_utc >= ? AND shifts.start_time_utc <= ?", start_datetime, end_datetime)
   }
   scope :for_event, ->(event_id) {
     joins(shift: :event).where(events: { id: event_id })
   }
   scope :upcoming, -> {
     joins(:shift)
-      .where('shifts.start_time_utc > ?', Time.current)
-      .where.not(status: ['cancelled', 'no_show'])
+      .where("shifts.start_time_utc > ?", Time.current)
+      .where.not(status: [ "cancelled", "no_show" ])
   }
   scope :clocked_in, -> { where.not(clock_in_time: nil) }
   scope :clocked_out, -> { where.not(clock_out_time: nil) }
-  scope :with_overtime, -> { where('overtime_hours > 0') }
+  scope :with_overtime, -> { where("overtime_hours > 0") }
   scope :rated, -> { where.not(performance_rating: nil) }
   scope :high_performance, -> { where(performance_rating: 4..5) }
   # Approval scopes
@@ -85,27 +85,27 @@ class Assignment < ApplicationRecord
   scope :needs_approval, -> {
     joins(:shift)
       .where(approved: false)
-      .where('shifts.end_time_utc < ?', Time.current)
+      .where("shifts.end_time_utc < ?", Time.current)
   }
-  
+
   # Calculate total pay
   def total_pay
     return 0 unless hours_worked && hourly_rate
     (hours_worked * hourly_rate).round(2)
   end
-  
+
   # Alias for total_payout (used in reports)
   def total_payout
     total_pay
   end
-  
+
   # effective_hourly_rate is now provided by PayCalculations concern
-  
+
   # Set default hours from shift duration if not specified
   def set_default_hours
     return if hours_worked.present?
     return unless shift.present?
-    
+
     self.hours_worked = shift.duration_hours
   end
 
@@ -121,20 +121,20 @@ class Assignment < ApplicationRecord
 
   def calculate_hours_from_clock_times
     return unless clock_in_time && clock_out_time
-    
+
     total_minutes = ((clock_out_time - clock_in_time) / 1.minute).round
     break_minutes = break_duration_minutes || 0
-    work_minutes = [total_minutes - break_minutes, 0].max  # Ensure non-negative
-    
+    work_minutes = [ total_minutes - break_minutes, 0 ].max  # Ensure non-negative
+
     self.hours_worked = (work_minutes / 60.0).round(2)
-    
+
     # Calculate overtime (over 8 hours)
     if hours_worked > 8
       self.overtime_hours = hours_worked - 8
     else
       self.overtime_hours = 0
     end
-    
+
     save!
   end
 
@@ -197,7 +197,7 @@ class Assignment < ApplicationRecord
 
     active_assignments_count = shift.assignments
                                     .where.not(id: id)
-                                    .where(status: ['assigned', 'confirmed'])
+                                    .where(status: [ "assigned", "confirmed" ])
                                     .count
 
     capacity = shift.respond_to?(:capacity) ? shift.capacity : (shift.respond_to?(:workers_needed) ? shift.workers_needed : 0)
@@ -209,10 +209,10 @@ class Assignment < ApplicationRecord
   def worker_has_required_skills
     return if shift.nil? || worker.nil?
     return if skip_availability_and_skill_checks
-    
+
     # Determine required skill based on shift type
     required_skill = nil
-    
+
     if shift.skill_requirement&.skill_name.present?
       # Event-based shift with specific skill requirement
       required_skill = shift.skill_requirement.skill_name
@@ -220,16 +220,16 @@ class Assignment < ApplicationRecord
       # Standalone shift with role_needed
       required_skill = shift.role_needed
     end
-    
+
     return if required_skill.blank?
-    
+
     # Get worker's skills
     worker_skills = case worker.skills_json
-                    when String then JSON.parse(worker.skills_json) rescue []
-                    when Array then worker.skills_json
-                    else []
-                    end
-    
+    when String then JSON.parse(worker.skills_json) rescue []
+    when Array then worker.skills_json
+    else []
+    end
+
     # Check if worker has the required skill
     unless worker_skills.include?(required_skill)
       errors.add(:base, "Worker does not have required skill: #{required_skill}. Worker's skills: #{worker_skills.join(', ')}")
@@ -240,7 +240,7 @@ class Assignment < ApplicationRecord
     return if shift.nil? || worker.nil? || shift.required_cert_id.blank?
     return if skip_availability_and_skill_checks
 
-    req_name = shift.required_cert&.name || 'required certification'
+    req_name = shift.required_cert&.name || "required certification"
     shift_end = shift.end_time_utc || Time.current
 
     return if worker.has_valid_certification?(shift.required_cert_id, shift_end)
@@ -263,8 +263,8 @@ class Assignment < ApplicationRecord
   # Determine if event totals need updating
   # Triggers on any field that affects effective_hours or effective_pay
   def should_update_event_totals?
-    saved_change_to_hours_worked? || 
-    saved_change_to_hourly_rate? || 
+    saved_change_to_hours_worked? ||
+    saved_change_to_hourly_rate? ||
     saved_change_to_status? ||
     saved_change_to_shift_id?  # Moving assignment to different shift affects event totals
   end
@@ -274,13 +274,13 @@ class Assignment < ApplicationRecord
   # Wrapped in transaction to ensure atomicity with parent operation
   def update_event_totals
     return unless shift&.event
-    
+
     event = shift.event
-    
+
     # Set Current.user for activity logging if available
     # (assignment callbacks may not have user context, so this is optional)
     previous_user = Current.user
-    
+
     # Use centralized recalculation service (Single Source of Truth)
     # This runs within the same transaction as the assignment update
     result = Events::RecalculateTotals.new(event: event).call
@@ -308,7 +308,7 @@ class Assignment < ApplicationRecord
     combined_notes = if notes.present?
       timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
       note_text = "APPROVED (#{timestamp}): #{notes}"
-      [self.approval_notes, note_text].compact.join("\n")
+      [ self.approval_notes, note_text ].compact.join("\n")
     else
       self.approval_notes
     end
@@ -333,11 +333,11 @@ class Assignment < ApplicationRecord
       timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
       note_text = "NO SHOW (#{timestamp})"
       note_text += ": #{notes}" if notes.present?
-      combined_notes = [self.approval_notes, note_text].compact.join("\n")
+      combined_notes = [ self.approval_notes, note_text ].compact.join("\n")
 
       Rails.logger.info "Marking assignment #{id} as no-show (bypassing validations)"
       result = update_columns(
-        status: 'no_show',
+        status: "no_show",
         hours_worked: 0,
         edited_by_id: updated_by_user.id,
         edited_at_utc: Time.current,
@@ -364,11 +364,11 @@ class Assignment < ApplicationRecord
       timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
       note_text = "REMOVED (#{timestamp})"
       note_text += ": #{notes}" if notes.present?
-      combined_notes = [self.approval_notes, note_text].compact.join("\n")
+      combined_notes = [ self.approval_notes, note_text ].compact.join("\n")
 
       Rails.logger.info "Removing assignment #{id} (bypassing validations)"
       result = update_columns(
-        status: 'cancelled',
+        status: "cancelled",
         hours_worked: 0,
         edited_by_id: updated_by_user.id,
         edited_at_utc: Time.current,
@@ -402,15 +402,15 @@ class Assignment < ApplicationRecord
 
   # Display-friendly status for reports
   def status_display
-    return 'No-Show' if status == 'no_show'
-    return 'Removed' if status == 'cancelled' || status == 'removed'
-    return 'Approved' if approved?
-    return 'Pending'
+    return "No-Show" if status == "no_show"
+    return "Removed" if status == "cancelled" || status == "removed"
+    return "Approved" if approved?
+    "Pending"
   end
 
   # Short username for display (e.g., "natalie" instead of "natalie@socialcatering.com")
   def approved_by_name
-    approved_by&.email&.split('@')&.first || ''
+    approved_by&.email&.split("@")&.first || ""
   end
 
   # Ensure controller visibility
@@ -420,14 +420,14 @@ class Assignment < ApplicationRecord
 
   def check_for_existing_active_assignment
     # Skip check if this assignment is cancelled or no_show (allows duplicates for these statuses)
-    return if status.in?(['cancelled', 'no_show'])
-    
+    return if status.in?([ "cancelled", "no_show" ])
+
     # Check if there's already an active assignment for this worker+shift combo
     existing = Assignment.where(shift_id: shift_id, worker_id: worker_id)
-                        .where.not(status: ['cancelled', 'no_show'])
+                        .where.not(status: [ "cancelled", "no_show" ])
                         .where.not(id: id) # Exclude self if updating
                         .exists?
-    
+
     if existing
       errors.add(:worker_id, "is already assigned to this shift")
       throw(:abort)

@@ -23,5 +23,3 @@ class NormalizeShiftCertifications < ActiveRecord::Migration[7.0]
     # no-op
   end
 end
-
-

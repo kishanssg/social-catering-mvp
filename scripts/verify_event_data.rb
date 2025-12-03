@@ -58,7 +58,7 @@ shifts_by_role.each do |role, role_shifts|
   puts "    - Shifts count: #{role_shifts.count}"
   role_shifts.each do |shift|
     assignments = shift.assignments.select { |a| a.worker&.active? }
-    active_count = assignments.count { |a| a.status.in?(['confirmed', 'assigned', 'completed']) }
+    active_count = assignments.count { |a| a.status.in?([ 'confirmed', 'assigned', 'completed' ]) }
     puts "      Shift ID #{shift.id}:"
     puts "        - Capacity: #{shift.capacity}"
     puts "        - Active assignments: #{active_count}/#{shift.capacity}"
@@ -75,7 +75,7 @@ end
 puts "👥 ASSIGNMENTS SUMMARY:"
 puts "-" * 80
 all_assignments = shifts.flat_map(&:assignments).select { |a| a.worker&.active? }
-active_assignments = all_assignments.select { |a| a.status.in?(['confirmed', 'assigned', 'completed']) }
+active_assignments = all_assignments.select { |a| a.status.in?([ 'confirmed', 'assigned', 'completed' ]) }
 puts "Total active assignments: #{active_assignments.count}"
 puts "Total assignments (all statuses): #{all_assignments.count}"
 puts ""
@@ -102,17 +102,17 @@ puts "-" * 80
 begin
   # Reload event with all associations
   event_reloaded = Event.includes(:event_skill_requirements, shifts: { assignments: :worker }).find(event.id)
-  
+
   # Get requirements
   valid_requirements = event_reloaded.event_skill_requirements.reject { |req| req.skill_name.blank? }
   requirements_hash = valid_requirements.index_by(&:skill_name)
-  
+
   # Get shifts
   all_shifts = event_reloaded.shifts.to_a.sort_by(&:id)
-  
+
   # Simulate grouping
   grouped = {}
-  
+
   # Process existing shifts
   all_shifts.each do |shift|
     role = shift.role_needed
@@ -126,7 +126,7 @@ begin
     end
     grouped[role][:shifts] << shift.id
   end
-  
+
   # Add missing roles from requirements
   requirements_hash.each do |skill_name, requirement|
     unless grouped[skill_name]
@@ -137,7 +137,7 @@ begin
       }
     end
   end
-  
+
   puts "Roles that would be returned: #{grouped.length}"
   grouped.each do |role_name, role_data|
     shifts_count = role_data[:shifts]&.length || 0
@@ -155,4 +155,3 @@ puts ""
 puts "=" * 80
 puts "VERIFICATION COMPLETE"
 puts "=" * 80
-

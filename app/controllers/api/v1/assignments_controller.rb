@@ -1,7 +1,7 @@
 module Api
   module V1
     class AssignmentsController < BaseController
-      before_action :set_assignment, only: [:show, :update, :destroy]
+      before_action :set_assignment, only: [ :show, :update, :destroy ]
 
       def index
         # Filter out orphaned assignments (deleted events, archived shifts, blank event titles)
@@ -9,16 +9,16 @@ module Api
         assignments = Assignment
                                 .joins(:shift)
                                 .left_joins(shift: :event)
-                                .where.not(shifts: { status: 'archived' })
+                                .where.not(shifts: { status: "archived" })
                                 .where("shifts.event_id IS NULL OR (
-                                  events.id IS NOT NULL 
+                                  events.id IS NOT NULL
                                   AND events.status != 'deleted'
                                   AND events.title IS NOT NULL
                                   AND events.title != ''
                                   AND TRIM(events.title) != ''
                                 )")
-                                .eager_load(:worker, :approved_by, shift: [:event, :location])
-                                .eager_load(shift: { event: [:venue] })
+                                .eager_load(:worker, :approved_by, shift: [ :event, :location ])
+                                .eager_load(shift: { event: [ :venue ] })
                                 .order(created_at: :desc)
 
         # Filter by date range
@@ -37,58 +37,58 @@ module Api
         end
 
         # Filter by reporting fields
-        assignments = assignments.clocked_in if params[:clocked_in] == 'true'
-        assignments = assignments.clocked_out if params[:clocked_out] == 'true'
-        assignments = assignments.with_overtime if params[:with_overtime] == 'true'
-        assignments = assignments.rated if params[:rated] == 'true'
-        assignments = assignments.high_performance if params[:high_performance] == 'true'
+        assignments = assignments.clocked_in if params[:clocked_in] == "true"
+        assignments = assignments.clocked_out if params[:clocked_out] == "true"
+        assignments = assignments.with_overtime if params[:with_overtime] == "true"
+        assignments = assignments.rated if params[:rated] == "true"
+        assignments = assignments.high_performance if params[:high_performance] == "true"
 
-        render json: { status: 'success', data: assignments.map { |a| serialize_assignment(a) } }
+        render json: { status: "success", data: assignments.map { |a| serialize_assignment(a) } }
       end
 
       def show
-        render json: { status: 'success', data: serialize_assignment_detailed(@assignment) }
+        render json: { status: "success", data: serialize_assignment_detailed(@assignment) }
       end
 
       def create
         # Only load what we need for conflict check
         shift = Shift.includes(:event).find(assignment_params[:shift_id])
         worker = Worker.find(assignment_params[:worker_id])
-        
+
         # Prevent assigning inactive workers
         unless worker.active?
           return render json: {
-            status: 'error',
-            message: 'Cannot assign inactive worker. Please activate the worker first.'
+            status: "error",
+            message: "Cannot assign inactive worker. Please activate the worker first."
           }, status: :unprocessable_entity
         end
-        
+
         # Fast conflict check (scoped to time window)
         conflicts = check_conflicts_optimized(shift, worker)
-        
+
         if conflicts.any?
           return render json: {
-            status: 'error',
-            message: 'Assignment conflicts detected',
+            status: "error",
+            message: "Assignment conflicts detected",
             conflicts: conflicts
           }, status: :unprocessable_entity
         end
-        
+
         # Create assignment
         ActiveRecord::Base.transaction do
           @assignment = Assignment.new(assignment_params)
           @assignment.assigned_by = current_user
           @assignment.assigned_at_utc ||= Time.current
-          @assignment.status ||= 'assigned'
-          
+          @assignment.status ||= "assigned"
+
           if @assignment.save
-            render json: { status: 'success', message: 'Worker assigned successfully', data: serialize_assignment(@assignment) }, status: :created
+            render json: { status: "success", message: "Worker assigned successfully", data: serialize_assignment(@assignment) }, status: :created
           else
-            render json: { status: 'error', errors: @assignment.errors.full_messages }, status: :unprocessable_entity
+            render json: { status: "error", errors: @assignment.errors.full_messages }, status: :unprocessable_entity
           end
         end
       rescue ActiveRecord::RecordNotFound => e
-        render json: { status: 'error', message: e.message }, status: :not_found
+        render json: { status: "error", message: e.message }, status: :not_found
       end
 
       def bulk_create
@@ -97,28 +97,28 @@ module Api
         hours_worked = params[:hours_worked]
 
         unless worker_id.present?
-          return render json: { status: 'error', message: 'worker_id is required' }, status: :bad_request
+          return render json: { status: "error", message: "worker_id is required" }, status: :bad_request
         end
 
         # Handle empty shift_ids array gracefully
         if shift_ids.empty?
-          return render json: { 
-            status: 'success', 
-            message: 'No shifts to assign', 
-            data: { successful: [], failed: [] } 
+          return render json: {
+            status: "success",
+            message: "No shifts to assign",
+            data: { successful: [], failed: [] }
           }
         end
 
         worker = Worker.find(worker_id)
-        
+
         # Prevent assigning inactive workers
         unless worker.active?
           return render json: {
-            status: 'error',
-            message: 'Cannot assign inactive worker. Please activate the worker first.'
+            status: "error",
+            message: "Cannot assign inactive worker. Please activate the worker first."
           }, status: :unprocessable_entity
         end
-        
+
         results = { successful: [], failed: [] }
 
         shift_ids.each do |shift_id|
@@ -127,69 +127,69 @@ module Api
             assignment = Assignment.new(worker: worker, shift: shift, hours_worked: hours_worked)
             assignment.assigned_by = current_user
             assignment.assigned_at_utc ||= Time.current
-            assignment.status ||= 'assigned'
+            assignment.status ||= "assigned"
             if assignment.save
               results[:successful] << { shift_id: shift.id, shift_name: shift.client_name, assignment_id: assignment.id }
             else
               results[:failed] << { shift_id: shift.id, shift_name: shift.client_name, errors: assignment.errors.full_messages }
             end
           rescue ActiveRecord::RecordNotFound
-            results[:failed] << { shift_id: shift_id, shift_name: "Shift #{shift_id}", errors: ["Shift not found"] }
+            results[:failed] << { shift_id: shift_id, shift_name: "Shift #{shift_id}", errors: [ "Shift not found" ] }
           end
         end
 
-        render json: { status: 'success', message: "Assigned to #{results[:successful].count} shifts. #{results[:failed].count} failed.", data: results }
+        render json: { status: "success", message: "Assigned to #{results[:successful].count} shifts. #{results[:failed].count} failed.", data: results }
       end
 
       def update
         ActiveRecord::Base.transaction do
           if @assignment.update!(assignment_params)
             # Callbacks will update event totals automatically
-            render json: { status: 'success', data: serialize_assignment(@assignment) }
+            render json: { status: "success", data: serialize_assignment(@assignment) }
           end
         end
       rescue ActiveRecord::RecordInvalid => e
-        render json: { status: 'error', errors: e.record.errors.full_messages }, status: :unprocessable_entity
+        render json: { status: "error", errors: e.record.errors.full_messages }, status: :unprocessable_entity
       rescue => e
-        render json: { status: 'error', errors: [e.message] }, status: :unprocessable_entity
+        render json: { status: "error", errors: [ e.message ] }, status: :unprocessable_entity
       end
 
       def destroy
         @assignment.destroy
-        render json: { status: 'success', message: 'Assignment removed successfully' }
+        render json: { status: "success", message: "Assignment removed successfully" }
       end
 
       # Time tracking endpoints
       def clock_in
         if @assignment.clock_in!
-          render json: { 
-            status: 'success', 
-            message: 'Clocked in successfully',
+          render json: {
+            status: "success",
+            message: "Clocked in successfully",
             data: { clock_in_time: @assignment.clock_in_time }
           }
         else
-          render json: { 
-            status: 'error', 
-            message: 'Failed to clock in' 
+          render json: {
+            status: "error",
+            message: "Failed to clock in"
           }, status: :unprocessable_entity
         end
       end
 
       def clock_out
         if @assignment.clock_out!
-          render json: { 
-            status: 'success', 
-            message: 'Clocked out successfully',
-            data: { 
+          render json: {
+            status: "success",
+            message: "Clocked out successfully",
+            data: {
               clock_out_time: @assignment.clock_out_time,
               hours_worked: @assignment.hours_worked,
               overtime_hours: @assignment.overtime_hours
             }
           }
         else
-          render json: { 
-            status: 'error', 
-            message: 'Failed to clock out' 
+          render json: {
+            status: "error",
+            message: "Failed to clock out"
           }, status: :unprocessable_entity
         end
       end
@@ -197,15 +197,15 @@ module Api
       def update_break
         break_minutes = params[:break_duration_minutes].to_i
         if @assignment.update(break_duration_minutes: break_minutes)
-          render json: { 
-            status: 'success', 
-            message: 'Break duration updated',
+          render json: {
+            status: "success",
+            message: "Break duration updated",
             data: { break_duration_minutes: @assignment.break_duration_minutes }
           }
         else
-          render json: { 
-            status: 'error', 
-            message: 'Failed to update break duration' 
+          render json: {
+            status: "error",
+            message: "Failed to update break duration"
           }, status: :unprocessable_entity
         end
       end
@@ -214,15 +214,15 @@ module Api
         start_date = params[:start_date] ? Date.parse(params[:start_date]) : 1.week.ago
         end_date = params[:end_date] ? Date.parse(params[:end_date]) : Date.today
 
-        assignments = Assignment.includes(worker: [], shift: [:job])
+        assignments = Assignment.includes(worker: [], shift: [ :job ])
                                 .for_date_range(start_date, end_date)
         assignments = assignments.joins(:shift).where(shifts: { job_id: params[:job_id] }) if params[:job_id].present?
 
         csv_data = generate_csv(assignments)
         send_data csv_data,
                   filename: "assignments_#{start_date.strftime('%Y%m%d')}_#{end_date.strftime('%Y%m%d')}.csv",
-                  type: 'text/csv',
-                  disposition: 'attachment'
+                  type: "text/csv",
+                  disposition: "attachment"
       end
 
       private
@@ -241,56 +241,56 @@ module Api
       # Optimized conflict check - only queries relevant time window
       def check_conflicts_optimized(shift, worker)
         conflicts = []
-        
+
         # Only check assignments in a reasonable time window (not ALL assignments)
         # This dramatically reduces query size
         time_window_start = shift.start_time_utc - 1.day
         time_window_end = shift.end_time_utc + 1.day
-        
+
         # Scoped query - much faster than checking all assignments
         existing_assignments = worker.assignments
           .joins(:shift)
-          .where.not(status: ['cancelled', 'no_show'])
-          .where('shifts.start_time_utc < ? AND shifts.end_time_utc > ?',
+          .where.not(status: [ "cancelled", "no_show" ])
+          .where("shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
                  time_window_end, time_window_start)
           .includes(:shift)
-        
+
         existing_assignments.each do |existing|
           if times_overlap?(shift, existing.shift)
             conflicts << {
-              type: 'time_overlap',
+              type: "time_overlap",
               message: "Worker already assigned to #{existing.shift.event&.title || existing.shift.client_name}",
               conflicting_shift_id: existing.shift_id
             }
           end
         end
-        
+
         # Capacity check
-        assigned_count = Assignment.where(shift_id: shift.id, status: 'assigned').count
+        assigned_count = Assignment.where(shift_id: shift.id, status: "assigned").count
         if assigned_count >= shift.capacity
           conflicts << {
-            type: 'capacity_exceeded',
+            type: "capacity_exceeded",
             message: "Shift is at full capacity (#{shift.capacity} workers)",
             current_count: assigned_count
           }
         end
-        
+
         # Certification check (if required)
         if shift.required_cert_id
           cert_ok = worker.worker_certifications
             .where(cert_id: shift.required_cert_id)
-            .where('expires_at_utc >= ?', shift.end_time_utc)
+            .where("expires_at_utc >= ?", shift.end_time_utc)
             .exists?
-          
+
           unless cert_ok
             conflicts << {
-              type: 'certification_expired',
+              type: "certification_expired",
               message: "Worker's certification expires before shift ends or is missing",
               required_cert_id: shift.required_cert_id
             }
           end
         end
-        
+
         conflicts
       end
 
@@ -356,14 +356,14 @@ module Api
       end
 
       def generate_csv(assignments)
-        require 'csv'
+        require "csv"
         CSV.generate(headers: true) do |csv|
-          csv << ['Date','Event/Client','Location','Role','Worker','Hours','Rate','Total']
+          csv << [ "Date", "Event/Client", "Location", "Role", "Worker", "Hours", "Rate", "Total" ]
           assignments.each do |assignment|
             shift = assignment.shift
             worker = assignment.worker
             csv << [
-              shift.start_time_utc.strftime('%Y-%m-%d'),
+              shift.start_time_utc.strftime("%Y-%m-%d"),
               shift.job&.title || shift.client_name,
               shift.location,
               shift.role_needed,

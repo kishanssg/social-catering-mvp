@@ -14,16 +14,16 @@ class Worker < ApplicationRecord
             presence: true,
             uniqueness: { case_sensitive: false },
             format: { with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address" }
-  validates :phone, 
+  validates :phone,
             presence: true,
-            format: { 
-              with: /\A\d{10,15}\z/, 
+            format: {
+              with: /\A\d{10,15}\z/,
               message: "must be 10-15 digits only (no hyphens, spaces, or special characters)"
             }
 
   scope :active, -> { where(active: true) }
   scope :with_skill, ->(skill) {
-    skill.present? ? where("skills_json @> ?", [skill].to_json) : all
+    skill.present? ? where("skills_json @> ?", [ skill ].to_json) : all
   }
   scope :with_certification, ->(cert_id, as_of_time = Time.current) {
     cert_id.present? ? joins(:worker_certifications)
@@ -60,7 +60,7 @@ class Worker < ApplicationRecord
 
   def profile_photo_thumb_url
     return nil unless profile_photo.attached?
-    variant = profile_photo.variant(resize_to_limit: [100, 100])
+    variant = profile_photo.variant(resize_to_limit: [ 100, 100 ])
     Rails.application.routes.url_helpers.rails_representation_url(variant.processed, host: Rails.application.config.action_controller.default_url_options[:host])
   end
 
@@ -106,13 +106,13 @@ class Worker < ApplicationRecord
 
   def available_for_shift?(shift)
     return false unless has_skill?(shift.role_needed)
-    
+
     # Check for overlapping assignments
     overlapping_assignments = assignments.joins(:shift)
-      .where(status: ['confirmed', 'pending'])
+      .where(status: [ "confirmed", "pending" ])
       .where("shifts.start_time_utc < ? AND shifts.end_time_utc > ?",
              shift.end_time_utc, shift.start_time_utc)
-    
+
     overlapping_assignments.empty?
   end
 
@@ -137,16 +137,16 @@ class Worker < ApplicationRecord
   end
 
   def self.build_tsquery(term)
-    sanitized_tokens = term.to_s.downcase.gsub(/[^a-z0-9\s]/, ' ').split
+    sanitized_tokens = term.to_s.downcase.gsub(/[^a-z0-9\s]/, " ").split
     return if sanitized_tokens.empty?
 
-    sanitized_tokens.map { |token| "#{token}:*" }.join(' & ')
+    sanitized_tokens.map { |token| "#{token}:*" }.join(" & ")
   end
 
   private
 
   def clear_workers_cache
-    Rails.cache.delete('active_workers_list')
+    Rails.cache.delete("active_workers_list")
   end
 
   # Phone normalization is handled by PhoneNormalizable concern
@@ -188,28 +188,28 @@ class Worker < ApplicationRecord
       active_assignments.each do |assignment|
         # Use the unassign service to properly handle the unassignment
         # Only unassign if status is 'assigned' or 'confirmed' (not completed)
-        if assignment.status.in?(['assigned', 'confirmed'])
+        if assignment.status.in?([ "assigned", "confirmed" ])
           result = UnassignWorkerFromShift.call(assignment, Current.user || User.first)
           unassigned_count += 1 if result[:success]
         else
           # For other statuses, just cancel the assignment
-          assignment.update!(status: 'cancelled', notes: (assignment.notes.to_s + "\nWorker deactivated on #{Time.current.strftime('%Y-%m-%d')}").strip)
+          assignment.update!(status: "cancelled", notes: (assignment.notes.to_s + "\nWorker deactivated on #{Time.current.strftime('%Y-%m-%d')}").strip)
           unassigned_count += 1
         end
       end
 
       if unassigned_count > 0
         Rails.logger.info "Unassigned #{unassigned_count} assignments for deactivated worker #{id} (#{full_name})"
-        
+
         # Log activity
         ActivityLog.create!(
           actor_user_id: Current.user&.id,
-          entity_type: 'Worker',
+          entity_type: "Worker",
           entity_id: id,
-          action: 'deactivated_unassigned',
+          action: "deactivated_unassigned",
           after_json: {
             unassigned_count: unassigned_count,
-            reason: 'Worker deactivated - automatically unassigned from active events'
+            reason: "Worker deactivated - automatically unassigned from active events"
           },
           created_at_utc: Time.current
         )

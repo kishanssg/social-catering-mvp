@@ -14,25 +14,25 @@ puts ""
 ActiveRecord::Base.transaction do
   # Get all events with schedules
   events = Event.joins(:event_schedule).includes(:event_schedule).order('event_schedules.start_time_utc ASC')
-  
+
   issues_found = []
   fixed_count = 0
-  
+
   events.each do |event|
     next unless event.event_schedule
-    
+
     schedule = event.event_schedule
     end_time = schedule.end_time_utc
     is_future = end_time > current_time
     is_past = end_time <= current_time
-    
+
     # Determine what the status SHOULD be
     should_be_active = event.status == 'published' && is_future
     should_be_completed = event.status == 'completed' || (event.status == 'published' && is_past)
-    
+
     # Check for issues
     issue = nil
-    
+
     if event.status == 'published' && is_past
       # Published event that's in the past should be completed
       issue = "Published event in past (ends #{end_time.strftime('%Y-%m-%d %H:%M')})"
@@ -48,7 +48,7 @@ ActiveRecord::Base.transaction do
       puts "  ✓ Fixed: #{event.title}"
       puts "    Changed: completed → published"
     end
-    
+
     if issue
       issues_found << {
         event_id: event.id,
@@ -59,7 +59,7 @@ ActiveRecord::Base.transaction do
       }
     end
   end
-  
+
   puts ""
   puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   puts "✅ FIX COMPLETE"
@@ -67,16 +67,16 @@ ActiveRecord::Base.transaction do
   puts ""
   puts "Fixed #{fixed_count} events"
   puts ""
-  
+
   # Verification
   puts "📊 VERIFICATION:"
   puts ""
-  
+
   active_events = Event.published.joins(:event_schedule)
                        .where('event_schedules.end_time_utc > ?', current_time)
                        .count
   puts "  Active events (published + future): #{active_events}"
-  
+
   completed_by_status = Event.where(status: 'completed').count
   completed_by_date = Event.published.joins(:event_schedule)
                           .where('event_schedules.end_time_utc <= ?', current_time)
@@ -85,15 +85,15 @@ ActiveRecord::Base.transaction do
   puts "  Completed events (status='completed' + past published): #{total_completed}"
   puts "    • By status: #{completed_by_status}"
   puts "    • By date (past published): #{completed_by_date}"
-  
+
   draft_events = Event.where(status: 'draft').count
   puts "  Draft events: #{draft_events}"
   puts ""
-  
+
   # Show all events with their classifications
   puts "📋 ALL EVENTS BY CLASSIFICATION:"
   puts ""
-  
+
   puts "  ACTIVE (published + future):"
   Event.published.joins(:event_schedule)
        .where('event_schedules.end_time_utc > ?', current_time)
@@ -101,7 +101,7 @@ ActiveRecord::Base.transaction do
        .each do |e|
     puts "    • #{e.title} (ends #{e.event_schedule.end_time_utc.strftime('%Y-%m-%d %H:%M')})"
   end
-  
+
   puts ""
   puts "  COMPLETED (status='completed'):"
   Event.where(status: 'completed')
@@ -111,7 +111,7 @@ ActiveRecord::Base.transaction do
        .each do |e|
     puts "    • #{e.title} (ended #{e.event_schedule.end_time_utc.strftime('%Y-%m-%d %H:%M')})"
   end
-  
+
   puts ""
   puts "  COMPLETED (published + past):"
   Event.published.joins(:event_schedule)
@@ -121,7 +121,6 @@ ActiveRecord::Base.transaction do
        .each do |e|
     puts "    • #{e.title} (ended #{e.event_schedule.end_time_utc.strftime('%Y-%m-%d %H:%M')})"
   end
-  
+
   puts ""
 end
-

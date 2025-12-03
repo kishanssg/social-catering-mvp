@@ -7,14 +7,14 @@ FactoryBot.define do
     status { 'published' }
     auto_generated { true }
     association :created_by, factory: :user
-    
+
     after(:build) do |shift|
       if shift.event&.event_schedule.present?
         schedule = shift.event.event_schedule
         shift.start_time_utc ||= schedule.start_time_utc
         shift.end_time_utc ||= schedule.end_time_utc
         shift.client_name ||= shift.event.title
-        
+
         if shift.event.event_skill_requirements.blank?
           shift.event.event_skill_requirements.build(
             skill_name: shift.role_needed || 'Server',
@@ -23,7 +23,7 @@ FactoryBot.define do
             required_certification_id: nil
           )
         end
-        
+
         requirement = shift.event.event_skill_requirements.first
         if requirement
           shift.role_needed ||= requirement.skill_name
@@ -36,7 +36,7 @@ FactoryBot.define do
         shift.client_name ||= 'Standalone Shift'
       end
     end
-    
+
     trait :standalone do
       event { nil }
       event_skill_requirement { nil }
