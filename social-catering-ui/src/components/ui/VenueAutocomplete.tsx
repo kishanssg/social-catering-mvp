@@ -290,10 +290,10 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                         setShowCreateModal(true);
                         setIsOpen(false); // Close dropdown so user can focus on creating venue
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-900 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Can't find your venue? Create a new one</span>
+                      <span>Add a New Venue</span>
                     </button>
                   </div>
                 </>
@@ -307,10 +307,10 @@ export const VenueAutocomplete: React.FC<VenueAutocompleteProps> = ({
                         setShowCreateModal(true);
                         setIsOpen(false); // Close dropdown so user can focus on creating venue
                       }}
-                      className="w-full text-left px-4 py-2 hover:bg-teal-50 flex items-center gap-2 text-teal-700 font-medium text-sm font-manrope"
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-900 font-medium text-sm font-manrope"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Can't find your venue? Create a new one</span>
+                      <span>Add a New Venue</span>
                     </button>
                   </div>
                 </div>
