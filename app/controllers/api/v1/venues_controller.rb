@@ -156,10 +156,11 @@ class Api::V1::VenuesController < Api::V1::BaseController
     end
 
     # Map 'notes' to 'arrival_instructions' if present (frontend sends 'notes')
+    # Always delete 'notes' since Venue model doesn't have this column
     if attrs[:notes].present?
       attrs[:arrival_instructions] = attrs[:notes]
-      attrs.delete(:notes)
     end
+    attrs.delete(:notes) # Always remove, even if empty
 
     venue = Venue.new(attrs)
     
