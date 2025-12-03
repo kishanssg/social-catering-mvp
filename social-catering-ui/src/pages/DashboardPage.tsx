@@ -493,14 +493,15 @@ function MonthCalendar({
     return calendarData.find(d => isSameDay(d.date, date));
   };
   
-  const getStatusEmoji = (status: string) => {
+  // Map backend status to StaffingStatusBadge status
+  const getBadgeStatus = (status: string): 'ready' | 'partial' | 'needs_workers' | null => {
     switch (status) {
       case 'fully_staffed':
-        return '✓';
+        return 'ready';
       case 'partially_staffed':
-        return '🟡';
+        return 'partial';
       case 'needs_workers':
-        return '🔴';
+        return 'needs_workers';
       default:
         return null;
     }
@@ -600,11 +601,18 @@ function MonthCalendar({
               
               {/* Event indicators */}
               {dayData && (
-                <div className="space-y-1">
-                  {/* Status emoji */}
-                  <div className="text-2xl text-center">
-                    {getStatusEmoji(dayData.status)}
-                  </div>
+                <div className="space-y-1.5">
+                  {/* Status badge (matching legend) */}
+                  {getBadgeStatus(dayData.status) && (
+                    <div className="flex justify-center">
+                      <StaffingStatusBadge 
+                        status={getBadgeStatus(dayData.status)!} 
+                        showLabel={false}
+                        showIcon={true}
+                        size="xs"
+                      />
+                    </div>
+                  )}
                   
                   {/* Event count and staffing progress */}
                   {dayData.events.length > 0 && (
