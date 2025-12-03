@@ -136,15 +136,24 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   useEffect(() => {
     if (displayEvent?.schedule) {
       const schedule = displayEvent.schedule;
-      const startDate = new Date(schedule.start_time_utc);
-      const endDate = new Date(schedule.end_time_utc);
+      // Parse UTC times and convert to local timezone for editing
+      const startDateUTC = new Date(schedule.start_time_utc);
+      const endDateUTC = new Date(schedule.end_time_utc);
       
-      // Format date as YYYY-MM-DD for date input
-      const dateStr = startDate.toISOString().split('T')[0];
+      // Get local date components (not UTC)
+      const localYear = startDateUTC.getFullYear();
+      const localMonth = String(startDateUTC.getMonth() + 1).padStart(2, '0');
+      const localDay = String(startDateUTC.getDate()).padStart(2, '0');
+      const dateStr = `${localYear}-${localMonth}-${localDay}`;
       
-      // Format time as HH:MM for time input (24-hour format)
-      const startTimeStr = String(startDate.getHours()).padStart(2, '0') + ':' + String(startDate.getMinutes()).padStart(2, '0');
-      const endTimeStr = String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0');
+      // Get local time components (not UTC) - this is what the user sees
+      const startHours = startDateUTC.getHours();
+      const startMinutes = startDateUTC.getMinutes();
+      const endHours = endDateUTC.getHours();
+      const endMinutes = endDateUTC.getMinutes();
+      
+      const startTimeStr = String(startHours).padStart(2, '0') + ':' + String(startMinutes).padStart(2, '0');
+      const endTimeStr = String(endHours).padStart(2, '0') + ':' + String(endMinutes).padStart(2, '0');
       
       setEditedDate(dateStr);
       setEditedStartTime(startTimeStr);
@@ -298,30 +307,49 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         }))
       };
       
-      // Include schedule if it exists (use edited values if available)
-      if (eventToUpdate.schedule && editedDate && editedStartTime && editedEndTime) {
-        // Combine date and time, then convert to UTC ISO string
-        const startDateTime = new Date(`${editedDate}T${editedStartTime}`);
-        const endDateTime = new Date(`${editedDate}T${editedEndTime}`);
-        
-        // If end time is before start time, assume end is next day
-        if (endDateTime <= startDateTime) {
-          endDateTime.setDate(endDateTime.getDate() + 1);
+      // Include schedule if it exists (use edited values if in editing mode)
+      if (eventToUpdate.schedule) {
+        if (isEditing && editedDate && editedStartTime && editedEndTime) {
+          // User has edited the schedule - combine date and time in local timezone, then convert to UTC
+          // JavaScript Date constructor interprets YYYY-MM-DDTHH:mm as local time
+          const startDateTimeLocal = new Date(`${editedDate}T${editedStartTime}`);
+          let endDateTimeLocal = new Date(`${editedDate}T${editedEndTime}`);
+          
+          // If end time is before start time, assume end is next day
+          if (endDateTimeLocal <= startDateTimeLocal) {
+            endDateTimeLocal.setDate(endDateTimeLocal.getDate() + 1);
+          }
+          
+          // Convert local time to UTC ISO string
+          updatePayload.schedule = {
+            start_time_utc: startDateTimeLocal.toISOString(),
+            end_time_utc: endDateTimeLocal.toISOString(),
+            break_minutes: editedBreakMinutes || 0
+          };
+          
+          console.log('📅 Schedule update:', {
+            editedDate,
+            editedStartTime,
+            editedEndTime,
+            start_time_utc: updatePayload.schedule.start_time_utc,
+            end_time_utc: updatePayload.schedule.end_time_utc
+          });
+        } else {
+          // Not editing or no edited values - use original schedule
+          updatePayload.schedule = {
+            start_time_utc: eventToUpdate.schedule.start_time_utc,
+            end_time_utc: eventToUpdate.schedule.end_time_utc,
+            break_minutes: eventToUpdate.schedule.break_minutes || 0
+          };
         }
-        
-        updatePayload.schedule = {
-          start_time_utc: startDateTime.toISOString(),
-          end_time_utc: endDateTime.toISOString(),
-          break_minutes: editedBreakMinutes || 0
-        };
-      } else if (eventToUpdate.schedule) {
-        // Fallback to original schedule if edited values not available
-        updatePayload.schedule = {
-          start_time_utc: eventToUpdate.schedule.start_time_utc,
-          end_time_utc: eventToUpdate.schedule.end_time_utc,
-          break_minutes: eventToUpdate.schedule.break_minutes || 0
-        };
       }
+      
+      console.log('💾 Saving event update:', {
+        eventId: eventToUpdate.id,
+        hasSchedule: !!updatePayload.schedule,
+        isEditing,
+        payload: updatePayload
+      });
       
       const response = await apiClient.patch(`/events/${eventToUpdate.id}`, {
         event: updatePayload
@@ -405,13 +433,23 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
           <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <h4 className="text-lg font-semibold text-gray-900">Event Details</h4>
-              <button
-                onClick={handleEditEventDetails}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
-              >
-                <Edit size={14} />
-                Edit
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+                >
+                  <Edit size={14} />
+                  {isEditing ? 'Cancel Edit' : 'Edit'}
+                </button>
+                {!isEditing && (
+                  <button
+                    onClick={handleEditEventDetails}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-all shadow-sm"
+                  >
+                    Full Edit
+                  </button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1">
