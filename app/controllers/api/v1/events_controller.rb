@@ -253,7 +253,8 @@ class Api::V1::EventsController < Api::V1::BaseController
         needed: sr[:needed_workers],
         pay_rate: sr[:pay_rate],
         description: sr[:description],
-        uniform_id: sr[:uniform_id],
+        uniform_id: sr[:uniform_id], # From EditEventModal
+        uniform_name: sr[:uniform_name], # From CreateEventWizard
         cert_id: sr[:required_certification_id]
       }
     })

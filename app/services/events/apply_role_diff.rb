@@ -124,12 +124,15 @@ class Events::ApplyRoleDiff
   end
 
   def create_role_and_shifts(role_params, count)
+    # Use uniform_name if provided (from wizard), otherwise try to get from uniform_id (from EditEventModal)
+    uniform_name_value = role_params[:uniform_name] || (role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil)
+    
     req = event.event_skill_requirements.create!(
       skill_name: role_params[:skill_name],
       needed_workers: count,
       pay_rate: role_params[:pay_rate],
       description: role_params[:description],
-      uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
+      uniform_name: uniform_name_value,
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
       required_certification_id: role_params[:cert_id]
     )
@@ -235,10 +238,13 @@ class Events::ApplyRoleDiff
   def update_requirement(existing_req, role_params)
     # Update the requirement with the requested needed_workers count
     # The shift creation/deletion logic already handled making the actual shifts match
+    # Use uniform_name if provided (from wizard), otherwise try to get from uniform_id (from EditEventModal)
+    uniform_name_value = role_params[:uniform_name] || (role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil)
+    
     existing_req.update!(
       needed_workers: role_params[:needed].to_i, # Use the requested count from role_params
       pay_rate: role_params[:pay_rate],
-      uniform_name: role_params[:uniform_id] ? get_uniform_name(role_params[:uniform_id]) : nil,
+      uniform_name: uniform_name_value,
       certification_name: role_params[:cert_id] ? get_cert_name(role_params[:cert_id]) : nil,
       required_certification_id: role_params[:cert_id],
       description: role_params[:description]
